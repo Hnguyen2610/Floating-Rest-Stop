@@ -44,4 +44,22 @@ export class PhotoMomentSystem {
     this.eventBus.emit('photo:captured', { photoMomentId: moment.id, guestId });
     return memory;
   }
+
+  getCapturedIds(): string[] {
+    return [...this.captured.keys()];
+  }
+
+  restoreCaptured(photoMomentIds: string[]): void {
+    this.captured = new Map(
+      photoMomentIds.map((id) => {
+        const moment = this.data.photoMoments.find((m) => m.id === id);
+        const memory: PhotoMemory = {
+          photoMomentId: id,
+          guestId: moment?.guestId ?? '',
+          unlockedAt: Date.now(),
+        };
+        return [id, memory];
+      }),
+    );
+  }
 }

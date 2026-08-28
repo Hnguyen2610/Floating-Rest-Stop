@@ -47,4 +47,12 @@ export class DecorationSystem {
     this.eventBus.emit('decoration:placed', { id });
     return true;
   }
+
+  getUnlockedIds(): string[] {
+    return [...this.unlocked];
+  }
+
+  restoreUnlocked(ids: string[]): void {
+    this.unlocked = new Set(ids);
+  }
 }

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { createGameSystems } from '../core/GameSystems';
+import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
 import type { GuestsData } from '../systems/GuestSystem';
 import type { EmotionsData } from '../systems/EmotionSystem';
 import type { IngredientsData } from '../systems/IngredientSystem';
@@ -24,14 +25,24 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    createGameSystems({
-      guests: this.cache.json.get('guests') as GuestsData,
-      emotions: this.cache.json.get('emotions') as EmotionsData,
-      ingredients: this.cache.json.get('ingredients') as IngredientsData,
-      recipes: this.cache.json.get('recipes') as RecipesData,
-      decorations: this.cache.json.get('decorations') as DecorationsData,
-      journal: this.cache.json.get('journal') as JournalData,
-      photoMoments: this.cache.json.get('photoMoments') as PhotoMomentsData,
+    this.initialize();
+  }
+
+  private async initialize(): Promise<void> {
+    const systems = await createGameSystems(
+      {
+        guests: this.cache.json.get('guests') as GuestsData,
+        emotions: this.cache.json.get('emotions') as EmotionsData,
+        ingredients: this.cache.json.get('ingredients') as IngredientsData,
+        recipes: this.cache.json.get('recipes') as RecipesData,
+        decorations: this.cache.json.get('decorations') as DecorationsData,
+        journal: this.cache.json.get('journal') as JournalData,
+        photoMoments: this.cache.json.get('photoMoments') as PhotoMomentsData,
+      },
+      new LocalSaveProvider(),
+    );
+    window.addEventListener('beforeunload', () => {
+      systems.saveSystem.saveNow().catch(() => undefined);
     });
     this.scene.start('StationScene');
   }

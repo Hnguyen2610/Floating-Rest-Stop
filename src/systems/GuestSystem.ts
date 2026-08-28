@@ -32,6 +32,14 @@ export class GuestSystem {
     return this.progress.get(guestId) ?? { visitCount: 0, trustLevel: 0 };
   }
 
+  getAllDefinitions(): GuestDefinition[] {
+    return this.guestsData.guests;
+  }
+
+  restoreProgress(guestId: string, progress: GuestProgress): void {
+    this.progress.set(guestId, { ...progress });
+  }
+
   spawn(guestId: string): GuestState {
     const definition = this.guestsData.guests.find((guest) => guest.id === guestId);
     if (!definition) throw new Error(`Unknown guest: ${guestId}`);

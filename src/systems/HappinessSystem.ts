@@ -21,4 +21,8 @@ export class HappinessSystem {
   getCount(): number {
     return this.crystalCount;
   }
+
+  restoreCount(count: number): void {
+    this.crystalCount = count;
+  }
 }

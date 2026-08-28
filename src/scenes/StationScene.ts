@@ -15,6 +15,7 @@ import { WeatherMixerUI } from '../ui/WeatherMixerUI';
 import { CrystalCounter } from '../ui/CrystalCounter';
 import { DecorationShopUI } from '../ui/DecorationShopUI';
 import { eventBus } from '../core/EventBus';
+import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
 import type { GuestState } from '../types/guest';
 
 export class StationScene extends Phaser.Scene {
@@ -274,6 +275,9 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-J', () => {
       const guestId = guestSystem.getCurrentGuest()?.id ?? 'sun';
       photoMomentSystem.capture(guestId);
+    });
+    this.input.keyboard?.on('keydown-R', () => {
+      new LocalSaveProvider().clear().then(() => window.location.reload());
     });
   }
 

@@ -6,6 +6,8 @@ import { HappinessSystem } from '../systems/HappinessSystem';
 import { DecorationSystem, type DecorationsData } from '../systems/DecorationSystem';
 import { JournalSystem, type JournalData } from '../systems/JournalSystem';
 import { PhotoMomentSystem, type PhotoMomentsData } from '../systems/PhotoMomentSystem';
+import { SaveSystem } from '../systems/SaveSystem';
+import type { SaveProvider } from '../services/save/SaveProvider';
 import { eventBus } from './EventBus';
 
 export interface GameSystems {
@@ -17,6 +19,7 @@ export interface GameSystems {
   decorationSystem: DecorationSystem;
   journalSystem: JournalSystem;
   photoMomentSystem: PhotoMomentSystem;
+  saveSystem: SaveSystem;
 }
 
 export interface GameData {
@@ -31,7 +34,10 @@ export interface GameData {
 
 let systems: GameSystems | null = null;
 
-export function createGameSystems(data: GameData): GameSystems {
+export async function createGameSystems(
+  data: GameData,
+  saveProvider: SaveProvider,
+): Promise<GameSystems> {
   const emotionSystem = new EmotionSystem(data.emotions);
   const guestSystem = new GuestSystem(data.guests, emotionSystem, eventBus);
   const ingredientSystem = new IngredientSystem(data.ingredients, eventBus);
@@ -40,6 +46,12 @@ export function createGameSystems(data: GameData): GameSystems {
   const decorationSystem = new DecorationSystem(data.decorations, happinessSystem, eventBus);
   const journalSystem = new JournalSystem(data.journal, eventBus);
   const photoMomentSystem = new PhotoMomentSystem(data.photoMoments, journalSystem, eventBus);
+  const saveSystem = new SaveSystem(
+    saveProvider,
+    { happinessSystem, decorationSystem, guestSystem, journalSystem, photoMomentSystem },
+    eventBus,
+  );
+  await saveSystem.whenReady();
 
   systems = {
     emotionSystem,
@@ -50,6 +62,7 @@ export function createGameSystems(data: GameData): GameSystems {
     decorationSystem,
     journalSystem,
     photoMomentSystem,
+    saveSystem,
   };
   return systems;
 }

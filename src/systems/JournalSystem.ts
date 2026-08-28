@@ -42,4 +42,12 @@ export class JournalSystem {
     this.eventBus.emit('memory:unlocked', { memoryId });
     return true;
   }
+
+  getUnlockedIds(): string[] {
+    return [...this.unlocked];
+  }
+
+  restoreUnlocked(memoryIds: string[]): void {
+    this.unlocked = new Set(memoryIds);
+  }
 }
