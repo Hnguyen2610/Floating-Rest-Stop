@@ -3,6 +3,16 @@ import type { SoftBodyConfig } from '../utils/SoftBodyMesh';
 export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 
+// Georgia drops some Vietnamese double-diacritic glyphs (e.g. "ầ" renders as
+// a bare circumflex + stray grave mark), and Canvas 2D fillText — what
+// Phaser.Text draws through — doesn't fall back per-glyph across a font
+// stack the way DOM text does, so listing a fallback after Georgia doesn't
+// help. Serif alternatives that resolve to "Times New Roman" render fine via
+// plain canvas fillText but still drop other glyphs (e.g. the hook on "ỉ")
+// specifically through Phaser's text pipeline. Arial is the one font that's
+// tested clean for full Vietnamese text in both paths.
+export const FONT_FAMILY = 'Arial';
+
 export const PALETTE = {
   skyTop: 0xa9d8f0,
   skyBottom: 0xfff6e5,

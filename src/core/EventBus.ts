@@ -81,6 +81,7 @@ export interface GameEventMap {
   'happiness:spent': { count: number };
   'decoration:unlocked': { id: string };
   'decoration:placed': { id: string };
+  'memory:unlocked': { memoryId: string };
   'ingredient:collected': { id: string; count: number };
   'mixer:updated': { contents: string[] };
   'weather:created': { recipeId: string };

@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { PALETTE } from '../core/GameConfig';
+import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
+import type { HappinessSystem } from '../systems/HappinessSystem';
 
 export class CrystalCounter extends Phaser.GameObjects.Container {
   private readonly label: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, happinessSystem: HappinessSystem) {
     super(scene, x, y);
     scene.add.existing(this);
 
@@ -22,8 +23,8 @@ export class CrystalCounter extends Phaser.GameObjects.Container {
     );
     this.add(gem);
 
-    this.label = scene.add.text(16, -10, '0', {
-      fontFamily: 'Georgia, serif',
+    this.label = scene.add.text(16, -10, String(happinessSystem.getCount()), {
+      fontFamily: FONT_FAMILY,
       fontSize: '18px',
       color: '#5b4a63',
     });

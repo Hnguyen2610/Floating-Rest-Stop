@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PALETTE } from '../core/GameConfig';
+import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
 import type { DecorationSystem } from '../systems/DecorationSystem';
 
@@ -25,7 +25,7 @@ export class DecorationShopUI {
       );
       const label = scene.add
         .text(0, 22, String(def.cost), {
-          fontFamily: 'Georgia, serif',
+          fontFamily: FONT_FAMILY,
           fontSize: '12px',
           color: '#5b4a63',
         })

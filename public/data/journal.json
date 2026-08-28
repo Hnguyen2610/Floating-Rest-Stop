@@ -1,0 +1,34 @@
+{
+  "chapters": [
+    {
+      "guestId": "sun",
+      "guestName": "Mặt Trời Cáu Kỉnh",
+      "memories": [
+        {
+          "id": "sun_memory_1",
+          "diaryText": "Hôm nay mình nhận ra rằng không phải lúc nào mình cũng cần phải tỏa sáng thật mạnh."
+        }
+      ]
+    },
+    {
+      "guestId": "moon",
+      "guestName": "Mặt Trăng Trầm Ngâm",
+      "memories": [
+        {
+          "id": "moon_memory_1",
+          "diaryText": "Có ai đó lắng nghe mình, dù chỉ một lúc thôi, cũng đủ làm bầu trời bớt lạnh lẽo."
+        }
+      ]
+    },
+    {
+      "guestId": "little_star",
+      "guestName": "Bé Sao Nhút Nhát",
+      "memories": [
+        {
+          "id": "star_memory_1",
+          "diaryText": "Mình lấp lánh hơn một chút mỗi khi có ai đó kiên nhẫn ở bên mình."
+        }
+      ]
+    }
+  ]
+}

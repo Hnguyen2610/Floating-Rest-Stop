@@ -1,16 +1,11 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, PALETTE } from '../core/GameConfig';
+import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY } from '../core/GameConfig';
+import { getGameSystems, type GameSystems } from '../core/GameSystems';
 import { Cloudy } from '../entities/Cloudy';
 import { Guest, type GuestInteraction } from '../entities/Guest';
 import { SunGuest } from '../guests/SunGuest';
 import { MoonGuest } from '../guests/MoonGuest';
 import { LittleStarGuest } from '../guests/LittleStarGuest';
-import { EmotionSystem, type EmotionsData } from '../systems/EmotionSystem';
-import { GuestSystem, type GuestsData } from '../systems/GuestSystem';
-import { IngredientSystem, type IngredientsData } from '../systems/IngredientSystem';
-import { WeatherSystem, type RecipesData } from '../systems/WeatherSystem';
-import { HappinessSystem } from '../systems/HappinessSystem';
-import { DecorationSystem, type DecorationsData } from '../systems/DecorationSystem';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
 import { HappinessCrystal } from '../entities/HappinessCrystal';
 import { Decoration, type DecorationVisual } from '../entities/Decoration';
@@ -22,13 +17,8 @@ import { eventBus } from '../core/EventBus';
 import type { GuestState } from '../types/guest';
 
 export class StationScene extends Phaser.Scene {
+  private systems!: GameSystems;
   private cloudy!: Cloudy;
-  private emotionSystem!: EmotionSystem;
-  private guestSystem!: GuestSystem;
-  private ingredientSystem!: IngredientSystem;
-  private weatherSystem!: WeatherSystem;
-  private happinessSystem!: HappinessSystem;
-  private decorationSystem!: DecorationSystem;
   private mixerUI!: WeatherMixerUI;
   private activeGuestEntity: Guest | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
@@ -39,42 +29,32 @@ export class StationScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.systems = getGameSystems();
+
     this.drawSky();
     this.drawPlatform();
     this.drawTitle();
     this.cloudy = new Cloudy(this, GAME_WIDTH / 2, GAME_HEIGHT * 0.48);
 
-    const guestsData = this.cache.json.get('guests') as GuestsData;
-    const emotionsData = this.cache.json.get('emotions') as EmotionsData;
-    const ingredientsData = this.cache.json.get('ingredients') as IngredientsData;
-    const recipesData = this.cache.json.get('recipes') as RecipesData;
-    const decorationsData = this.cache.json.get('decorations') as DecorationsData;
-    this.emotionSystem = new EmotionSystem(emotionsData);
-    this.guestSystem = new GuestSystem(guestsData, this.emotionSystem, eventBus);
-    this.ingredientSystem = new IngredientSystem(ingredientsData, eventBus);
-    this.weatherSystem = new WeatherSystem(recipesData, eventBus);
-    this.happinessSystem = new HappinessSystem(eventBus);
-    this.decorationSystem = new DecorationSystem(decorationsData, this.happinessSystem, eventBus);
-
-    new InventoryUI(this, 24, 32, this.ingredientSystem);
+    new InventoryUI(this, 24, 32, this.systems.ingredientSystem);
     this.mixerUI = new WeatherMixerUI(
       this,
       GAME_WIDTH - 90,
       GAME_HEIGHT - 90,
-      this.ingredientSystem,
-      this.weatherSystem,
+      this.systems.ingredientSystem,
+      this.systems.weatherSystem,
     );
-    new CrystalCounter(this, this.crystalCounterPosition.x, this.crystalCounterPosition.y);
-    new DecorationShopUI(this, 24, GAME_HEIGHT - 24, this.decorationSystem);
+    new CrystalCounter(
+      this,
+      this.crystalCounterPosition.x,
+      this.crystalCounterPosition.y,
+      this.systems.happinessSystem,
+    );
+    new DecorationShopUI(this, 24, GAME_HEIGHT - 24, this.systems.decorationSystem);
+    this.drawJournalButton();
 
-    eventBus.on('guest:arrived', (state) => this.onGuestArrived(state));
-    eventBus.on('guest:left', () => this.onGuestLeft());
-    eventBus.on('guest:emotion-changed', (state) => {
-      const meta = this.emotionSystem.getEmotionMeta(state.currentEmotion);
-      this.activeGuestEntity?.updateEmotion(meta);
-    });
-    eventBus.on('guest:relaxed', () => this.spawnHappinessCrystal());
-    eventBus.on('decoration:placed', ({ id }) => this.placeDecoration(id));
+    this.wireEvents();
+    this.resumeState();
 
     this.time.addEvent({
       delay: 4000,
@@ -93,8 +73,71 @@ export class StationScene extends Phaser.Scene {
     this.floatingIngredients.forEach((ingredient) => ingredient.update(time, delta));
   }
 
+  private readonly handleGuestArrived = (state: GuestState): void => {
+    this.activeGuestEntity?.destroy();
+    const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
+    const x = GAME_WIDTH * 0.24;
+    const y = GAME_HEIGHT * 0.42;
+    this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
+    this.activeGuestEntity.playArrive();
+  };
+
+  private readonly handleGuestLeft = (): void => {
+    const entity = this.activeGuestEntity;
+    if (!entity) return;
+    this.activeGuestEntity = null;
+    entity.playLeave(() => entity.destroy());
+  };
+
+  private readonly handleEmotionChanged = (state: GuestState): void => {
+    const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
+    this.activeGuestEntity?.updateEmotion(meta);
+  };
+
+  private readonly handleGuestRelaxed = (): void => this.spawnHappinessCrystal();
+
+  private readonly handleDecorationPlaced = ({ id }: { id: string }): void =>
+    this.placeDecoration(id);
+
+  private wireEvents(): void {
+    eventBus.on('guest:arrived', this.handleGuestArrived);
+    eventBus.on('guest:left', this.handleGuestLeft);
+    eventBus.on('guest:emotion-changed', this.handleEmotionChanged);
+    eventBus.on('guest:relaxed', this.handleGuestRelaxed);
+    eventBus.on('decoration:placed', this.handleDecorationPlaced);
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      eventBus.off('guest:arrived', this.handleGuestArrived);
+      eventBus.off('guest:left', this.handleGuestLeft);
+      eventBus.off('guest:emotion-changed', this.handleEmotionChanged);
+      eventBus.off('guest:relaxed', this.handleGuestRelaxed);
+      eventBus.off('decoration:placed', this.handleDecorationPlaced);
+    });
+  }
+
+  private resumeState(): void {
+    this.systems.decorationSystem.getAllDefinitions().forEach((def) => {
+      if (this.systems.decorationSystem.isUnlocked(def.id)) this.placeDecoration(def.id);
+    });
+
+    const currentGuest = this.systems.guestSystem.getCurrentGuest();
+    if (currentGuest) this.handleGuestArrived(currentGuest);
+  }
+
+  private drawJournalButton(): void {
+    const button = this.add
+      .text(GAME_WIDTH - 100, GAME_HEIGHT - 24, '📖 Nhật ký', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '16px',
+        color: '#5b4a63',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    button.on('pointerdown', () => this.scene.start('JournalScene'));
+  }
+
   private spawnIngredient(): void {
-    const definition = Phaser.Utils.Array.GetRandom(this.ingredientSystem.getAllDefinitions());
+    const definition = Phaser.Utils.Array.GetRandom(this.systems.ingredientSystem.getAllDefinitions());
     const x = Phaser.Math.Between(GAME_WIDTH * 0.55, GAME_WIDTH * 0.88);
     const y = Phaser.Math.Between(GAME_HEIGHT * 0.28, GAME_HEIGHT * 0.55);
     const ingredient = new FloatingIngredient(this, x, y, definition, (ing, sx, sy) =>
@@ -112,33 +155,24 @@ export class StationScene extends Phaser.Scene {
 
     const dropZone = this.mixerUI.getDropZone();
     if (Phaser.Geom.Circle.Contains(dropZone, screenX, screenY)) {
-      if (this.weatherSystem.addToMixer(ingredient.definition.id)) {
+      if (this.systems.weatherSystem.addToMixer(ingredient.definition.id)) {
         ingredient.destroy();
         this.tryAutoCraft();
         return;
       }
     }
 
-    this.ingredientSystem.collect(ingredient.definition.id);
+    this.systems.ingredientSystem.collect(ingredient.definition.id);
     ingredient.destroy();
   }
 
   private tryAutoCraft(): void {
-    if (this.weatherSystem.getMixerContents().length < 2) return;
-    const success = this.weatherSystem.tryCraft();
+    if (this.systems.weatherSystem.getMixerContents().length < 2) return;
+    const success = this.systems.weatherSystem.tryCraft();
     if (!success) {
       this.mixerUI.playCraftFail();
-      this.time.delayedCall(500, () => this.weatherSystem.clearMixer());
+      this.time.delayedCall(500, () => this.systems.weatherSystem.clearMixer());
     }
-  }
-
-  private onGuestArrived(state: GuestState): void {
-    this.activeGuestEntity?.destroy();
-    const meta = this.emotionSystem.getEmotionMeta(state.currentEmotion);
-    const x = GAME_WIDTH * 0.24;
-    const y = GAME_HEIGHT * 0.42;
-    this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
-    this.activeGuestEntity.playArrive();
   }
 
   private createGuestEntity(
@@ -161,20 +195,20 @@ export class StationScene extends Phaser.Scene {
   }
 
   private handleGuestInteraction(interaction: GuestInteraction): void {
-    const treatment = this.guestSystem.getPreferredTreatment();
+    const treatment = this.systems.guestSystem.getPreferredTreatment();
     if (!treatment) return;
 
     if (treatment.type === 'recipe' && interaction.type === 'tap') {
-      const potionId = this.weatherSystem.usePotion();
+      const potionId = this.systems.weatherSystem.usePotion();
       if (!potionId) return;
       if (potionId === treatment.recipeId) {
-        this.guestSystem.soothe(this.weatherSystem.getRecipe(potionId).soothingValue);
+        this.systems.guestSystem.soothe(this.systems.weatherSystem.getRecipe(potionId).soothingValue);
       }
       return;
     }
 
     if (treatment.type === 'direct' && interaction.type === 'rub') {
-      this.guestSystem.soothe(Math.min(interaction.distance, 15) * 0.1);
+      this.systems.guestSystem.soothe(Math.min(interaction.distance, 15) * 0.1);
     }
   }
 
@@ -182,12 +216,12 @@ export class StationScene extends Phaser.Scene {
     const x = GAME_WIDTH * 0.24;
     const y = GAME_HEIGHT * 0.42 - 70;
     new HappinessCrystal(this, x, y, this.crystalCounterPosition, () =>
-      this.happinessSystem.collectCrystal(),
+      this.systems.happinessSystem.collectCrystal(),
     );
   }
 
   private placeDecoration(id: string): void {
-    const def = this.decorationSystem.getDefinition(id);
+    const def = this.systems.decorationSystem.getDefinition(id);
     new Decoration(
       this,
       GAME_WIDTH * def.slotX,
@@ -197,32 +231,33 @@ export class StationScene extends Phaser.Scene {
     );
   }
 
-  private onGuestLeft(): void {
-    const entity = this.activeGuestEntity;
-    if (!entity) return;
-    this.activeGuestEntity = null;
-    entity.playLeave(() => entity.destroy());
-  }
-
   private wireDebugKeys(): void {
     if (!import.meta.env.DEV) return;
+    const { guestSystem, weatherSystem, happinessSystem, journalSystem } = this.systems;
     this.input.keyboard?.on('keydown-H', () => this.cloudy.playHappyBounce());
-    this.input.keyboard?.on('keydown-ONE', () => this.guestSystem.spawn('sun'));
-    this.input.keyboard?.on('keydown-TWO', () => this.guestSystem.spawn('moon'));
-    this.input.keyboard?.on('keydown-THREE', () => this.guestSystem.spawn('little_star'));
-    this.input.keyboard?.on('keydown-Q', () => this.guestSystem.leave());
+    this.input.keyboard?.on('keydown-ONE', () => guestSystem.spawn('sun'));
+    this.input.keyboard?.on('keydown-TWO', () => guestSystem.spawn('moon'));
+    this.input.keyboard?.on('keydown-THREE', () => guestSystem.spawn('little_star'));
+    this.input.keyboard?.on('keydown-Q', () => guestSystem.leave());
     this.input.keyboard?.on('keydown-I', () => this.spawnIngredient());
     this.input.keyboard?.on('keydown-Z', () => {
-      this.weatherSystem.addToMixer('morning_dew');
-      this.weatherSystem.addToMixer('cool_breeze');
+      weatherSystem.addToMixer('morning_dew');
+      weatherSystem.addToMixer('cool_breeze');
       this.tryAutoCraft();
     });
     this.input.keyboard?.on('keydown-X', () => {
-      this.weatherSystem.addToMixer('warm_sunbeam');
-      this.weatherSystem.addToMixer('rainbow_fragment');
+      weatherSystem.addToMixer('warm_sunbeam');
+      weatherSystem.addToMixer('rainbow_fragment');
       this.tryAutoCraft();
     });
-    this.input.keyboard?.on('keydown-C', () => this.happinessSystem.collectCrystal());
+    this.input.keyboard?.on('keydown-C', () => happinessSystem.collectCrystal());
+    this.input.keyboard?.on('keydown-J', () => {
+      try {
+        journalSystem.unlockMemory('sun_memory_1');
+      } catch {
+        // already unlocked or unknown id — fine for a debug shortcut
+      }
+    });
   }
 
   private drawSky(): void {
@@ -247,7 +282,7 @@ export class StationScene extends Phaser.Scene {
   private drawTitle(): void {
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.18, 'Trạm Dừng Chân Lơ Lửng', {
-        fontFamily: 'Georgia, serif',
+        fontFamily: FONT_FAMILY,
         fontSize: '40px',
         color: '#5b4a63',
       })

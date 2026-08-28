@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PALETTE } from '../core/GameConfig';
+import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
 import type { IngredientSystem } from '../systems/IngredientSystem';
 import type { WeatherSystem } from '../systems/WeatherSystem';
@@ -28,7 +28,7 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
 
     this.potionLabel = scene.add
       .text(0, this.bowlRadius + 16, '', {
-        fontFamily: 'Georgia, serif',
+        fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#5b4a63',
       })

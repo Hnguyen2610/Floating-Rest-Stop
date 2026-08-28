@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
 import type { IngredientSystem } from '../systems/IngredientSystem';
 
@@ -13,8 +14,8 @@ export class InventoryUI extends Phaser.GameObjects.Container {
       const rowY = index * 30;
       const color = parseInt(definition.color.replace('#', ''), 16);
       const dot = scene.add.circle(0, rowY, 8, color);
-      const label = scene.add.text(16, rowY - 9, '0', {
-        fontFamily: 'Georgia, serif',
+      const label = scene.add.text(16, rowY - 9, String(ingredientSystem.getCount(definition.id)), {
+        fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#5b4a63',
       });
