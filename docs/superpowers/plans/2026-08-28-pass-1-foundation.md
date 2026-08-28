@@ -55,7 +55,7 @@ These apply to this pass and every later one; each task below implicitly include
   TS symbols yet — `src/main.ts` is a temporary smoke-test entry point that Task 3 replaces
   entirely.
 
-- [ ] **Step 1: Create `package.json`**
+- [x] **Step 1: Create `package.json`**
 
 ```json
 {
@@ -92,7 +92,7 @@ These apply to this pass and every later one; each task below implicitly include
 peerDependencies` and `npm view typescript dist-tags` on 2026-08-28) — installing bare `typescript`
 `latest` would silently break linting.
 
-- [ ] **Step 2: Create `tsconfig.json`**
+- [x] **Step 2: Create `tsconfig.json`**
 
 ```json
 {
@@ -116,7 +116,7 @@ peerDependencies` and `npm view typescript dist-tags` on 2026-08-28) — install
 }
 ```
 
-- [ ] **Step 3: Create `vite.config.ts`**
+- [x] **Step 3: Create `vite.config.ts`**
 
 ```ts
 import { defineConfig } from 'vitest/config';
@@ -129,7 +129,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 4: Create `index.html`**
+- [x] **Step 4: Create `index.html`**
 
 ```html
 <!doctype html>
@@ -170,7 +170,7 @@ export default defineConfig({
 </html>
 ```
 
-- [ ] **Step 5: Create `.gitignore`**
+- [x] **Step 5: Create `.gitignore`**
 
 ```
 node_modules
@@ -178,7 +178,7 @@ dist
 *.local
 ```
 
-- [ ] **Step 6: Create `eslint.config.js`**
+- [x] **Step 6: Create `eslint.config.js`**
 
 ```js
 import js from '@eslint/js';
@@ -201,7 +201,7 @@ config files (`vite.config.ts`, `eslint.config.js`) sit outside `tsconfig.json`'
 and would otherwise fail ESLint's "file not in project" check. Revisit only if a later pass needs
 type-aware rules badly enough to justify a second tsconfig for tooling files.
 
-- [ ] **Step 7: Create `.prettierrc.json`**
+- [x] **Step 7: Create `.prettierrc.json`**
 
 ```json
 {
@@ -212,7 +212,7 @@ type-aware rules badly enough to justify a second tsconfig for tooling files.
 }
 ```
 
-- [ ] **Step 8: Create `src/main.ts` (temporary smoke-test entry)**
+- [x] **Step 8: Create `src/main.ts` (temporary smoke-test entry)**
 
 ```ts
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -222,12 +222,12 @@ if (app) {
 }
 ```
 
-- [ ] **Step 9: Install dependencies**
+- [x] **Step 9: Install dependencies**
 
 Run: `npm install`
 Expected: exits 0, creates `node_modules/` and `package-lock.json`, no `ERESOLVE` errors.
 
-- [ ] **Step 10: Verify typecheck, lint, and build**
+- [x] **Step 10: Verify typecheck, lint, and build**
 
 Run: `npm run typecheck`
 Expected: exits 0, no output (no errors).
@@ -238,7 +238,7 @@ Expected: exits 0, no errors reported.
 Run: `npm run build`
 Expected: exits 0, prints a Vite build summary, creates `dist/index.html` and `dist/assets/*.js`.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add package.json package-lock.json tsconfig.json vite.config.ts index.html .gitignore eslint.config.js .prettierrc.json src/main.ts
@@ -268,7 +268,7 @@ git commit -m "chore: scaffold Vite + TypeScript + Phaser project tooling"
     `'happiness:collected'`) — never introduce a second event map.
   - `const eventBus: TypedEventBus<GameEventMap>` — the singleton every scene/system imports.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `src/core/EventBus.test.ts`:
 
@@ -331,12 +331,12 @@ describe('TypedEventBus', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm run test`
 Expected: FAIL — Vitest reports it cannot resolve `./EventBus` (module does not exist yet).
 
-- [ ] **Step 3: Implement `src/core/EventBus.ts`**
+- [x] **Step 3: Implement `src/core/EventBus.ts`**
 
 ```ts
 type Listener<T> = (this: unknown, payload: T) => void;
@@ -417,12 +417,12 @@ export interface GameEventMap {
 export const eventBus = new TypedEventBus<GameEventMap>();
 ```
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm run test`
 Expected: PASS — 4 tests passed in `src/core/EventBus.test.ts`.
 
-- [ ] **Step 5: Verify typecheck and lint**
+- [x] **Step 5: Verify typecheck and lint**
 
 Run: `npm run typecheck`
 Expected: exits 0.
@@ -430,7 +430,7 @@ Expected: exits 0.
 Run: `npm run lint`
 Expected: exits 0.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/core/EventBus.ts src/core/EventBus.test.ts
@@ -461,7 +461,7 @@ git commit -m "feat: add typed EventBus core"
     `'StationScene'`).
   - `function createGame(parent: string): Phaser.Game` from `src/core/Game.ts`.
 
-- [ ] **Step 1: Create `src/core/GameConfig.ts`**
+- [x] **Step 1: Create `src/core/GameConfig.ts`**
 
 ```ts
 export const GAME_WIDTH = 1280;
@@ -478,7 +478,7 @@ export const PALETTE = {
 } as const;
 ```
 
-- [ ] **Step 2: Create `src/scenes/BootScene.ts`**
+- [x] **Step 2: Create `src/scenes/BootScene.ts`**
 
 ```ts
 import Phaser from 'phaser';
@@ -496,7 +496,7 @@ export class BootScene extends Phaser.Scene {
 }
 ```
 
-- [ ] **Step 3: Create `src/scenes/PreloadScene.ts`**
+- [x] **Step 3: Create `src/scenes/PreloadScene.ts`**
 
 ```ts
 import Phaser from 'phaser';
@@ -515,7 +515,7 @@ export class PreloadScene extends Phaser.Scene {
 This scene has no work to do yet — Pass 4 (weather ingredients) is what first gives it a real
 manifest of JSON/atlas assets to load with a progress bar.
 
-- [ ] **Step 4: Create `src/scenes/StationScene.ts`**
+- [x] **Step 4: Create `src/scenes/StationScene.ts`**
 
 ```ts
 import Phaser from 'phaser';
@@ -563,7 +563,7 @@ export class StationScene extends Phaser.Scene {
 }
 ```
 
-- [ ] **Step 5: Create `src/core/Game.ts`**
+- [x] **Step 5: Create `src/core/Game.ts`**
 
 ```ts
 import Phaser from 'phaser';
@@ -590,7 +590,7 @@ export function createGame(parent: string): Phaser.Game {
 }
 ```
 
-- [ ] **Step 6: Replace `src/main.ts`**
+- [x] **Step 6: Replace `src/main.ts`**
 
 ```ts
 import { createGame } from './core/Game';
@@ -598,12 +598,12 @@ import { createGame } from './core/Game';
 createGame('app');
 ```
 
-- [ ] **Step 7: Verify typecheck**
+- [x] **Step 7: Verify typecheck**
 
 Run: `npm run typecheck`
 Expected: exits 0.
 
-- [ ] **Step 8: Manually verify the Station scene renders**
+- [x] **Step 8: Manually verify the Station scene renders**
 
 Run: `npm run dev`, open the printed local URL (e.g. `http://localhost:5173`) in a browser.
 
@@ -614,14 +614,14 @@ Expected, visually:
   third of the canvas.
 - No errors or warnings in the browser devtools console.
 
-- [ ] **Step 9: Verify production build**
+- [x] **Step 9: Verify production build**
 
 Run: `npm run build`
 Expected: exits 0, `dist/` contains `index.html` and hashed JS assets.
 
 Run: `npm run preview`, open the printed URL, confirm the same visual result as Step 8.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add src/core/GameConfig.ts src/core/Game.ts src/scenes/BootScene.ts src/scenes/PreloadScene.ts src/scenes/StationScene.ts src/main.ts
