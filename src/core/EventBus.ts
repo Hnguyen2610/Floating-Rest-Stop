@@ -84,6 +84,7 @@ export interface GameEventMap {
   'memory:unlocked': { memoryId: string };
   'photo:captured': { photoMomentId: string; guestId: string };
   'ingredient:collected': { id: string; count: number };
+  'ingredient:spent': { id: string; count: number };
   'mixer:updated': { contents: string[] };
   'weather:created': { recipeId: string };
   'weather:used': { recipeId: string };

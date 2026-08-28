@@ -38,4 +38,12 @@ export class IngredientSystem {
   getCount(id: string): number {
     return this.inventory.get(id) ?? 0;
   }
+
+  spend(id: string): boolean {
+    const count = this.inventory.get(id) ?? 0;
+    if (count <= 0) return false;
+    this.inventory.set(id, count - 1);
+    this.eventBus.emit('ingredient:spent', { id, count: count - 1 });
+    return true;
+  }
 }

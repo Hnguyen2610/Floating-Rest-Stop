@@ -44,7 +44,9 @@ export class StationScene extends Phaser.Scene {
     this.drawTitle();
     this.cloudy = new Cloudy(this, GAME_WIDTH / 2, GAME_HEIGHT * 0.48);
 
-    new InventoryUI(this, 24, 76, this.systems.ingredientSystem);
+    new InventoryUI(this, 24, 76, this.systems.ingredientSystem, (id) =>
+      this.handleInventoryTap(id),
+    );
     this.mixerUI = new WeatherMixerUI(
       this,
       GAME_WIDTH - 90,
@@ -256,6 +258,16 @@ export class StationScene extends Phaser.Scene {
     } else {
       this.mixerUI.playCraftFail();
       this.time.delayedCall(500, () => this.systems.weatherSystem.clearMixer());
+    }
+  }
+
+  private handleInventoryTap(id: string): void {
+    if (!this.systems.ingredientSystem.spend(id)) return;
+    if (this.systems.weatherSystem.addToMixer(id)) {
+      this.tryAutoCraft();
+    } else {
+      // Mixer was full — give the ingredient back rather than losing it.
+      this.systems.ingredientSystem.collect(id);
     }
   }
 

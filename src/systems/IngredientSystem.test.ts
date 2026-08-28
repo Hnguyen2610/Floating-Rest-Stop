@@ -31,4 +31,24 @@ describe('IngredientSystem', () => {
     const system = new IngredientSystem(data, bus);
     expect(() => system.collect('ghost')).toThrow();
   });
+
+  it('spends a collected ingredient, decrementing the count and emitting ingredient:spent', () => {
+    const bus = new TypedEventBus<GameEventMap>();
+    const system = new IngredientSystem(data, bus);
+    const received: unknown[] = [];
+    bus.on('ingredient:spent', (payload) => received.push(payload));
+
+    system.collect('morning_dew');
+    system.collect('morning_dew');
+
+    expect(system.spend('morning_dew')).toBe(true);
+    expect(system.getCount('morning_dew')).toBe(1);
+    expect(received).toEqual([{ id: 'morning_dew', count: 1 }]);
+  });
+
+  it('refuses to spend an ingredient with zero in inventory', () => {
+    const bus = new TypedEventBus<GameEventMap>();
+    const system = new IngredientSystem(data, bus);
+    expect(system.spend('cool_breeze')).toBe(false);
+  });
 });
