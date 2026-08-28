@@ -8,7 +8,7 @@ import { LittleStarGuest } from '../guests/LittleStarGuest';
 import { EmotionSystem, type EmotionsData } from '../systems/EmotionSystem';
 import { GuestSystem, type GuestsData } from '../systems/GuestSystem';
 import { IngredientSystem, type IngredientsData } from '../systems/IngredientSystem';
-import { WeatherSystem } from '../systems/WeatherSystem';
+import { WeatherSystem, type RecipesData } from '../systems/WeatherSystem';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
 import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
@@ -38,13 +38,20 @@ export class StationScene extends Phaser.Scene {
     const guestsData = this.cache.json.get('guests') as GuestsData;
     const emotionsData = this.cache.json.get('emotions') as EmotionsData;
     const ingredientsData = this.cache.json.get('ingredients') as IngredientsData;
+    const recipesData = this.cache.json.get('recipes') as RecipesData;
     this.emotionSystem = new EmotionSystem(emotionsData);
     this.guestSystem = new GuestSystem(guestsData, this.emotionSystem, eventBus);
     this.ingredientSystem = new IngredientSystem(ingredientsData, eventBus);
-    this.weatherSystem = new WeatherSystem(eventBus);
+    this.weatherSystem = new WeatherSystem(recipesData, eventBus);
 
     new InventoryUI(this, 24, 32, this.ingredientSystem);
-    this.mixerUI = new WeatherMixerUI(this, GAME_WIDTH - 90, GAME_HEIGHT - 90, this.ingredientSystem);
+    this.mixerUI = new WeatherMixerUI(
+      this,
+      GAME_WIDTH - 90,
+      GAME_HEIGHT - 90,
+      this.ingredientSystem,
+      this.weatherSystem,
+    );
 
     eventBus.on('guest:arrived', (state) => this.onGuestArrived(state));
     eventBus.on('guest:left', () => this.onGuestLeft());
@@ -87,12 +94,22 @@ export class StationScene extends Phaser.Scene {
     if (Phaser.Geom.Circle.Contains(dropZone, screenX, screenY)) {
       if (this.weatherSystem.addToMixer(ingredient.definition.id)) {
         ingredient.destroy();
+        this.tryAutoCraft();
         return;
       }
     }
 
     this.ingredientSystem.collect(ingredient.definition.id);
     ingredient.destroy();
+  }
+
+  private tryAutoCraft(): void {
+    if (this.weatherSystem.getMixerContents().length < 2) return;
+    const success = this.weatherSystem.tryCraft();
+    if (!success) {
+      this.mixerUI.playCraftFail();
+      this.time.delayedCall(500, () => this.weatherSystem.clearMixer());
+    }
   }
 
   private onGuestArrived(state: GuestState): void {
@@ -137,6 +154,16 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-THREE', () => this.guestSystem.spawn('little_star'));
     this.input.keyboard?.on('keydown-Q', () => this.guestSystem.leave());
     this.input.keyboard?.on('keydown-I', () => this.spawnIngredient());
+    this.input.keyboard?.on('keydown-Z', () => {
+      this.weatherSystem.addToMixer('morning_dew');
+      this.weatherSystem.addToMixer('cool_breeze');
+      this.tryAutoCraft();
+    });
+    this.input.keyboard?.on('keydown-X', () => {
+      this.weatherSystem.addToMixer('warm_sunbeam');
+      this.weatherSystem.addToMixer('rainbow_fragment');
+      this.tryAutoCraft();
+    });
   }
 
   private drawSky(): void {

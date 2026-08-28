@@ -77,6 +77,7 @@ export interface GameEventMap {
   'guest:left': { guestId: string };
   'ingredient:collected': { id: string; count: number };
   'mixer:updated': { contents: string[] };
+  'weather:created': { recipeId: string };
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

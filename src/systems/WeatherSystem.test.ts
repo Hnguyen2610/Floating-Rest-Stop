@@ -1,21 +1,66 @@
 import { describe, expect, it } from 'vitest';
-import { WeatherSystem } from './WeatherSystem';
+import { WeatherSystem, type RecipesData } from './WeatherSystem';
 import { TypedEventBus, type GameEventMap } from '../core/EventBus';
+
+const recipesData: RecipesData = {
+  recipes: [
+    {
+      id: 'cool_drizzle',
+      name: 'Cool Drizzle',
+      ingredients: ['morning_dew', 'cool_breeze'],
+      visualEffect: 'drizzle',
+      suitableEmotions: ['OVERHEATED'],
+      suitableGuests: ['sun'],
+      soothingValue: 30,
+    },
+  ],
+};
+
+function makeSystem() {
+  const bus = new TypedEventBus<GameEventMap>();
+  return { bus, system: new WeatherSystem(recipesData, bus) };
+}
 
 describe('WeatherSystem', () => {
   it('adds ingredients to the mixer up to a 2-slot limit', () => {
-    const bus = new TypedEventBus<GameEventMap>();
-    const system = new WeatherSystem(bus);
-
+    const { system } = makeSystem();
     expect(system.addToMixer('morning_dew')).toBe(true);
     expect(system.addToMixer('cool_breeze')).toBe(true);
     expect(system.addToMixer('star_dust')).toBe(false);
     expect(system.getMixerContents()).toEqual(['morning_dew', 'cool_breeze']);
   });
 
+  it('crafts a potion when the mixer matches a recipe, regardless of ingredient order', () => {
+    const { bus, system } = makeSystem();
+    const created: unknown[] = [];
+    bus.on('weather:created', (payload) => created.push(payload));
+
+    system.addToMixer('cool_breeze');
+    system.addToMixer('morning_dew');
+    const success = system.tryCraft();
+
+    expect(success).toBe(true);
+    expect(system.getCurrentPotion()).toBe('cool_drizzle');
+    expect(system.getMixerContents()).toEqual([]);
+    expect(created).toEqual([{ recipeId: 'cool_drizzle' }]);
+  });
+
+  it('fails to craft when the mixer does not match any recipe', () => {
+    const { bus, system } = makeSystem();
+    const created: unknown[] = [];
+    bus.on('weather:created', (payload) => created.push(payload));
+
+    system.addToMixer('morning_dew');
+    system.addToMixer('star_dust');
+    const success = system.tryCraft();
+
+    expect(success).toBe(false);
+    expect(system.getCurrentPotion()).toBeNull();
+    expect(created).toEqual([]);
+  });
+
   it('emits mixer:updated with the current contents on every change', () => {
-    const bus = new TypedEventBus<GameEventMap>();
-    const system = new WeatherSystem(bus);
+    const { bus, system } = makeSystem();
     const updates: string[][] = [];
     bus.on('mixer:updated', ({ contents }) => updates.push(contents));
 

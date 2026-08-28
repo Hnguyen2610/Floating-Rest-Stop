@@ -1,0 +1,22 @@
+{
+  "recipes": [
+    {
+      "id": "cool_drizzle",
+      "name": "Cool Drizzle",
+      "ingredients": ["morning_dew", "cool_breeze"],
+      "visualEffect": "drizzle",
+      "suitableEmotions": ["OVERHEATED", "STRESSED"],
+      "suitableGuests": ["sun"],
+      "soothingValue": 30
+    },
+    {
+      "id": "starry_lullaby",
+      "name": "Starry Lullaby",
+      "ingredients": ["star_dust", "cool_breeze"],
+      "visualEffect": "starlight",
+      "suitableEmotions": ["LONELY", "TIRED"],
+      "suitableGuests": ["moon"],
+      "soothingValue": 30
+    }
+  ]
+}
