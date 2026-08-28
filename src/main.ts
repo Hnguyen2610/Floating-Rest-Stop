@@ -1,5 +1,3 @@
-const app = document.querySelector<HTMLDivElement>('#app');
+import { createGame } from './core/Game';
 
-if (app) {
-  app.textContent = 'Floating Rest Stop — booting...';
-}
+createGame('app');
