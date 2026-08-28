@@ -1,0 +1,9 @@
+{
+  "ingredients": [
+    { "id": "morning_dew", "name": "Sương Sớm", "color": "#bfe3d0" },
+    { "id": "warm_sunbeam", "name": "Nắng Ấm", "color": "#ffe08a" },
+    { "id": "cool_breeze", "name": "Gió Mát", "color": "#a9d8f0" },
+    { "id": "rainbow_fragment", "name": "Mảnh Cầu Vồng", "color": "#f7c9d0" },
+    { "id": "star_dust", "name": "Bụi Sao", "color": "#d9c9ec" }
+  ]
+}

@@ -75,6 +75,8 @@ export interface GameEventMap {
   'boot:complete': undefined;
   'guest:arrived': GuestState;
   'guest:left': { guestId: string };
+  'ingredient:collected': { id: string; count: number };
+  'mixer:updated': { contents: string[] };
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

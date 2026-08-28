@@ -7,6 +7,11 @@ import { MoonGuest } from '../guests/MoonGuest';
 import { LittleStarGuest } from '../guests/LittleStarGuest';
 import { EmotionSystem, type EmotionsData } from '../systems/EmotionSystem';
 import { GuestSystem, type GuestsData } from '../systems/GuestSystem';
+import { IngredientSystem, type IngredientsData } from '../systems/IngredientSystem';
+import { WeatherSystem } from '../systems/WeatherSystem';
+import { FloatingIngredient } from '../entities/FloatingIngredient';
+import { InventoryUI } from '../ui/InventoryUI';
+import { WeatherMixerUI } from '../ui/WeatherMixerUI';
 import { eventBus } from '../core/EventBus';
 import type { GuestState } from '../types/guest';
 
@@ -14,7 +19,11 @@ export class StationScene extends Phaser.Scene {
   private cloudy!: Cloudy;
   private emotionSystem!: EmotionSystem;
   private guestSystem!: GuestSystem;
+  private ingredientSystem!: IngredientSystem;
+  private weatherSystem!: WeatherSystem;
+  private mixerUI!: WeatherMixerUI;
   private activeGuestEntity: Guest | null = null;
+  private floatingIngredients: FloatingIngredient[] = [];
 
   constructor() {
     super('StationScene');
@@ -28,11 +37,25 @@ export class StationScene extends Phaser.Scene {
 
     const guestsData = this.cache.json.get('guests') as GuestsData;
     const emotionsData = this.cache.json.get('emotions') as EmotionsData;
+    const ingredientsData = this.cache.json.get('ingredients') as IngredientsData;
     this.emotionSystem = new EmotionSystem(emotionsData);
     this.guestSystem = new GuestSystem(guestsData, this.emotionSystem, eventBus);
+    this.ingredientSystem = new IngredientSystem(ingredientsData, eventBus);
+    this.weatherSystem = new WeatherSystem(eventBus);
+
+    new InventoryUI(this, 24, 32, this.ingredientSystem);
+    this.mixerUI = new WeatherMixerUI(this, GAME_WIDTH - 90, GAME_HEIGHT - 90, this.ingredientSystem);
 
     eventBus.on('guest:arrived', (state) => this.onGuestArrived(state));
     eventBus.on('guest:left', () => this.onGuestLeft());
+
+    this.time.addEvent({
+      delay: 4000,
+      loop: true,
+      callback: () => {
+        if (this.floatingIngredients.length < 4) this.spawnIngredient();
+      },
+    });
 
     this.wireDebugKeys();
   }
@@ -40,6 +63,36 @@ export class StationScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     this.cloudy.update(time, delta);
     this.activeGuestEntity?.update(time, delta);
+    this.floatingIngredients.forEach((ingredient) => ingredient.update(time, delta));
+  }
+
+  private spawnIngredient(): void {
+    const definition = Phaser.Utils.Array.GetRandom(this.ingredientSystem.getAllDefinitions());
+    const x = Phaser.Math.Between(GAME_WIDTH * 0.55, GAME_WIDTH * 0.88);
+    const y = Phaser.Math.Between(GAME_HEIGHT * 0.28, GAME_HEIGHT * 0.55);
+    const ingredient = new FloatingIngredient(this, x, y, definition, (ing, sx, sy) =>
+      this.handleIngredientDropped(ing, sx, sy),
+    );
+    this.floatingIngredients.push(ingredient);
+  }
+
+  private handleIngredientDropped(
+    ingredient: FloatingIngredient,
+    screenX: number,
+    screenY: number,
+  ): void {
+    this.floatingIngredients = this.floatingIngredients.filter((i) => i !== ingredient);
+
+    const dropZone = this.mixerUI.getDropZone();
+    if (Phaser.Geom.Circle.Contains(dropZone, screenX, screenY)) {
+      if (this.weatherSystem.addToMixer(ingredient.definition.id)) {
+        ingredient.destroy();
+        return;
+      }
+    }
+
+    this.ingredientSystem.collect(ingredient.definition.id);
+    ingredient.destroy();
   }
 
   private onGuestArrived(state: GuestState): void {
@@ -83,6 +136,7 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-TWO', () => this.guestSystem.spawn('moon'));
     this.input.keyboard?.on('keydown-THREE', () => this.guestSystem.spawn('little_star'));
     this.input.keyboard?.on('keydown-Q', () => this.guestSystem.leave());
+    this.input.keyboard?.on('keydown-I', () => this.spawnIngredient());
   }
 
   private drawSky(): void {
