@@ -7,6 +7,7 @@ import { DecorationSystem, type DecorationsData } from '../systems/DecorationSys
 import { JournalSystem, type JournalData } from '../systems/JournalSystem';
 import { PhotoMomentSystem, type PhotoMomentsData } from '../systems/PhotoMomentSystem';
 import { SaveSystem } from '../systems/SaveSystem';
+import { AudioSystem } from '../systems/AudioSystem';
 import type { SaveProvider } from '../services/save/SaveProvider';
 import { eventBus } from './EventBus';
 
@@ -20,6 +21,7 @@ export interface GameSystems {
   journalSystem: JournalSystem;
   photoMomentSystem: PhotoMomentSystem;
   saveSystem: SaveSystem;
+  audioSystem: AudioSystem;
 }
 
 export interface GameData {
@@ -52,6 +54,7 @@ export async function createGameSystems(
     eventBus,
   );
   await saveSystem.whenReady();
+  const audioSystem = new AudioSystem();
 
   systems = {
     emotionSystem,
@@ -63,6 +66,7 @@ export async function createGameSystems(
     journalSystem,
     photoMomentSystem,
     saveSystem,
+    audioSystem,
   };
   return systems;
 }

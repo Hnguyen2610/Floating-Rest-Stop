@@ -15,6 +15,7 @@ export class Decoration extends Phaser.GameObjects.Container {
     y: number,
     private visual: DecorationVisual,
     interactive: boolean,
+    private onChime?: () => void,
   ) {
     super(scene, x, y);
     scene.add.existing(this);
@@ -108,6 +109,7 @@ export class Decoration extends Phaser.GameObjects.Container {
   }
 
   private playChime(): void {
+    this.onChime?.();
     this.scene.tweens.add({
       targets: this,
       angle: 12,

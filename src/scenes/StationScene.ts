@@ -53,8 +53,9 @@ export class StationScene extends Phaser.Scene {
       this.crystalCounterPosition.y,
       this.systems.happinessSystem,
     );
-    new DecorationShopUI(this, 24, GAME_HEIGHT - 24, this.systems.decorationSystem);
+    new DecorationShopUI(this, 24, GAME_HEIGHT - 40, this.systems.decorationSystem);
     this.drawJournalButton();
+    this.drawMuteButton();
 
     this.wireEvents();
     this.resumeState();
@@ -142,6 +143,21 @@ export class StationScene extends Phaser.Scene {
     button.on('pointerdown', () => this.scene.start('JournalScene'));
   }
 
+  private drawMuteButton(): void {
+    const audioSystem = this.systems.audioSystem;
+    const label = this.add
+      .text(GAME_WIDTH - 32, 70, audioSystem.isMuted() ? '🔇' : '🔊', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '22px',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    label.on('pointerdown', () => {
+      audioSystem.setMuted(!audioSystem.isMuted());
+      label.setText(audioSystem.isMuted() ? '🔇' : '🔊');
+    });
+  }
+
   private spawnIngredient(): void {
     const definition = Phaser.Utils.Array.GetRandom(this.systems.ingredientSystem.getAllDefinitions());
     const x = Phaser.Math.Between(GAME_WIDTH * 0.55, GAME_WIDTH * 0.88);
@@ -175,7 +191,9 @@ export class StationScene extends Phaser.Scene {
   private tryAutoCraft(): void {
     if (this.systems.weatherSystem.getMixerContents().length < 2) return;
     const success = this.systems.weatherSystem.tryCraft();
-    if (!success) {
+    if (success) {
+      this.systems.audioSystem.playCraftSuccessSound();
+    } else {
       this.mixerUI.playCraftFail();
       this.time.delayedCall(500, () => this.systems.weatherSystem.clearMixer());
     }
@@ -221,9 +239,10 @@ export class StationScene extends Phaser.Scene {
   private spawnHappinessCrystal(): void {
     const x = GAME_WIDTH * 0.24;
     const y = GAME_HEIGHT * 0.42 - 70;
-    new HappinessCrystal(this, x, y, this.crystalCounterPosition, () =>
-      this.systems.happinessSystem.collectCrystal(),
-    );
+    new HappinessCrystal(this, x, y, this.crystalCounterPosition, () => {
+      this.systems.happinessSystem.collectCrystal();
+      this.systems.audioSystem.playCollectSound();
+    });
   }
 
   private checkPhotoMoment(state: GuestState): void {
@@ -237,6 +256,7 @@ export class StationScene extends Phaser.Scene {
     const y = GAME_HEIGHT * 0.42 - 55;
     this.photoMomentIcon = new PhotoMomentIcon(this, x, y, () => {
       this.systems.photoMomentSystem.capture(state.id);
+      this.systems.audioSystem.playCaptureSound();
       this.photoMomentIcon = null;
     });
   }
@@ -249,6 +269,7 @@ export class StationScene extends Phaser.Scene {
       GAME_HEIGHT * def.slotY,
       id as DecorationVisual,
       def.interactive,
+      () => this.systems.audioSystem.playChimeSound(),
     );
   }
 
