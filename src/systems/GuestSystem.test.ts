@@ -110,4 +110,49 @@ describe('GuestSystem', () => {
     system.spawn('sun');
     expect(system.getPreferredTreatment()).toEqual({ type: 'recipe', recipeId: 'cool_drizzle' });
   });
+
+  it('increments visitCount on every spawn, starting from 1', () => {
+    const { system } = makeSystem();
+    expect(system.spawn('sun').visitCount).toBe(1);
+    system.leave();
+    expect(system.spawn('sun').visitCount).toBe(2);
+    system.leave();
+    expect(system.spawn('sun').visitCount).toBe(3);
+  });
+
+  it('gains trust and arrives less distressed after a visit that ends relaxed or happier', () => {
+    const { system } = makeSystem();
+
+    system.spawn('sun'); // intensity 85
+    system.soothe(60); // 85 -> 25, RELAXED
+    system.leave(); // ends relaxed -> gains trust
+
+    const secondVisit = system.spawn('sun');
+    expect(secondVisit.trustLevel).toBe(8);
+    expect(secondVisit.emotionalIntensity).toBe(85 - 8); // starts less distressed
+  });
+
+  it('does not gain trust when a visit ends while still distressed', () => {
+    const { system } = makeSystem();
+
+    system.spawn('sun'); // intensity 85, never soothed
+    system.leave();
+
+    const secondVisit = system.spawn('sun');
+    expect(secondVisit.trustLevel).toBe(0);
+    expect(secondVisit.emotionalIntensity).toBe(85);
+  });
+
+  it('never lowers starting intensity below the floor regardless of trust', () => {
+    const { system } = makeSystem();
+
+    for (let i = 0; i < 10; i += 1) {
+      system.spawn('sun');
+      system.soothe(90); // always ends relaxed/happy
+      system.leave();
+    }
+
+    const state = system.spawn('sun');
+    expect(state.emotionalIntensity).toBeGreaterThanOrEqual(30);
+  });
 });
