@@ -55,12 +55,23 @@ export class GuestSystem {
 
   soothe(amount: number): GuestState | null {
     if (!this.current) return null;
+    const wasRelaxed = this.isRelaxedOrHappy(this.current.emotionalIntensity);
+
     this.current.emotionalIntensity = this.emotionSystem.soothe(this.current.emotionalIntensity, amount);
     const stage = this.emotionSystem.getStage(this.current.emotionalIntensity);
     if (stage === 'RELAXED' || stage === 'HAPPY') {
       this.current.currentEmotion = stage;
     }
     this.eventBus.emit('guest:emotion-changed', this.current);
+
+    if (!wasRelaxed && this.isRelaxedOrHappy(this.current.emotionalIntensity)) {
+      this.eventBus.emit('guest:relaxed', { guestId: this.current.id });
+    }
     return this.current;
+  }
+
+  private isRelaxedOrHappy(intensity: number): boolean {
+    const stage = this.emotionSystem.getStage(intensity);
+    return stage === 'RELAXED' || stage === 'HAPPY';
   }
 }

@@ -85,6 +85,19 @@ describe('GuestSystem', () => {
     expect(happy?.currentEmotion).toBe('HAPPY');
   });
 
+  it('emits guest:relaxed only on the transition into RELAXED/HAPPY, not on every soothe', () => {
+    const { bus, system } = makeSystem();
+    const received: unknown[] = [];
+    bus.on('guest:relaxed', (payload) => received.push(payload));
+
+    system.spawn('sun');
+    system.soothe(10); // 85 -> 75, still DISTRESSED
+    system.soothe(40); // 75 -> 35, crosses into RELAXED: should fire once
+    system.soothe(25); // 35 -> 10, into HAPPY, but already relaxed before this call
+
+    expect(received).toEqual([{ guestId: 'sun' }]);
+  });
+
   it('returns null from soothe when there is no current guest', () => {
     const { system } = makeSystem();
     expect(system.soothe(10)).toBeNull();

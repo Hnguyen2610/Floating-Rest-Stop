@@ -9,9 +9,12 @@ import { EmotionSystem, type EmotionsData } from '../systems/EmotionSystem';
 import { GuestSystem, type GuestsData } from '../systems/GuestSystem';
 import { IngredientSystem, type IngredientsData } from '../systems/IngredientSystem';
 import { WeatherSystem, type RecipesData } from '../systems/WeatherSystem';
+import { HappinessSystem } from '../systems/HappinessSystem';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
+import { HappinessCrystal } from '../entities/HappinessCrystal';
 import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
+import { CrystalCounter } from '../ui/CrystalCounter';
 import { eventBus } from '../core/EventBus';
 import type { GuestState } from '../types/guest';
 
@@ -21,9 +24,11 @@ export class StationScene extends Phaser.Scene {
   private guestSystem!: GuestSystem;
   private ingredientSystem!: IngredientSystem;
   private weatherSystem!: WeatherSystem;
+  private happinessSystem!: HappinessSystem;
   private mixerUI!: WeatherMixerUI;
   private activeGuestEntity: Guest | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
+  private readonly crystalCounterPosition = { x: GAME_WIDTH - 32, y: 32 };
 
   constructor() {
     super('StationScene');
@@ -43,6 +48,7 @@ export class StationScene extends Phaser.Scene {
     this.guestSystem = new GuestSystem(guestsData, this.emotionSystem, eventBus);
     this.ingredientSystem = new IngredientSystem(ingredientsData, eventBus);
     this.weatherSystem = new WeatherSystem(recipesData, eventBus);
+    this.happinessSystem = new HappinessSystem(eventBus);
 
     new InventoryUI(this, 24, 32, this.ingredientSystem);
     this.mixerUI = new WeatherMixerUI(
@@ -52,6 +58,7 @@ export class StationScene extends Phaser.Scene {
       this.ingredientSystem,
       this.weatherSystem,
     );
+    new CrystalCounter(this, this.crystalCounterPosition.x, this.crystalCounterPosition.y);
 
     eventBus.on('guest:arrived', (state) => this.onGuestArrived(state));
     eventBus.on('guest:left', () => this.onGuestLeft());
@@ -59,6 +66,7 @@ export class StationScene extends Phaser.Scene {
       const meta = this.emotionSystem.getEmotionMeta(state.currentEmotion);
       this.activeGuestEntity?.updateEmotion(meta);
     });
+    eventBus.on('guest:relaxed', () => this.spawnHappinessCrystal());
 
     this.time.addEvent({
       delay: 4000,
@@ -160,6 +168,14 @@ export class StationScene extends Phaser.Scene {
     if (treatment.type === 'direct' && interaction.type === 'rub') {
       this.guestSystem.soothe(Math.min(interaction.distance, 15) * 0.1);
     }
+  }
+
+  private spawnHappinessCrystal(): void {
+    const x = GAME_WIDTH * 0.24;
+    const y = GAME_HEIGHT * 0.42 - 70;
+    new HappinessCrystal(this, x, y, this.crystalCounterPosition, () =>
+      this.happinessSystem.collectCrystal(),
+    );
   }
 
   private onGuestLeft(): void {
