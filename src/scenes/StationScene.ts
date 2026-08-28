@@ -9,6 +9,7 @@ import { LittleStarGuest } from '../guests/LittleStarGuest';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
 import { HappinessCrystal } from '../entities/HappinessCrystal';
 import { Decoration, type DecorationVisual } from '../entities/Decoration';
+import { PhotoMomentIcon } from '../entities/PhotoMomentIcon';
 import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
 import { CrystalCounter } from '../ui/CrystalCounter';
@@ -21,6 +22,7 @@ export class StationScene extends Phaser.Scene {
   private cloudy!: Cloudy;
   private mixerUI!: WeatherMixerUI;
   private activeGuestEntity: Guest | null = null;
+  private photoMomentIcon: PhotoMomentIcon | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
   private readonly crystalCounterPosition = { x: GAME_WIDTH - 32, y: 32 };
 
@@ -87,11 +89,14 @@ export class StationScene extends Phaser.Scene {
     if (!entity) return;
     this.activeGuestEntity = null;
     entity.playLeave(() => entity.destroy());
+    this.photoMomentIcon?.destroy();
+    this.photoMomentIcon = null;
   };
 
   private readonly handleEmotionChanged = (state: GuestState): void => {
     const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
     this.activeGuestEntity?.updateEmotion(meta);
+    this.checkPhotoMoment(state);
   };
 
   private readonly handleGuestRelaxed = (): void => this.spawnHappinessCrystal();
@@ -220,6 +225,21 @@ export class StationScene extends Phaser.Scene {
     );
   }
 
+  private checkPhotoMoment(state: GuestState): void {
+    if (this.photoMomentIcon) return;
+    if (this.systems.emotionSystem.getStage(state.emotionalIntensity) !== 'HAPPY') return;
+
+    const moment = this.systems.photoMomentSystem.getMomentForGuest(state.id);
+    if (!moment || this.systems.photoMomentSystem.isCaptured(moment.id)) return;
+
+    const x = GAME_WIDTH * 0.24 + 55;
+    const y = GAME_HEIGHT * 0.42 - 55;
+    this.photoMomentIcon = new PhotoMomentIcon(this, x, y, () => {
+      this.systems.photoMomentSystem.capture(state.id);
+      this.photoMomentIcon = null;
+    });
+  }
+
   private placeDecoration(id: string): void {
     const def = this.systems.decorationSystem.getDefinition(id);
     new Decoration(
@@ -233,7 +253,7 @@ export class StationScene extends Phaser.Scene {
 
   private wireDebugKeys(): void {
     if (!import.meta.env.DEV) return;
-    const { guestSystem, weatherSystem, happinessSystem, journalSystem } = this.systems;
+    const { guestSystem, weatherSystem, happinessSystem, photoMomentSystem } = this.systems;
     this.input.keyboard?.on('keydown-H', () => this.cloudy.playHappyBounce());
     this.input.keyboard?.on('keydown-ONE', () => guestSystem.spawn('sun'));
     this.input.keyboard?.on('keydown-TWO', () => guestSystem.spawn('moon'));
@@ -252,11 +272,8 @@ export class StationScene extends Phaser.Scene {
     });
     this.input.keyboard?.on('keydown-C', () => happinessSystem.collectCrystal());
     this.input.keyboard?.on('keydown-J', () => {
-      try {
-        journalSystem.unlockMemory('sun_memory_1');
-      } catch {
-        // already unlocked or unknown id — fine for a debug shortcut
-      }
+      const guestId = guestSystem.getCurrentGuest()?.id ?? 'sun';
+      photoMomentSystem.capture(guestId);
     });
   }
 

@@ -5,6 +5,7 @@ import { WeatherSystem, type RecipesData } from '../systems/WeatherSystem';
 import { HappinessSystem } from '../systems/HappinessSystem';
 import { DecorationSystem, type DecorationsData } from '../systems/DecorationSystem';
 import { JournalSystem, type JournalData } from '../systems/JournalSystem';
+import { PhotoMomentSystem, type PhotoMomentsData } from '../systems/PhotoMomentSystem';
 import { eventBus } from './EventBus';
 
 export interface GameSystems {
@@ -15,6 +16,7 @@ export interface GameSystems {
   happinessSystem: HappinessSystem;
   decorationSystem: DecorationSystem;
   journalSystem: JournalSystem;
+  photoMomentSystem: PhotoMomentSystem;
 }
 
 export interface GameData {
@@ -24,6 +26,7 @@ export interface GameData {
   recipes: RecipesData;
   decorations: DecorationsData;
   journal: JournalData;
+  photoMoments: PhotoMomentsData;
 }
 
 let systems: GameSystems | null = null;
@@ -36,6 +39,7 @@ export function createGameSystems(data: GameData): GameSystems {
   const happinessSystem = new HappinessSystem(eventBus);
   const decorationSystem = new DecorationSystem(data.decorations, happinessSystem, eventBus);
   const journalSystem = new JournalSystem(data.journal, eventBus);
+  const photoMomentSystem = new PhotoMomentSystem(data.photoMoments, journalSystem, eventBus);
 
   systems = {
     emotionSystem,
@@ -45,6 +49,7 @@ export function createGameSystems(data: GameData): GameSystems {
     happinessSystem,
     decorationSystem,
     journalSystem,
+    photoMomentSystem,
   };
   return systems;
 }

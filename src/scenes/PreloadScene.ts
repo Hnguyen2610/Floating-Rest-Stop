@@ -6,6 +6,7 @@ import type { IngredientsData } from '../systems/IngredientSystem';
 import type { RecipesData } from '../systems/WeatherSystem';
 import type { DecorationsData } from '../systems/DecorationSystem';
 import type { JournalData } from '../systems/JournalSystem';
+import type { PhotoMomentsData } from '../systems/PhotoMomentSystem';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -19,6 +20,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.json('recipes', 'data/recipes.json');
     this.load.json('decorations', 'data/decorations.json');
     this.load.json('journal', 'data/journal.json');
+    this.load.json('photoMoments', 'data/photoMoments.json');
   }
 
   create(): void {
@@ -29,6 +31,7 @@ export class PreloadScene extends Phaser.Scene {
       recipes: this.cache.json.get('recipes') as RecipesData,
       decorations: this.cache.json.get('decorations') as DecorationsData,
       journal: this.cache.json.get('journal') as JournalData,
+      photoMoments: this.cache.json.get('photoMoments') as PhotoMomentsData,
     });
     this.scene.start('StationScene');
   }

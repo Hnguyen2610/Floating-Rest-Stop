@@ -1,0 +1,7 @@
+{
+  "photoMoments": [
+    { "id": "sun_cool_drizzle_01", "guestId": "sun", "memoryId": "sun_memory_1" },
+    { "id": "moon_starry_lullaby_01", "guestId": "moon", "memoryId": "moon_memory_1" },
+    { "id": "star_gentle_polish_01", "guestId": "little_star", "memoryId": "star_memory_1" }
+  ]
+}
