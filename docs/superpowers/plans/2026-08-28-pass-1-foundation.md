@@ -637,7 +637,7 @@ fails).
 
 **Interfaces:** none — this task only exercises what Tasks 1–3 produced.
 
-- [ ] **Step 1: Run the full check suite**
+- [x] **Step 1: Run the full check suite**
 
 Run in order, all from a clean `node_modules` if in doubt (`rm -rf node_modules && npm install`):
 
@@ -651,7 +651,7 @@ npm run build
 Expected: every command exits 0. If any fails, fix the underlying file from Task 1–3 (not this
 task) and re-run the full suite before continuing.
 
-- [ ] **Step 2: Manually verify responsiveness**
+- [x] **Step 2: Manually verify responsiveness**
 
 Run: `npm run dev`. With the browser devtools responsive-design mode, check the canvas at:
 - 1920×1080 (desktop)
@@ -661,7 +661,7 @@ Run: `npm run dev`. With the browser devtools responsive-design mode, check the 
 Expected at every size: the canvas letterboxes (scales via `Phaser.Scale.FIT`) without stretching,
 cropping content unexpectedly, or leaving the page scrollable. No console errors on resize.
 
-- [ ] **Step 3: Commit any fixes**
+- [x] **Step 3: Commit any fixes**
 
 If Steps 1–2 required changes, stage exactly the files touched and commit:
 
@@ -672,7 +672,7 @@ git commit -m "fix: address Pass 1 acceptance check failures"
 
 If nothing needed fixing, skip this step — there is nothing to commit.
 
-- [ ] **Step 4: Write the Pass 1 completion report**
+- [x] **Step 4: Write the Pass 1 completion report**
 
 Post a short report in this format (per the project's working-style convention) summarizing what
 was implemented, files added/modified, and the four command results from Step 1:
