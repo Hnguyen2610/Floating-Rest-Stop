@@ -5,6 +5,11 @@ export class PreloadScene extends Phaser.Scene {
     super('PreloadScene');
   }
 
+  preload(): void {
+    this.load.json('guests', 'data/guests.json');
+    this.load.json('emotions', 'data/emotions.json');
+  }
+
   create(): void {
     this.scene.start('StationScene');
   }

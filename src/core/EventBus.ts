@@ -1,3 +1,5 @@
+import type { GuestState } from '../types/guest';
+
 type Listener<T> = (this: unknown, payload: T) => void;
 
 interface ListenerEntry<T> {
@@ -71,6 +73,8 @@ export class TypedEventBus<TEventMap> {
 
 export interface GameEventMap {
   'boot:complete': undefined;
+  'guest:arrived': GuestState;
+  'guest:left': { guestId: string };
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

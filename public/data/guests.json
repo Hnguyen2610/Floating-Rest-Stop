@@ -1,0 +1,25 @@
+{
+  "guests": [
+    {
+      "id": "sun",
+      "name": "Mặt Trời Cáu Kỉnh",
+      "initialEmotion": "OVERHEATED",
+      "initialIntensity": 85,
+      "treatment": { "type": "recipe", "recipeId": "cool_drizzle" }
+    },
+    {
+      "id": "moon",
+      "name": "Mặt Trăng Trầm Ngâm",
+      "initialEmotion": "LONELY",
+      "initialIntensity": 70,
+      "treatment": { "type": "recipe", "recipeId": "starry_lullaby" }
+    },
+    {
+      "id": "little_star",
+      "name": "Bé Sao Nhút Nhát",
+      "initialEmotion": "INSECURE",
+      "initialIntensity": 75,
+      "treatment": { "type": "direct", "interactionId": "gentle_polish" }
+    }
+  ]
+}

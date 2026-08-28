@@ -1,0 +1,12 @@
+{
+  "stageThresholds": { "distressed": 70, "calming": 40, "relaxed": 15 },
+  "emotions": {
+    "OVERHEATED": { "label": "Nóng bức", "color": "#f28b82" },
+    "STRESSED": { "label": "Căng thẳng", "color": "#f6bd60" },
+    "LONELY": { "label": "Cô đơn", "color": "#9fb8ea" },
+    "TIRED": { "label": "Mệt mỏi", "color": "#b0b8c9" },
+    "INSECURE": { "label": "Thiếu tự tin", "color": "#c4bfd1" },
+    "RELAXED": { "label": "Thư giãn", "color": "#bfe3d0" },
+    "HAPPY": { "label": "Hạnh phúc", "color": "#ffe08a" }
+  }
+}
