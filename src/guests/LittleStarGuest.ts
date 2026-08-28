@@ -18,26 +18,21 @@ export class LittleStarGuest extends Guest {
   private lastX = 0;
   private lastY = 0;
 
-  private readonly handlePointerMove = (pointer: Phaser.Input.Pointer): void => {
-    if (!this.rubbing) return;
-    const distance = Phaser.Math.Distance.Between(this.lastX, this.lastY, pointer.worldX, pointer.worldY);
-    this.lastX = pointer.worldX;
-    this.lastY = pointer.worldY;
-    if (distance > 1) this.onInteract({ type: 'rub', distance });
-  };
-
-  private readonly handlePointerUp = (): void => {
-    this.rubbing = false;
-  };
-
   protected renderBody(graphics: Phaser.GameObjects.Graphics): void {
     const color = this.hexToColor(this.emotionMeta.color);
     graphics.fillStyle(color, 1);
     graphics.fillPoints(starPoints(5, 20, 42), true);
   }
 
+  // Regular prototype methods (not field-initializer arrow functions): the
+  // base Guest constructor calls this.wireInteraction() — polymorphically
+  // dispatching to this override — before LittleStarGuest's own field
+  // initializers have run, so a field-arrow-function referenced here would
+  // still be undefined at that point and crash `scene.input.on(...)`.
   protected wireInteraction(): void {
     this.setSize(90, 90);
+    // Container hit-test coords are relative to the top-left of setSize(), not the
+    // container's origin, so a centered circle must sit at (width/2, height/2).
     this.setInteractive(new Phaser.Geom.Circle(45, 45, 45), Phaser.Geom.Circle.Contains);
 
     this.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -45,11 +40,23 @@ export class LittleStarGuest extends Guest {
       this.lastX = pointer.worldX;
       this.lastY = pointer.worldY;
     });
-    this.scene.input.on('pointermove', this.handlePointerMove);
-    this.scene.input.on('pointerup', this.handlePointerUp);
+    this.scene.input.on('pointermove', this.handlePointerMove, this);
+    this.scene.input.on('pointerup', this.handlePointerUp, this);
     this.once(Phaser.GameObjects.Events.DESTROY, () => {
-      this.scene.input.off('pointermove', this.handlePointerMove);
-      this.scene.input.off('pointerup', this.handlePointerUp);
+      this.scene.input.off('pointermove', this.handlePointerMove, this);
+      this.scene.input.off('pointerup', this.handlePointerUp, this);
     });
+  }
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer): void {
+    if (!this.rubbing) return;
+    const distance = Phaser.Math.Distance.Between(this.lastX, this.lastY, pointer.worldX, pointer.worldY);
+    this.lastX = pointer.worldX;
+    this.lastY = pointer.worldY;
+    if (distance > 1) this.onInteract({ type: 'rub', distance });
+  }
+
+  private handlePointerUp(): void {
+    this.rubbing = false;
   }
 }

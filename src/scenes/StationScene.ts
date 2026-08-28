@@ -25,6 +25,7 @@ export class StationScene extends Phaser.Scene {
   private activeGuestEntity: Guest | null = null;
   private photoMomentIcon: PhotoMomentIcon | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
+  private departureTimer: Phaser.Time.TimerEvent | null = null;
   private readonly crystalCounterPosition = { x: GAME_WIDTH - 32, y: 32 };
 
   constructor() {
@@ -67,6 +68,13 @@ export class StationScene extends Phaser.Scene {
         if (this.floatingIngredients.length < 4) this.spawnIngredient();
       },
     });
+    this.time.addEvent({
+      delay: 3000,
+      loop: true,
+      callback: () => {
+        if (!this.systems.guestSystem.getCurrentGuest()) this.spawnRandomGuest();
+      },
+    });
 
     this.wireDebugKeys();
   }
@@ -78,6 +86,8 @@ export class StationScene extends Phaser.Scene {
   }
 
   private readonly handleGuestArrived = (state: GuestState): void => {
+    this.departureTimer?.remove();
+    this.departureTimer = null;
     this.activeGuestEntity?.destroy();
     const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
     const x = GAME_WIDTH * 0.24;
@@ -87,6 +97,8 @@ export class StationScene extends Phaser.Scene {
   };
 
   private readonly handleGuestLeft = (): void => {
+    this.departureTimer?.remove();
+    this.departureTimer = null;
     const entity = this.activeGuestEntity;
     if (!entity) return;
     this.activeGuestEntity = null;
@@ -99,6 +111,7 @@ export class StationScene extends Phaser.Scene {
     const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
     this.activeGuestEntity?.updateEmotion(meta);
     this.checkPhotoMoment(state);
+    this.scheduleDepartureIfHappy(state);
   };
 
   private readonly handleGuestRelaxed = (): void => this.spawnHappinessCrystal();
@@ -258,6 +271,25 @@ export class StationScene extends Phaser.Scene {
       this.systems.photoMomentSystem.capture(state.id);
       this.systems.audioSystem.playCaptureSound();
       this.photoMomentIcon = null;
+    });
+  }
+
+  private spawnRandomGuest(): void {
+    const definitions = this.systems.guestSystem.getAllDefinitions();
+    const definition = Phaser.Utils.Array.GetRandom(definitions);
+    this.systems.guestSystem.spawn(definition.id);
+  }
+
+  private scheduleDepartureIfHappy(state: GuestState): void {
+    if (this.departureTimer) return;
+    if (this.systems.emotionSystem.getStage(state.emotionalIntensity) !== 'HAPPY') return;
+
+    // Give the player a moment to see the Happy state and catch the photo
+    // moment before the guest drifts off on their own — no countdown shown,
+    // no penalty either way, matching the "no time pressure" brief.
+    this.departureTimer = this.time.delayedCall(8000, () => {
+      this.departureTimer = null;
+      this.systems.guestSystem.leave();
     });
   }
 
