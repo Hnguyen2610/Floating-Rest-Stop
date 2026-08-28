@@ -5,21 +5,24 @@
       "name": "Mặt Trời Cáu Kỉnh",
       "initialEmotion": "OVERHEATED",
       "initialIntensity": 85,
-      "treatment": { "type": "recipe", "recipeId": "cool_drizzle" }
+      "treatment": { "type": "recipe", "recipeId": "cool_drizzle" },
+      "needHint": "cần một ly Cool Drizzle mát lạnh — hãy pha rồi chạm vào mình nhé"
     },
     {
       "id": "moon",
       "name": "Mặt Trăng Trầm Ngâm",
       "initialEmotion": "LONELY",
       "initialIntensity": 70,
-      "treatment": { "type": "recipe", "recipeId": "starry_lullaby" }
+      "treatment": { "type": "recipe", "recipeId": "starry_lullaby" },
+      "needHint": "đang thấy cô đơn — hãy pha Starry Lullaby rồi chạm vào mình"
     },
     {
       "id": "little_star",
       "name": "Bé Sao Nhút Nhát",
       "initialEmotion": "INSECURE",
       "initialIntensity": 75,
-      "treatment": { "type": "direct", "interactionId": "gentle_polish" }
+      "treatment": { "type": "direct", "interactionId": "gentle_polish" },
+      "needHint": "đang thiếu tự tin — hãy vuốt thật nhẹ nhàng, đừng vội"
     }
   ]
 }

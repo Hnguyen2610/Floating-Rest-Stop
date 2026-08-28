@@ -19,6 +19,7 @@ export interface GuestDefinition {
   initialEmotion: EmotionId;
   initialIntensity: number;
   treatment: GuestTreatment;
+  needHint: string;
 }
 
 export interface GuestState {

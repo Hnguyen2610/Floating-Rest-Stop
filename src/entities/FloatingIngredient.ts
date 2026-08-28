@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { FONT_FAMILY } from '../core/GameConfig';
 import type { IngredientDefinition } from '../systems/IngredientSystem';
 
 export class FloatingIngredient extends Phaser.GameObjects.Container {
@@ -26,6 +27,16 @@ export class FloatingIngredient extends Phaser.GameObjects.Container {
     graphics.fillStyle(0xffffff, 0.5);
     graphics.fillCircle(-5, -5, 5);
     this.add(graphics);
+
+    const label = scene.add
+      .text(0, 24, definition.name, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '11px',
+        color: '#5b4a63',
+      })
+      .setOrigin(0.5)
+      .setAlpha(0.85);
+    this.add(label);
 
     this.setSize(48, 48);
     // Container hit-test coords are relative to the top-left of setSize(), not the

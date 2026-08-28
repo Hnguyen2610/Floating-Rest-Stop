@@ -14,6 +14,8 @@ import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
 import { CrystalCounter } from '../ui/CrystalCounter';
 import { DecorationShopUI } from '../ui/DecorationShopUI';
+import { GuestHintUI } from '../ui/GuestHintUI';
+import { BottomNavUI } from '../ui/BottomNavUI';
 import { eventBus } from '../core/EventBus';
 import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
 import type { GuestState } from '../types/guest';
@@ -22,6 +24,8 @@ export class StationScene extends Phaser.Scene {
   private systems!: GameSystems;
   private cloudy!: Cloudy;
   private mixerUI!: WeatherMixerUI;
+  private guestHintUI!: GuestHintUI;
+  private decorationShopUI!: DecorationShopUI;
   private activeGuestEntity: Guest | null = null;
   private photoMomentIcon: PhotoMomentIcon | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
@@ -40,7 +44,7 @@ export class StationScene extends Phaser.Scene {
     this.drawTitle();
     this.cloudy = new Cloudy(this, GAME_WIDTH / 2, GAME_HEIGHT * 0.48);
 
-    new InventoryUI(this, 24, 32, this.systems.ingredientSystem);
+    new InventoryUI(this, 24, 76, this.systems.ingredientSystem);
     this.mixerUI = new WeatherMixerUI(
       this,
       GAME_WIDTH - 90,
@@ -54,9 +58,15 @@ export class StationScene extends Phaser.Scene {
       this.crystalCounterPosition.y,
       this.systems.happinessSystem,
     );
-    new DecorationShopUI(this, 24, GAME_HEIGHT - 40, this.systems.decorationSystem);
-    this.drawJournalButton();
+    this.decorationShopUI = new DecorationShopUI(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 96,
+      this.systems.decorationSystem,
+    );
     this.drawMuteButton();
+    this.guestHintUI = new GuestHintUI(this, GAME_WIDTH * 0.24, GAME_HEIGHT * 0.42 - 100);
+    this.drawBottomNav();
 
     this.wireEvents();
     this.resumeState();
@@ -94,6 +104,7 @@ export class StationScene extends Phaser.Scene {
     const y = GAME_HEIGHT * 0.42;
     this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
     this.activeGuestEntity.playArrive();
+    this.updateGuestHint(state, meta.label);
   };
 
   private readonly handleGuestLeft = (): void => {
@@ -105,6 +116,7 @@ export class StationScene extends Phaser.Scene {
     entity.playLeave(() => entity.destroy());
     this.photoMomentIcon?.destroy();
     this.photoMomentIcon = null;
+    this.guestHintUI.showIdle();
   };
 
   private readonly handleEmotionChanged = (state: GuestState): void => {
@@ -112,7 +124,24 @@ export class StationScene extends Phaser.Scene {
     this.activeGuestEntity?.updateEmotion(meta);
     this.checkPhotoMoment(state);
     this.scheduleDepartureIfHappy(state);
+    this.updateGuestHint(state, meta.label);
   };
+
+  private updateGuestHint(state: GuestState, emotionLabel: string): void {
+    const definition = this.systems.guestSystem
+      .getAllDefinitions()
+      .find((def) => def.id === state.id);
+    if (!definition) return;
+
+    const stage = this.systems.emotionSystem.getStage(state.emotionalIntensity);
+    const hint =
+      stage === 'HAPPY'
+        ? 'đang rất vui vẻ — cảm ơn bạn đã lắng nghe mình'
+        : stage === 'RELAXED'
+          ? 'đang dịu lại rồi, cứ tiếp tục nhé'
+          : definition.needHint;
+    this.guestHintUI.show(definition.name, emotionLabel, hint);
+  }
 
   private readonly handleGuestRelaxed = (): void => this.spawnHappinessCrystal();
 
@@ -144,16 +173,34 @@ export class StationScene extends Phaser.Scene {
     if (currentGuest) this.handleGuestArrived(currentGuest);
   }
 
-  private drawJournalButton(): void {
-    const button = this.add
-      .text(GAME_WIDTH - 100, GAME_HEIGHT - 24, '📖 Nhật ký', {
+  private drawBottomNav(): void {
+    new BottomNavUI(this, 60, GAME_HEIGHT - 26, [
+      { icon: '📖', label: 'Nhật ký', onTap: () => this.scene.start('JournalScene') },
+      { icon: '🎨', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
+      { icon: '🌾', label: 'Thu hoạch', onTap: () => this.showFeatureComingSoon() },
+      { icon: '⬆️', label: 'Nâng cấp', onTap: () => this.showFeatureComingSoon() },
+    ]);
+  }
+
+  private showFeatureComingSoon(): void {
+    const toast = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, '🚧 Tính năng đang phát triển', {
         fontFamily: FONT_FAMILY,
-        fontSize: '16px',
+        fontSize: '18px',
         color: '#5b4a63',
+        backgroundColor: '#fdfbf7',
+        padding: { x: 16, y: 10 },
       })
       .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    button.on('pointerdown', () => this.scene.start('JournalScene'));
+      .setAlpha(0);
+    this.tweens.add({
+      targets: toast,
+      alpha: 1,
+      duration: 200,
+      yoyo: true,
+      hold: 1200,
+      onComplete: () => toast.destroy(),
+    });
   }
 
   private drawMuteButton(): void {
@@ -354,12 +401,10 @@ export class StationScene extends Phaser.Scene {
   }
 
   private drawTitle(): void {
-    this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.18, 'Trạm Dừng Chân Lơ Lửng', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '40px',
-        color: '#5b4a63',
-      })
-      .setOrigin(0.5);
+    this.add.text(16, 12, 'Trạm Dừng Chân Lơ Lửng', {
+      fontFamily: FONT_FAMILY,
+      fontSize: '20px',
+      color: '#5b4a63',
+    });
   }
 }

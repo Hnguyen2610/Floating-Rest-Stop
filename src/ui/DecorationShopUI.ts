@@ -4,6 +4,7 @@ import { eventBus } from '../core/EventBus';
 import type { DecorationSystem } from '../systems/DecorationSystem';
 
 export class DecorationShopUI {
+  private readonly panel: Phaser.GameObjects.Container;
   private backgrounds = new Map<string, Phaser.GameObjects.Arc>();
 
   constructor(
@@ -12,19 +13,29 @@ export class DecorationShopUI {
     y: number,
     private decorationSystem: DecorationSystem,
   ) {
-    decorationSystem.getAllDefinitions().forEach((def, index) => {
-      const itemX = x + index * 40;
-      const item = scene.add.container(itemX, y);
+    this.panel = scene.add.container(x, y);
+
+    const definitions = decorationSystem.getAllDefinitions();
+    const panelWidth = definitions.length * 56 + 16;
+    const backdrop = scene.add
+      .rectangle(0, 0, panelWidth, 68, PALETTE.cloudWhite, 0.92)
+      .setStrokeStyle(1, PALETTE.eyeColor, 0.25);
+    this.panel.add(backdrop);
+
+    const startX = -(definitions.length - 1) * 28;
+    definitions.forEach((def, index) => {
+      const itemX = startX + index * 56;
+      const item = scene.add.container(itemX, 0);
 
       const bg = scene.add.circle(
         0,
-        0,
+        -6,
         16,
         PALETTE.lavender,
         decorationSystem.isUnlocked(def.id) ? 0.9 : 0.35,
       );
       const label = scene.add
-        .text(0, 22, String(def.cost), {
+        .text(0, 18, String(def.cost), {
           fontFamily: FONT_FAMILY,
           fontSize: '12px',
           color: '#5b4a63',
@@ -38,12 +49,23 @@ export class DecorationShopUI {
       item.setInteractive(new Phaser.Geom.Circle(18, 18, 18), Phaser.Geom.Circle.Contains);
       item.on('pointerdown', () => this.tryUnlock(def.id, bg));
 
+      this.panel.add(item);
       this.backgrounds.set(def.id, bg);
     });
+
+    this.panel.setVisible(false);
 
     eventBus.on('decoration:unlocked', ({ id }) => {
       this.backgrounds.get(id)?.setAlpha(0.9);
     });
+  }
+
+  toggle(): void {
+    this.panel.setVisible(!this.panel.visible);
+  }
+
+  hide(): void {
+    this.panel.setVisible(false);
   }
 
   private tryUnlock(id: string, bg: Phaser.GameObjects.Arc): void {

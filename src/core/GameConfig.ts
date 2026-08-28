@@ -39,6 +39,15 @@ export const CLOUDY_CONFIG = {
   wobbleFrequency: 4,
   floatAmplitude: 8,
   floatFrequency: 1.1,
+  driftAmplitude: 18,
+  driftFrequency: 0.35,
   blinkMinDelay: 2000,
   blinkMaxDelay: 5000,
+} as const;
+
+export const GUEST_IDLE_CONFIG = {
+  floatAmplitude: 6,
+  floatFrequency: 1.4,
+  driftAmplitude: 14,
+  driftFrequency: 0.3,
 } as const;

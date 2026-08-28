@@ -1,14 +1,15 @@
 import Phaser from 'phaser';
-import { PALETTE } from '../core/GameConfig';
+import { PALETTE, GUEST_IDLE_CONFIG } from '../core/GameConfig';
 import type { EmotionMeta } from '../systems/EmotionSystem';
 import type { GuestState } from '../types/guest';
 
 export type GuestInteraction = { type: 'tap' } | { type: 'rub'; distance: number };
 
 export abstract class Guest extends Phaser.GameObjects.Container {
+  protected readonly baseX: number;
   protected readonly baseY: number;
   protected readonly bodyGraphics: Phaser.GameObjects.Graphics;
-  private idleTime = 0;
+  private idleTime = Math.random() * Math.PI * 2;
 
   constructor(
     scene: Phaser.Scene,
@@ -19,6 +20,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     protected onInteract: (interaction: GuestInteraction) => void,
   ) {
     super(scene, x, y);
+    this.baseX = x;
     this.baseY = y;
     scene.add.existing(this);
 
@@ -31,7 +33,10 @@ export abstract class Guest extends Phaser.GameObjects.Container {
 
   update(_time: number, delta: number): void {
     this.idleTime += delta / 1000;
-    this.y = this.baseY + Math.sin(this.idleTime * 1.4) * 6;
+    this.y = this.baseY + Math.sin(this.idleTime * GUEST_IDLE_CONFIG.floatFrequency) * GUEST_IDLE_CONFIG.floatAmplitude;
+    this.x =
+      this.baseX +
+      Math.sin(this.idleTime * GUEST_IDLE_CONFIG.driftFrequency) * GUEST_IDLE_CONFIG.driftAmplitude;
   }
 
   updateEmotion(meta: EmotionMeta): void {

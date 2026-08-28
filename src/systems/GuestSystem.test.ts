@@ -11,6 +11,7 @@ const guestsData: GuestsData = {
       initialEmotion: 'OVERHEATED',
       initialIntensity: 85,
       treatment: { type: 'recipe', recipeId: 'cool_drizzle' },
+      needHint: 'needs a cool drizzle',
     },
   ],
 };

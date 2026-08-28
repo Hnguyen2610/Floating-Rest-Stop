@@ -22,12 +22,14 @@ export class Cloudy extends Phaser.GameObjects.Container {
   private readonly blobGraphics: Phaser.GameObjects.Graphics;
   private readonly leftEye: Phaser.GameObjects.Ellipse;
   private readonly rightEye: Phaser.GameObjects.Ellipse;
+  private readonly baseX: number;
   private readonly baseY: number;
   private idleTime = 0;
   private isDragging = false;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
+    this.baseX = x;
     this.baseY = y;
     scene.add.existing(this);
 
@@ -63,6 +65,8 @@ export class Cloudy extends Phaser.GameObjects.Container {
     this.idleTime += dt;
     this.y =
       this.baseY + Math.sin(this.idleTime * CLOUDY_CONFIG.floatFrequency) * CLOUDY_CONFIG.floatAmplitude;
+    this.x =
+      this.baseX + Math.sin(this.idleTime * CLOUDY_CONFIG.driftFrequency) * CLOUDY_CONFIG.driftAmplitude;
 
     this.mesh.update(dt);
     this.redraw();
