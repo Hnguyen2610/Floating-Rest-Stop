@@ -69,4 +69,25 @@ describe('WeatherSystem', () => {
 
     expect(updates).toEqual([['morning_dew'], []]);
   });
+
+  it('consumes the current potion on use and emits weather:used', () => {
+    const { bus, system } = makeSystem();
+    const used: unknown[] = [];
+    bus.on('weather:used', (payload) => used.push(payload));
+
+    system.addToMixer('morning_dew');
+    system.addToMixer('cool_breeze');
+    system.tryCraft();
+
+    const potionId = system.usePotion();
+
+    expect(potionId).toBe('cool_drizzle');
+    expect(system.getCurrentPotion()).toBeNull();
+    expect(used).toEqual([{ recipeId: 'cool_drizzle' }]);
+  });
+
+  it('returns null from usePotion when there is nothing to use', () => {
+    const { system } = makeSystem();
+    expect(system.usePotion()).toBeNull();
+  });
 });

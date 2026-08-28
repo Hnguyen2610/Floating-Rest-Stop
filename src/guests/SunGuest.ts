@@ -1,9 +1,8 @@
 import { Guest } from '../entities/Guest';
 
 export class SunGuest extends Guest {
-  protected drawBody(): void {
+  protected renderBody(graphics: Phaser.GameObjects.Graphics): void {
     const color = this.hexToColor(this.emotionMeta.color);
-    const graphics = this.scene.add.graphics();
     const radius = 42;
     const rayCount = 10;
 
@@ -23,6 +22,5 @@ export class SunGuest extends Guest {
 
     graphics.fillStyle(color, 1);
     graphics.fillCircle(0, 0, radius);
-    this.add(graphics);
   }
 }

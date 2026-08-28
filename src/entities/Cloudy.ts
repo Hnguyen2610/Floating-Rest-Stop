@@ -46,7 +46,12 @@ export class Cloudy extends Phaser.GameObjects.Container {
 
     const hitRadius = CLOUDY_CONFIG.baseRadius + CLOUDY_CONFIG.wobbleAmplitude;
     this.setSize(hitRadius * 2, hitRadius * 2);
-    this.setInteractive(new Phaser.Geom.Circle(0, 0, hitRadius), Phaser.Geom.Circle.Contains);
+    // Container hit-test coords are relative to the top-left of setSize(), not the
+    // container's origin, so a centered circle must sit at (width/2, height/2).
+    this.setInteractive(
+      new Phaser.Geom.Circle(hitRadius, hitRadius, hitRadius),
+      Phaser.Geom.Circle.Contains,
+    );
 
     this.wireInput();
     this.scheduleNextBlink();

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, PALETTE } from '../core/GameConfig';
 import { Cloudy } from '../entities/Cloudy';
-import { Guest } from '../entities/Guest';
+import { Guest, type GuestInteraction } from '../entities/Guest';
 import { SunGuest } from '../guests/SunGuest';
 import { MoonGuest } from '../guests/MoonGuest';
 import { LittleStarGuest } from '../guests/LittleStarGuest';
@@ -55,6 +55,10 @@ export class StationScene extends Phaser.Scene {
 
     eventBus.on('guest:arrived', (state) => this.onGuestArrived(state));
     eventBus.on('guest:left', () => this.onGuestLeft());
+    eventBus.on('guest:emotion-changed', (state) => {
+      const meta = this.emotionSystem.getEmotionMeta(state.currentEmotion);
+      this.activeGuestEntity?.updateEmotion(meta);
+    });
 
     this.time.addEvent({
       delay: 4000,
@@ -127,15 +131,34 @@ export class StationScene extends Phaser.Scene {
     x: number,
     y: number,
   ): Guest {
+    const onInteract = (interaction: GuestInteraction) => this.handleGuestInteraction(interaction);
     switch (state.id) {
       case 'sun':
-        return new SunGuest(this, x, y, state, meta);
+        return new SunGuest(this, x, y, state, meta, onInteract);
       case 'moon':
-        return new MoonGuest(this, x, y, state, meta);
+        return new MoonGuest(this, x, y, state, meta, onInteract);
       case 'little_star':
-        return new LittleStarGuest(this, x, y, state, meta);
+        return new LittleStarGuest(this, x, y, state, meta, onInteract);
       default:
         throw new Error(`Unknown guest id: ${state.id}`);
+    }
+  }
+
+  private handleGuestInteraction(interaction: GuestInteraction): void {
+    const treatment = this.guestSystem.getPreferredTreatment();
+    if (!treatment) return;
+
+    if (treatment.type === 'recipe' && interaction.type === 'tap') {
+      const potionId = this.weatherSystem.usePotion();
+      if (!potionId) return;
+      if (potionId === treatment.recipeId) {
+        this.guestSystem.soothe(this.weatherSystem.getRecipe(potionId).soothingValue);
+      }
+      return;
+    }
+
+    if (treatment.type === 'direct' && interaction.type === 'rub') {
+      this.guestSystem.soothe(Math.min(interaction.distance, 15) * 0.1);
     }
   }
 

@@ -37,6 +37,7 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
 
     eventBus.on('mixer:updated', ({ contents }) => this.redrawContents(contents));
     eventBus.on('weather:created', ({ recipeId }) => this.showPotionReady(recipeId));
+    eventBus.on('weather:used', () => this.potionLabel.setText(''));
   }
 
   getDropZone(): Phaser.Geom.Circle {

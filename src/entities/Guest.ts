@@ -3,8 +3,11 @@ import { PALETTE } from '../core/GameConfig';
 import type { EmotionMeta } from '../systems/EmotionSystem';
 import type { GuestState } from '../types/guest';
 
+export type GuestInteraction = { type: 'tap' } | { type: 'rub'; distance: number };
+
 export abstract class Guest extends Phaser.GameObjects.Container {
   protected readonly baseY: number;
+  protected readonly bodyGraphics: Phaser.GameObjects.Graphics;
   private idleTime = 0;
 
   constructor(
@@ -13,17 +16,29 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     y: number,
     protected guestState: GuestState,
     protected emotionMeta: EmotionMeta,
+    protected onInteract: (interaction: GuestInteraction) => void,
   ) {
     super(scene, x, y);
     this.baseY = y;
     scene.add.existing(this);
-    this.drawBody();
+
+    this.bodyGraphics = scene.add.graphics();
+    this.add(this.bodyGraphics);
+    this.renderBody(this.bodyGraphics);
     this.addFace();
+    this.wireInteraction();
   }
 
   update(_time: number, delta: number): void {
     this.idleTime += delta / 1000;
     this.y = this.baseY + Math.sin(this.idleTime * 1.4) * 6;
+  }
+
+  updateEmotion(meta: EmotionMeta): void {
+    this.emotionMeta = meta;
+    this.bodyGraphics.clear();
+    this.renderBody(this.bodyGraphics);
+    this.playRelief();
   }
 
   playArrive(): void {
@@ -50,6 +65,16 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     });
   }
 
+  protected playRelief(): void {
+    this.scene.tweens.add({
+      targets: this,
+      scale: 1.12,
+      duration: 160,
+      yoyo: true,
+      ease: 'Sine.easeOut',
+    });
+  }
+
   protected hexToColor(hex: string): number {
     return parseInt(hex.replace('#', ''), 16);
   }
@@ -60,5 +85,13 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     this.add([leftEye, rightEye]);
   }
 
-  protected abstract drawBody(): void;
+  protected wireInteraction(): void {
+    this.setSize(100, 100);
+    // Container hit-test coords are relative to the top-left of setSize(), not the
+    // container's origin, so a centered circle must sit at (width/2, height/2).
+    this.setInteractive(new Phaser.Geom.Circle(50, 50, 50), Phaser.Geom.Circle.Contains);
+    this.on('pointerdown', () => this.onInteract({ type: 'tap' }));
+  }
+
+  protected abstract renderBody(graphics: Phaser.GameObjects.Graphics): void;
 }

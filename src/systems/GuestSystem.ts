@@ -1,6 +1,6 @@
 import type { TypedEventBus, GameEventMap } from '../core/EventBus';
 import type { EmotionSystem } from './EmotionSystem';
-import type { GuestDefinition, GuestState } from '../types/guest';
+import type { GuestDefinition, GuestState, GuestTreatment } from '../types/guest';
 
 export interface GuestsData {
   guests: GuestDefinition[];
@@ -45,5 +45,22 @@ export class GuestSystem {
     const guestId = this.current.id;
     this.current = null;
     this.eventBus.emit('guest:left', { guestId });
+  }
+
+  getPreferredTreatment(): GuestTreatment | null {
+    if (!this.current) return null;
+    const definition = this.guestsData.guests.find((guest) => guest.id === this.current!.id);
+    return definition?.treatment ?? null;
+  }
+
+  soothe(amount: number): GuestState | null {
+    if (!this.current) return null;
+    this.current.emotionalIntensity = this.emotionSystem.soothe(this.current.emotionalIntensity, amount);
+    const stage = this.emotionSystem.getStage(this.current.emotionalIntensity);
+    if (stage === 'RELAXED' || stage === 'HAPPY') {
+      this.current.currentEmotion = stage;
+    }
+    this.eventBus.emit('guest:emotion-changed', this.current);
+    return this.current;
   }
 }

@@ -28,7 +28,9 @@ export class FloatingIngredient extends Phaser.GameObjects.Container {
     this.add(graphics);
 
     this.setSize(48, 48);
-    this.setInteractive(new Phaser.Geom.Circle(0, 0, 24), Phaser.Geom.Circle.Contains);
+    // Container hit-test coords are relative to the top-left of setSize(), not the
+    // container's origin, so a centered circle must sit at (width/2, height/2).
+    this.setInteractive(new Phaser.Geom.Circle(24, 24, 24), Phaser.Geom.Circle.Contains);
     this.wireInput();
   }
 

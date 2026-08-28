@@ -70,4 +70,12 @@ export class WeatherSystem {
   getCurrentPotion(): string | null {
     return this.currentPotion;
   }
+
+  usePotion(): string | null {
+    const potion = this.currentPotion;
+    if (!potion) return null;
+    this.currentPotion = null;
+    this.eventBus.emit('weather:used', { recipeId: potion });
+    return potion;
+  }
 }
