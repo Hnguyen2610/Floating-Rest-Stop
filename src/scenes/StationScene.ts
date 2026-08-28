@@ -10,11 +10,14 @@ import { GuestSystem, type GuestsData } from '../systems/GuestSystem';
 import { IngredientSystem, type IngredientsData } from '../systems/IngredientSystem';
 import { WeatherSystem, type RecipesData } from '../systems/WeatherSystem';
 import { HappinessSystem } from '../systems/HappinessSystem';
+import { DecorationSystem, type DecorationsData } from '../systems/DecorationSystem';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
 import { HappinessCrystal } from '../entities/HappinessCrystal';
+import { Decoration, type DecorationVisual } from '../entities/Decoration';
 import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
 import { CrystalCounter } from '../ui/CrystalCounter';
+import { DecorationShopUI } from '../ui/DecorationShopUI';
 import { eventBus } from '../core/EventBus';
 import type { GuestState } from '../types/guest';
 
@@ -25,6 +28,7 @@ export class StationScene extends Phaser.Scene {
   private ingredientSystem!: IngredientSystem;
   private weatherSystem!: WeatherSystem;
   private happinessSystem!: HappinessSystem;
+  private decorationSystem!: DecorationSystem;
   private mixerUI!: WeatherMixerUI;
   private activeGuestEntity: Guest | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
@@ -44,11 +48,13 @@ export class StationScene extends Phaser.Scene {
     const emotionsData = this.cache.json.get('emotions') as EmotionsData;
     const ingredientsData = this.cache.json.get('ingredients') as IngredientsData;
     const recipesData = this.cache.json.get('recipes') as RecipesData;
+    const decorationsData = this.cache.json.get('decorations') as DecorationsData;
     this.emotionSystem = new EmotionSystem(emotionsData);
     this.guestSystem = new GuestSystem(guestsData, this.emotionSystem, eventBus);
     this.ingredientSystem = new IngredientSystem(ingredientsData, eventBus);
     this.weatherSystem = new WeatherSystem(recipesData, eventBus);
     this.happinessSystem = new HappinessSystem(eventBus);
+    this.decorationSystem = new DecorationSystem(decorationsData, this.happinessSystem, eventBus);
 
     new InventoryUI(this, 24, 32, this.ingredientSystem);
     this.mixerUI = new WeatherMixerUI(
@@ -59,6 +65,7 @@ export class StationScene extends Phaser.Scene {
       this.weatherSystem,
     );
     new CrystalCounter(this, this.crystalCounterPosition.x, this.crystalCounterPosition.y);
+    new DecorationShopUI(this, 24, GAME_HEIGHT - 24, this.decorationSystem);
 
     eventBus.on('guest:arrived', (state) => this.onGuestArrived(state));
     eventBus.on('guest:left', () => this.onGuestLeft());
@@ -67,6 +74,7 @@ export class StationScene extends Phaser.Scene {
       this.activeGuestEntity?.updateEmotion(meta);
     });
     eventBus.on('guest:relaxed', () => this.spawnHappinessCrystal());
+    eventBus.on('decoration:placed', ({ id }) => this.placeDecoration(id));
 
     this.time.addEvent({
       delay: 4000,
@@ -178,6 +186,17 @@ export class StationScene extends Phaser.Scene {
     );
   }
 
+  private placeDecoration(id: string): void {
+    const def = this.decorationSystem.getDefinition(id);
+    new Decoration(
+      this,
+      GAME_WIDTH * def.slotX,
+      GAME_HEIGHT * def.slotY,
+      id as DecorationVisual,
+      def.interactive,
+    );
+  }
+
   private onGuestLeft(): void {
     const entity = this.activeGuestEntity;
     if (!entity) return;
@@ -203,6 +222,7 @@ export class StationScene extends Phaser.Scene {
       this.weatherSystem.addToMixer('rainbow_fragment');
       this.tryAutoCraft();
     });
+    this.input.keyboard?.on('keydown-C', () => this.happinessSystem.collectCrystal());
   }
 
   private drawSky(): void {

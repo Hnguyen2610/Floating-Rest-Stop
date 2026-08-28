@@ -1,0 +1,44 @@
+{
+  "decorations": [
+    {
+      "id": "wind_chime",
+      "name": "Crystal Wind Chime",
+      "cost": 1,
+      "slotX": 0.08,
+      "slotY": 0.3,
+      "interactive": true
+    },
+    {
+      "id": "rainbow_hammock",
+      "name": "Rainbow Hammock",
+      "cost": 2,
+      "slotX": 0.8,
+      "slotY": 0.66,
+      "interactive": false
+    },
+    {
+      "id": "firefly_lantern",
+      "name": "Firefly Lantern",
+      "cost": 2,
+      "slotX": 0.94,
+      "slotY": 0.3,
+      "interactive": false
+    },
+    {
+      "id": "tea_table",
+      "name": "Morning Dew Tea Table",
+      "cost": 1,
+      "slotX": 0.68,
+      "slotY": 0.7,
+      "interactive": false
+    },
+    {
+      "id": "wind_pinwheel",
+      "name": "Wind Pinwheel",
+      "cost": 1,
+      "slotX": 0.08,
+      "slotY": 0.66,
+      "interactive": false
+    }
+  ]
+}

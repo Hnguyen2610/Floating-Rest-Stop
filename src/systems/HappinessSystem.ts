@@ -11,6 +11,13 @@ export class HappinessSystem {
     return this.crystalCount;
   }
 
+  spendCrystals(amount: number): boolean {
+    if (this.crystalCount < amount) return false;
+    this.crystalCount -= amount;
+    this.eventBus.emit('happiness:spent', { count: this.crystalCount });
+    return true;
+  }
+
   getCount(): number {
     return this.crystalCount;
   }

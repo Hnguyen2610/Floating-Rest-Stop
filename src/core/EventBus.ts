@@ -78,6 +78,9 @@ export interface GameEventMap {
   'guest:emotion-changed': GuestState;
   'guest:relaxed': { guestId: string };
   'happiness:collected': { count: number };
+  'happiness:spent': { count: number };
+  'decoration:unlocked': { id: string };
+  'decoration:placed': { id: string };
   'ingredient:collected': { id: string; count: number };
   'mixer:updated': { contents: string[] };
   'weather:created': { recipeId: string };

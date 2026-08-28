@@ -30,6 +30,7 @@ export class CrystalCounter extends Phaser.GameObjects.Container {
     this.add(this.label);
 
     eventBus.on('happiness:collected', ({ count }) => this.updateCount(count));
+    eventBus.on('happiness:spent', ({ count }) => this.updateCount(count));
   }
 
   private updateCount(count: number): void {
