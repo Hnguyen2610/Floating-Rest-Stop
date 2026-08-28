@@ -1,7 +1,10 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, PALETTE } from '../core/GameConfig';
+import { Cloudy } from '../entities/Cloudy';
 
 export class StationScene extends Phaser.Scene {
+  private cloudy!: Cloudy;
+
   constructor() {
     super('StationScene');
   }
@@ -10,6 +13,17 @@ export class StationScene extends Phaser.Scene {
     this.drawSky();
     this.drawPlatform();
     this.drawTitle();
+    this.cloudy = new Cloudy(this, GAME_WIDTH / 2, GAME_HEIGHT * 0.48);
+    this.wireDebugKeys();
+  }
+
+  update(time: number, delta: number): void {
+    this.cloudy.update(time, delta);
+  }
+
+  private wireDebugKeys(): void {
+    if (!import.meta.env.DEV) return;
+    this.input.keyboard?.on('keydown-H', () => this.cloudy.playHappyBounce());
   }
 
   private drawSky(): void {
