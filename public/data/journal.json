@@ -196,6 +196,36 @@
           "photoMomentId": "star_gentle_polish_01"
         }
       ]
+    },
+    {
+      "id": "aurora_chapter_1",
+      "guestId": "aurora",
+      "guestName": "Cực Quang",
+      "title": "01 Vị Khách Hiếm Hoi",
+      "requiredVisitCount": 1,
+      "memories": [
+        {
+          "id": "aurora_memory_1",
+          "diaryText": "Mình từng nghĩ ánh sáng của mình không đủ đặc biệt để ai chú ý. Nhưng nơi này đã chứng minh mình sai.",
+          "hint": "Ở lại đến khi Cực Quang thật sự rực rỡ, rồi chụp lại khoảnh khắc ấy.",
+          "photoMomentId": "aurora_veil_01"
+        }
+      ]
+    },
+    {
+      "id": "comet_chapter_1",
+      "guestId": "comet",
+      "guestName": "Sao Chổi",
+      "title": "01 Vị Khách Hiếm Hoi",
+      "requiredVisitCount": 1,
+      "memories": [
+        {
+          "id": "comet_memory_1",
+          "diaryText": "Suốt hành trình dài một mình, mình chưa từng nghĩ sẽ có nơi nào đón mình rực rỡ đến vậy.",
+          "hint": "Ở lại đến khi Sao Chổi thật sự rực rỡ, rồi chụp lại khoảnh khắc ấy.",
+          "photoMomentId": "comet_trail_01"
+        }
+      ]
     }
   ]
 }

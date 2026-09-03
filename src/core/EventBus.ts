@@ -91,6 +91,10 @@ export interface GameEventMap {
   'journal:layout-updated': { itemId: string; x: number; y: number; rotation: number; scale: number };
   'journal:item-removed': { itemId: string };
   'paperboat:sent': { messageId: string; trustGuestId: string | null };
+  'area:unlocked': { id: string };
+  'daynight:changed': { isNight: boolean };
+  'cloudyCosmetic:unlocked': { kind: 'shape' | 'accessory'; id: string };
+  'rareGuest:available': { guestId: string };
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

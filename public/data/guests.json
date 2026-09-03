@@ -31,6 +31,24 @@
       "initialIntensity": 80,
       "treatment": { "type": "recipe", "recipeId": "gentle_breeze" },
       "needHint": "cánh đang ướt sương và mỏi — hãy pha Gentle Breeze rồi chạm nhẹ vào đàn bướm nhé"
+    },
+    {
+      "id": "aurora",
+      "name": "Cực Quang",
+      "initialEmotion": "AURORA_DIM",
+      "initialIntensity": 85,
+      "treatment": { "type": "recipe", "recipeId": "aurora_veil" },
+      "needHint": "ánh sáng đang mờ dần — hãy pha Aurora Veil rồi ở lại cùng mình",
+      "rare": true
+    },
+    {
+      "id": "comet",
+      "name": "Sao Chổi",
+      "initialEmotion": "COMET_FADING",
+      "initialIntensity": 85,
+      "treatment": { "type": "recipe", "recipeId": "comet_trail" },
+      "needHint": "đuôi sao đang mờ dần — hãy pha Comet Trail rồi chạm nhẹ vào mình",
+      "rare": true
     }
   ]
 }

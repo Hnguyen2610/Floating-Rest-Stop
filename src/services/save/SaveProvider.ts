@@ -14,6 +14,13 @@ export interface JournalItemSaveEntry {
   scale: number;
 }
 
+export interface CloudyCosmeticsSaveEntry {
+  unlockedShapes: string[];
+  unlockedAccessories: string[];
+  equippedShape: string;
+  equippedAccessories: string[];
+}
+
 export interface SaveData {
   version: number;
   happinessCrystals: number;
@@ -23,6 +30,9 @@ export interface SaveData {
   capturedPhotoMoments: string[];
   journalLayout: Array<[string, JournalItemSaveEntry]>;
   paperBoatSentCount: number;
+  unlockedAreas: string[];
+  isNight: boolean;
+  cloudyCosmetics: CloudyCosmeticsSaveEntry;
 }
 
 export interface SaveProvider {

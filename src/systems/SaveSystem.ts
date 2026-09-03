@@ -1,22 +1,28 @@
 import type { TypedEventBus, GameEventMap } from '../core/EventBus';
 import type { SaveData, SaveProvider, GuestSaveEntry } from '../services/save/SaveProvider';
 import type { HappinessSystem } from './HappinessSystem';
+import type { StationAreaSystem } from './StationAreaSystem';
 import type { DecorationSystem } from './DecorationSystem';
 import type { GuestSystem } from './GuestSystem';
 import type { JournalSystem } from './JournalSystem';
 import type { PhotoMomentSystem } from './PhotoMomentSystem';
 import type { PaperBoatSystem } from './PaperBoatSystem';
+import type { DayNightSystem } from './DayNightSystem';
+import type { CloudyCosmeticsSystem } from './CloudyCosmeticsSystem';
 
 const SAVE_DATA_VERSION = 1;
 const AUTOSAVE_DEBOUNCE_MS = 1000;
 
 export interface SaveableSystems {
   happinessSystem: HappinessSystem;
+  stationAreaSystem: StationAreaSystem;
   decorationSystem: DecorationSystem;
   guestSystem: GuestSystem;
   journalSystem: JournalSystem;
   photoMomentSystem: PhotoMomentSystem;
   paperBoatSystem: PaperBoatSystem;
+  dayNightSystem: DayNightSystem;
+  cloudyCosmeticsSystem: CloudyCosmeticsSystem;
 }
 
 export class SaveSystem {
@@ -56,6 +62,9 @@ export class SaveSystem {
     this.eventBus.on('journal:layout-updated', trigger);
     this.eventBus.on('journal:item-removed', trigger);
     this.eventBus.on('paperboat:sent', trigger);
+    this.eventBus.on('area:unlocked', trigger);
+    this.eventBus.on('daynight:changed', trigger);
+    this.eventBus.on('cloudyCosmetic:unlocked', trigger);
   }
 
   private scheduleAutosave(): void {
@@ -85,16 +94,22 @@ export class SaveSystem {
       capturedPhotoMoments: this.systems.photoMomentSystem.getCapturedIds(),
       journalLayout: [...this.systems.journalSystem.getAllJournalLayouts().entries()],
       paperBoatSentCount: this.systems.paperBoatSystem.getSentCount(),
+      unlockedAreas: this.systems.stationAreaSystem.getUnlockedIds(),
+      isNight: this.systems.dayNightSystem.isNight(),
+      cloudyCosmetics: this.systems.cloudyCosmeticsSystem.getSaveState(),
     };
   }
 
   private applyToSystems(data: SaveData): void {
     this.systems.happinessSystem.restoreCount(data.happinessCrystals);
+    this.systems.stationAreaSystem.restoreUnlocked(data.unlockedAreas ?? []);
     this.systems.decorationSystem.restoreUnlocked(data.unlockedDecorations);
     this.systems.journalSystem.restoreUnlocked(data.unlockedMemories);
     this.systems.photoMomentSystem.restoreCaptured(data.capturedPhotoMoments);
     this.systems.journalSystem.restoreJournalLayouts(data.journalLayout ?? []);
     this.systems.paperBoatSystem.restoreSentCount(data.paperBoatSentCount ?? 0);
+    this.systems.dayNightSystem.restoreIsNight(data.isNight ?? false);
+    if (data.cloudyCosmetics) this.systems.cloudyCosmeticsSystem.restoreState(data.cloudyCosmetics);
     for (const [guestId, progress] of Object.entries(data.guestProgress)) {
       this.systems.guestSystem.restoreProgress(guestId, {
         ...progress,

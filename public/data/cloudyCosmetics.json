@@ -1,0 +1,12 @@
+{
+  "shapes": [
+    { "id": "default", "name": "Mây Mặc Định", "unlockedByDefault": true },
+    { "id": "heart", "name": "Mây Trái Tim", "cost": 8 },
+    { "id": "cotton_candy", "name": "Mây Kẹo Bông" }
+  ],
+  "accessories": [
+    { "id": "sunset_hat", "name": "Mũ Hoàng Hôn" },
+    { "id": "star_clip", "name": "Kẹp Sao Nhỏ" },
+    { "id": "rainbow_ribbon", "name": "Nơ Cầu Vồng" }
+  ]
+}

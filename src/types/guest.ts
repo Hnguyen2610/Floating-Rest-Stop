@@ -16,6 +16,9 @@ export interface GuestDefinition {
   initialIntensity: number;
   treatment: GuestTreatment;
   needHint: string;
+  // Rare guests (Aurora, Comet) are excluded from the regular random spawn
+  // pool — they only appear once RareGuestSystem's conditions are met.
+  rare?: boolean;
 }
 
 export interface GuestState {

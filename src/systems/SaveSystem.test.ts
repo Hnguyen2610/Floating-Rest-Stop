@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { SaveSystem } from './SaveSystem';
 import type { SaveData, SaveProvider } from '../services/save/SaveProvider';
 import { HappinessSystem } from './HappinessSystem';
+import { StationAreaSystem, type AreasData } from './StationAreaSystem';
 import { DecorationSystem, type DecorationsData } from './DecorationSystem';
 import { GuestSystem, type GuestsData } from './GuestSystem';
 import { EmotionSystem, type EmotionsData } from './EmotionSystem';
 import { JournalSystem, type JournalData } from './JournalSystem';
 import { PhotoMomentSystem, type PhotoMomentsData } from './PhotoMomentSystem';
 import { PaperBoatSystem, type PaperMessagesData } from './PaperBoatSystem';
+import { DayNightSystem } from './DayNightSystem';
+import { CloudyCosmeticsSystem, type CloudyCosmeticsData } from './CloudyCosmeticsSystem';
 import { TypedEventBus, type GameEventMap } from '../core/EventBus';
 
 class MemorySaveProvider implements SaveProvider {
@@ -36,6 +39,9 @@ const emotionsData: EmotionsData = {
   stageThresholds: { distressed: 70, calming: 50, relaxed: 30, content: 10, peaceful: 0 },
   emotions: { SUN_OVERHEATED: { label: 'Overheated', color: '#f28b82' } },
 };
+const areasData: AreasData = {
+  areas: [{ id: 'small_cloud', name: 'Small Cloud', cost: 0, order: 1 }],
+};
 const decorationsData: DecorationsData = {
   decorations: [
     { id: 'wind_chime', name: 'Wind Chime', cost: 1, slotX: 0.1, slotY: 0.1, interactive: true },
@@ -58,17 +64,35 @@ const photoMomentsData: PhotoMomentsData = {
 const messagesData: PaperMessagesData = {
   messages: [{ id: 'did_well', text: 'You did well today.' }],
 };
+const cosmeticsData: CloudyCosmeticsData = {
+  shapes: [{ id: 'default', name: 'Default', unlockedByDefault: true }],
+  accessories: [{ id: 'sunset_hat', name: 'Sunset Hat' }],
+};
 
 function makeSystems() {
   const bus = new TypedEventBus<GameEventMap>();
   const emotionSystem = new EmotionSystem(emotionsData);
   const guestSystem = new GuestSystem(guestsData, emotionSystem, bus);
   const happinessSystem = new HappinessSystem(bus);
-  const decorationSystem = new DecorationSystem(decorationsData, happinessSystem, bus);
+  const stationAreaSystem = new StationAreaSystem(areasData, happinessSystem, bus);
+  const decorationSystem = new DecorationSystem(decorationsData, happinessSystem, stationAreaSystem, bus);
   const journalSystem = new JournalSystem(journalData, bus, guestSystem);
   const photoMomentSystem = new PhotoMomentSystem(photoMomentsData, journalSystem, bus);
   const paperBoatSystem = new PaperBoatSystem(messagesData, happinessSystem, guestSystem, bus);
-  return { bus, guestSystem, happinessSystem, decorationSystem, journalSystem, photoMomentSystem, paperBoatSystem };
+  const dayNightSystem = new DayNightSystem(bus);
+  const cloudyCosmeticsSystem = new CloudyCosmeticsSystem(cosmeticsData, happinessSystem, guestSystem, bus);
+  return {
+    bus,
+    guestSystem,
+    happinessSystem,
+    stationAreaSystem,
+    decorationSystem,
+    journalSystem,
+    photoMomentSystem,
+    paperBoatSystem,
+    dayNightSystem,
+    cloudyCosmeticsSystem,
+  };
 }
 
 describe('SaveSystem', () => {
@@ -95,6 +119,14 @@ describe('SaveSystem', () => {
     });
     expect(provider.stored?.journalLayout).toEqual([]);
     expect(provider.stored?.paperBoatSentCount).toBe(0);
+    expect(provider.stored?.unlockedAreas).toEqual(['small_cloud']);
+    expect(provider.stored?.isNight).toBe(false);
+    expect(provider.stored?.cloudyCosmetics).toEqual({
+      unlockedShapes: ['default'],
+      unlockedAccessories: [],
+      equippedShape: 'default',
+      equippedAccessories: [],
+    });
   });
 
   it('restores state from an existing save on construction', async () => {
@@ -110,6 +142,14 @@ describe('SaveSystem', () => {
       capturedPhotoMoments: ['sun_cool_drizzle_01'],
       journalLayout: [['sticker1', { stickerType: 'cloud', x: 10, y: 20, rotation: 0, scale: 1 }]],
       paperBoatSentCount: 4,
+      unlockedAreas: ['tea_corner'],
+      isNight: true,
+      cloudyCosmetics: {
+        unlockedShapes: ['heart'],
+        unlockedAccessories: ['sunset_hat'],
+        equippedShape: 'heart',
+        equippedAccessories: ['sunset_hat'],
+      },
     };
 
     const systems = makeSystems();
@@ -135,6 +175,10 @@ describe('SaveSystem', () => {
       scale: 1,
     });
     expect(systems.paperBoatSystem.getSentCount()).toBe(4);
+    expect(systems.stationAreaSystem.isUnlocked('tea_corner')).toBe(true);
+    expect(systems.dayNightSystem.isNight()).toBe(true);
+    expect(systems.cloudyCosmeticsSystem.isShapeUnlocked('heart')).toBe(true);
+    expect(systems.cloudyCosmeticsSystem.getEquippedShape()).toBe('heart');
   });
 
   it('does not save before the initial load resolves', async () => {

@@ -14,7 +14,8 @@
       "cost": 2,
       "slotX": 0.8,
       "slotY": 0.66,
-      "interactive": false
+      "interactive": false,
+      "requiredAreaId": "rain_garden"
     },
     {
       "id": "firefly_lantern",
@@ -22,7 +23,8 @@
       "cost": 2,
       "slotX": 0.94,
       "slotY": 0.3,
-      "interactive": false
+      "interactive": false,
+      "requiredAreaId": "stargazing_corner"
     },
     {
       "id": "tea_table",
@@ -30,7 +32,8 @@
       "cost": 1,
       "slotX": 0.68,
       "slotY": 0.7,
-      "interactive": false
+      "interactive": false,
+      "requiredAreaId": "tea_corner"
     },
     {
       "id": "wind_pinwheel",
@@ -38,7 +41,8 @@
       "cost": 1,
       "slotX": 0.08,
       "slotY": 0.66,
-      "interactive": false
+      "interactive": false,
+      "requiredAreaId": "wind_garden"
     }
   ]
 }

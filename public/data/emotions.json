@@ -103,6 +103,58 @@
       "label": "Vui vẻ và sẵn sàng bay",
       "color": "#f7c9d0",
       "dialogue": ["Cảm ơn bạn đã cho chúng mình nghỉ chân!", "Chúng mình sắp bay tiếp rồi, hẹn gặp lại nhé!"]
+    },
+
+    "AURORA_DIM": {
+      "label": "Mờ nhạt",
+      "color": "#4a5a6a",
+      "dialogue": ["Ánh sáng của mình mờ quá... không biết còn ai nhìn thấy mình không.", "Mình đã bay qua rất nhiều nơi mà không tìm được chỗ dừng."]
+    },
+    "AURORA_FLICKERING": {
+      "label": "Lập lòe",
+      "color": "#5f7a8a",
+      "dialogue": ["Ơ... mình cảm nhận được thứ gì đó ấm áp ở đây.", "Có lẽ nơi này khác những nơi khác."]
+    },
+    "AURORA_GLOWING": {
+      "label": "Đang sáng dần",
+      "color": "#6fbfa0",
+      "dialogue": ["Mình đang sáng dần lên rồi này.", "Cảm giác lạ ghê, như mình thuộc về nơi đây vậy."]
+    },
+    "AURORA_SHIMMERING": {
+      "label": "Lung linh sắc màu",
+      "color": "#9d7fd4",
+      "dialogue": ["Nhìn xem, sắc màu của mình đang nhảy múa kìa!", "Đây là lần đầu mình dám tỏa sáng thật sự."]
+    },
+    "AURORA_RADIANT": {
+      "label": "Rực rỡ",
+      "color": "#7fe0c0",
+      "dialogue": ["Cảm ơn vì đã tạo ra một nơi đủ đặc biệt để mình ghé qua.", "Mình sẽ nhớ ánh sáng ấm áp nơi này mãi."]
+    },
+
+    "COMET_FADING": {
+      "label": "Đuôi sao mờ dần",
+      "color": "#8a7a6a",
+      "dialogue": ["Mình đã bay một mình lâu lắm rồi... đuôi sao cũng mờ dần.", "Không biết còn bao xa nữa mới có chỗ dừng chân."]
+    },
+    "COMET_STIRRING": {
+      "label": "Bắt đầu cựa mình",
+      "color": "#c99a6a",
+      "dialogue": ["Ơ, có gì đó khiến mình muốn bừng sáng trở lại.", "Đuôi sao của mình đang động đậy rồi này."]
+    },
+    "COMET_STREAKING": {
+      "label": "Lướt ngang bầu trời",
+      "color": "#e8b56a",
+      "dialogue": ["Nhìn mình lướt qua bầu trời này xem!", "Cảm giác được bay tự do thật là đã."]
+    },
+    "COMET_BLAZING": {
+      "label": "Cháy sáng rực",
+      "color": "#ffcf6a",
+      "dialogue": ["Mình đang cháy sáng hết mình luôn nè!", "Đây mới là mình — một ngôi sao chổi thực thụ."]
+    },
+    "COMET_BRILLIANT": {
+      "label": "Rực rỡ trọn vẹn",
+      "color": "#fff0a0",
+      "dialogue": ["Cảm ơn vì đã cho mình một nơi để rực rỡ trọn vẹn.", "Hẹn gặp lại vào lần mình quay quỹ đạo tới nhé!"]
     }
   }
 }

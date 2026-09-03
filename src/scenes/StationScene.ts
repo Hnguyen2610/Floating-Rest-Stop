@@ -7,6 +7,8 @@ import { SunGuest } from '../guests/SunGuest';
 import { MoonGuest } from '../guests/MoonGuest';
 import { LittleStarGuest } from '../guests/LittleStarGuest';
 import { ButterflyGuest } from '../guests/ButterflyGuest';
+import { AuroraGuest } from '../guests/AuroraGuest';
+import { CometGuest } from '../guests/CometGuest';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
 import { HappinessCrystal } from '../entities/HappinessCrystal';
 import { Decoration, type DecorationVisual } from '../entities/Decoration';
@@ -16,11 +18,20 @@ import { WeatherMixerUI } from '../ui/WeatherMixerUI';
 import { CrystalCounter } from '../ui/CrystalCounter';
 import { DecorationShopUI } from '../ui/DecorationShopUI';
 import { PaperBoatUI } from '../ui/PaperBoatUI';
+import { StationAreaShopUI } from '../ui/StationAreaShopUI';
+import { CloudyCosmeticsShopUI } from '../ui/CloudyCosmeticsShopUI';
 import { GuestHintUI } from '../ui/GuestHintUI';
 import { BottomNavUI } from '../ui/BottomNavUI';
 import { eventBus } from '../core/EventBus';
 import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
 import type { GuestState } from '../types/guest';
+
+const AREA_MARKER_SLOTS: Record<string, { x: number; y: number }> = {
+  tea_corner: { x: 0.62, y: 0.52 },
+  wind_garden: { x: 0.14, y: 0.52 },
+  stargazing_corner: { x: 0.9, y: 0.15 },
+  rain_garden: { x: 0.85, y: 0.52 },
+};
 
 export class StationScene extends Phaser.Scene {
   private systems!: GameSystems;
@@ -29,6 +40,13 @@ export class StationScene extends Phaser.Scene {
   private guestHintUI!: GuestHintUI;
   private decorationShopUI!: DecorationShopUI;
   private paperBoatUI!: PaperBoatUI;
+  private stationAreaShopUI!: StationAreaShopUI;
+  private cloudyCosmeticsShopUI!: CloudyCosmeticsShopUI;
+  private sky!: Phaser.GameObjects.Graphics;
+  private dayNightButton!: Phaser.GameObjects.Text;
+  private rareGuestIndicator: Phaser.GameObjects.Text | null = null;
+  private rareGuestIndicatorFor: string | null = null;
+  private drawnAreaMarkers = new Set<string>();
   private activeGuestEntity: Guest | null = null;
   private photoMomentIcon: PhotoMomentIcon | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
@@ -46,7 +64,13 @@ export class StationScene extends Phaser.Scene {
     this.drawSky();
     this.drawPlatform();
     this.drawTitle();
-    this.cloudy = new Cloudy(this, GAME_WIDTH / 2, GAME_HEIGHT * 0.48);
+    this.cloudy = new Cloudy(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT * 0.48,
+      this.systems.cloudyCosmeticsSystem.getEquippedShape(),
+    );
+    this.cloudy.setAccessories(this.systems.cloudyCosmeticsSystem.getEquippedAccessories());
 
     new InventoryUI(this, 24, 76, this.systems.ingredientSystem, this.systems.weatherSystem, (id) =>
       this.handleInventoryTap(id),
@@ -75,12 +99,27 @@ export class StationScene extends Phaser.Scene {
     this.paperBoatUI = new PaperBoatUI(this, this.systems.paperBoatSystem, () =>
       this.systems.audioSystem.playCaptureSound(),
     );
+    this.stationAreaShopUI = new StationAreaShopUI(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      this.systems.stationAreaSystem,
+    );
+    this.cloudyCosmeticsShopUI = new CloudyCosmeticsShopUI(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT / 2,
+      this.systems.cloudyCosmeticsSystem,
+      () => this.applyCloudyCosmetics(),
+    );
     this.drawMuteButton();
+    this.drawDayNightToggle();
     this.guestHintUI = new GuestHintUI(this, GAME_WIDTH * 0.24, GAME_HEIGHT * 0.42 - 100);
     this.drawBottomNav();
 
     this.wireEvents();
     this.resumeState();
+    this.drawAreaMarkers();
 
     this.time.addEvent({
       delay: 4000,
@@ -93,11 +132,25 @@ export class StationScene extends Phaser.Scene {
       delay: 3000,
       loop: true,
       callback: () => {
-        if (!this.systems.guestSystem.getCurrentGuest()) this.spawnRandomGuest();
+        // Skip while a rare guest is waiting to be invited, so an ordinary
+        // guest can't race in and steal the earned rare-guest window.
+        if (!this.systems.guestSystem.getCurrentGuest() && !this.rareGuestIndicatorFor) {
+          this.spawnRandomGuest();
+        }
       },
+    });
+    this.time.addEvent({
+      delay: 2000,
+      loop: true,
+      callback: () => this.refreshRareGuestIndicator(),
     });
 
     this.wireDebugKeys();
+  }
+
+  private applyCloudyCosmetics(): void {
+    this.cloudy.setShape(this.systems.cloudyCosmeticsSystem.getEquippedShape());
+    this.cloudy.setAccessories(this.systems.cloudyCosmeticsSystem.getEquippedAccessories());
   }
 
   update(time: number, delta: number): void {
@@ -131,6 +184,7 @@ export class StationScene extends Phaser.Scene {
     this.photoMomentIcon?.destroy();
     this.photoMomentIcon = null;
     this.guestHintUI.showIdle();
+    this.refreshRareGuestIndicator();
   };
 
   private readonly handleEmotionChanged = (state: GuestState): void => {
@@ -167,6 +221,19 @@ export class StationScene extends Phaser.Scene {
     this.showToast(`💌 Lời nhắn của bạn đã sưởi ấm lòng ${definition.name}`);
   };
 
+  private readonly handleAreaUnlocked = ({ id }: { id: string }): void => {
+    this.drawAreaMarker(id);
+    if (id === 'stargazing_corner') this.dayNightButton.setVisible(true);
+  };
+
+  private readonly handleCloudyCosmeticUnlocked = ({ kind, id }: { kind: 'shape' | 'accessory'; id: string }): void => {
+    const name =
+      kind === 'shape'
+        ? this.systems.cloudyCosmeticsSystem.getShapes().find((s) => s.id === id)?.name
+        : this.systems.cloudyCosmeticsSystem.getAccessories().find((a) => a.id === id)?.name;
+    if (name) this.showToast(`☁️ Mây Bông vừa mở khóa: ${name}`);
+  };
+
   private wireEvents(): void {
     eventBus.on('guest:arrived', this.handleGuestArrived);
     eventBus.on('guest:left', this.handleGuestLeft);
@@ -174,6 +241,8 @@ export class StationScene extends Phaser.Scene {
     eventBus.on('guest:relaxed', this.handleGuestRelaxed);
     eventBus.on('decoration:placed', this.handleDecorationPlaced);
     eventBus.on('paperboat:sent', this.handlePaperBoatSent);
+    eventBus.on('area:unlocked', this.handleAreaUnlocked);
+    eventBus.on('cloudyCosmetic:unlocked', this.handleCloudyCosmeticUnlocked);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       eventBus.off('guest:arrived', this.handleGuestArrived);
@@ -182,6 +251,8 @@ export class StationScene extends Phaser.Scene {
       eventBus.off('guest:relaxed', this.handleGuestRelaxed);
       eventBus.off('decoration:placed', this.handleDecorationPlaced);
       eventBus.off('paperboat:sent', this.handlePaperBoatSent);
+      eventBus.off('area:unlocked', this.handleAreaUnlocked);
+      eventBus.off('cloudyCosmetic:unlocked', this.handleCloudyCosmeticUnlocked);
     });
   }
 
@@ -200,7 +271,8 @@ export class StationScene extends Phaser.Scene {
       { icon: '🎨', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
       { icon: '🎐', label: 'Gửi lời nhắn', onTap: () => this.paperBoatUI.toggle() },
       { icon: '🌾', label: 'Thu hoạch', onTap: () => this.showFeatureComingSoon() },
-      { icon: '⚒️', label: 'Nâng cấp', onTap: () => this.showFeatureComingSoon() },
+      { icon: '🗺️', label: 'Mở rộng trạm', onTap: () => this.stationAreaShopUI.toggle() },
+      { icon: '☁️', label: 'Mây Bông', onTap: () => this.cloudyCosmeticsShopUI.toggle() },
     ]);
   }
 
@@ -244,6 +316,145 @@ export class StationScene extends Phaser.Scene {
       audioSystem.setMuted(!audioSystem.isMuted());
       label.setText(audioSystem.isMuted() ? '🔇' : '🔊');
     });
+  }
+
+  // Manual day/night toggle (Pass 21) — only revealed once Stargazing Corner
+  // is unlocked, since that's what gives the sky somewhere to point at night.
+  private drawDayNightToggle(): void {
+    const isNightIcon = () => (this.systems.dayNightSystem.isNight() ? '🌙' : '☀️');
+    this.dayNightButton = this.add
+      .text(GAME_WIDTH - 32, 104, isNightIcon(), { fontFamily: FONT_FAMILY, fontSize: '22px' })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    this.dayNightButton.on('pointerdown', () => {
+      this.systems.dayNightSystem.toggle();
+      this.dayNightButton.setText(isNightIcon());
+      this.redrawSky();
+    });
+    this.dayNightButton.setVisible(this.systems.stationAreaSystem.isUnlocked('stargazing_corner'));
+  }
+
+  private redrawSky(): void {
+    const night = this.systems.dayNightSystem.isNight();
+    this.sky.clear();
+    if (night) {
+      this.sky.fillGradientStyle(0x1c2340, 0x1c2340, 0x3a3564, 0x3a3564, 1);
+    } else {
+      this.sky.fillGradientStyle(PALETTE.skyTop, PALETTE.skyTop, PALETTE.skyBottom, PALETTE.skyBottom, 1);
+    }
+    this.sky.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+  }
+
+  private drawAreaMarkers(): void {
+    this.systems.stationAreaSystem.getUnlockedIds().forEach((id) => this.drawAreaMarker(id));
+  }
+
+  private drawAreaMarker(id: string): void {
+    if (this.drawnAreaMarkers.has(id)) return;
+    const slot = AREA_MARKER_SLOTS[id];
+    if (!slot) return; // small_cloud (the free starter area) has no marker of its own
+    this.drawnAreaMarkers.add(id);
+
+    const x = GAME_WIDTH * slot.x;
+    const y = GAME_HEIGHT * slot.y;
+
+    switch (id) {
+      case 'tea_corner': {
+        for (let i = 0; i < 3; i += 1) {
+          const wisp = this.add.circle(x + (i - 1) * 6, y, 3, PALETTE.cloudWhite, 0.6);
+          this.tweens.add({
+            targets: wisp,
+            y: y - 20,
+            alpha: 0,
+            duration: 1800 + i * 200,
+            repeat: -1,
+            delay: i * 400,
+          });
+        }
+        break;
+      }
+      case 'wind_garden': {
+        const pinwheel = this.add.graphics({ x, y });
+        const colors = [PALETTE.pastelPink, PALETTE.mint, PALETTE.softYellow, PALETTE.lavender];
+        colors.forEach((color, i) => {
+          const angle = (i / colors.length) * Math.PI * 2;
+          pinwheel.fillStyle(color, 0.8);
+          pinwheel.beginPath();
+          pinwheel.moveTo(0, 0);
+          pinwheel.lineTo(Math.cos(angle) * 16, Math.sin(angle) * 16);
+          pinwheel.lineTo(Math.cos(angle + 0.5) * 16, Math.sin(angle + 0.5) * 16);
+          pinwheel.closePath();
+          pinwheel.fillPath();
+        });
+        this.tweens.add({ targets: pinwheel, angle: 360, duration: 4000, repeat: -1, ease: 'Linear' });
+        break;
+      }
+      case 'stargazing_corner': {
+        for (let i = 0; i < 3; i += 1) {
+          const star = this.add.text(x + i * 14 - 14, y + (i % 2) * 10, '✨', { fontSize: '12px' }).setOrigin(0.5);
+          this.tweens.add({ targets: star, alpha: 0.2, duration: 900 + i * 150, yoyo: true, repeat: -1 });
+        }
+        break;
+      }
+      case 'rain_garden': {
+        for (let i = 0; i < 3; i += 1) {
+          const drop = this.add.circle(x + (i - 1) * 10, y - 14, 2, PALETTE.skyTop, 0.8);
+          this.tweens.add({
+            targets: drop,
+            y: y + 14,
+            alpha: 0,
+            duration: 1200,
+            repeat: -1,
+            delay: i * 350,
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  // Rare guests never auto-spawn — this only surfaces an invite prompt once
+  // RareGuestSystem's conditions are met, so arriving still feels earned.
+  private refreshRareGuestIndicator(): void {
+    if (this.systems.guestSystem.getCurrentGuest()) return;
+
+    const available = this.systems.rareGuestSystem.isAuroraAvailable()
+      ? 'aurora'
+      : this.systems.rareGuestSystem.isCometAvailable()
+        ? 'comet'
+        : null;
+
+    if (!available) {
+      this.rareGuestIndicator?.destroy();
+      this.rareGuestIndicator = null;
+      this.rareGuestIndicatorFor = null;
+      return;
+    }
+
+    if (this.rareGuestIndicatorFor === available) return;
+    this.rareGuestIndicator?.destroy();
+    this.rareGuestIndicatorFor = available;
+
+    const icon = available === 'aurora' ? '🌌' : '☄️';
+    const indicator = this.add
+      .text(GAME_WIDTH * 0.5, GAME_HEIGHT * 0.25, `${icon} Một vị khách hiếm đang đến gần...`, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '14px',
+        color: '#5b4a63',
+        backgroundColor: '#fdfbf7',
+        padding: { x: 10, y: 6 },
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    this.tweens.add({ targets: indicator, alpha: 0.5, duration: 700, yoyo: true, repeat: -1 });
+    indicator.on('pointerdown', () => {
+      this.systems.guestSystem.spawn(available);
+      indicator.destroy();
+      this.rareGuestIndicator = null;
+      this.rareGuestIndicatorFor = null;
+    });
+
+    this.rareGuestIndicator = indicator;
   }
 
   private spawnIngredient(): void {
@@ -301,6 +512,10 @@ export class StationScene extends Phaser.Scene {
         return new LittleStarGuest(this, x, y, state, meta, onInteract);
       case 'butterfly':
         return new ButterflyGuest(this, x, y, state, meta, onInteract);
+      case 'aurora':
+        return new AuroraGuest(this, x, y, state, meta, onInteract);
+      case 'comet':
+        return new CometGuest(this, x, y, state, meta, onInteract);
       default:
         throw new Error(`Unknown guest id: ${state.id}`);
     }
@@ -368,7 +583,9 @@ export class StationScene extends Phaser.Scene {
   }
 
   private spawnRandomGuest(): void {
-    const definitions = this.systems.guestSystem.getAllDefinitions();
+    // Rare guests (Aurora, Comet) never join the regular random pool — they
+    // only arrive through the earned invite in refreshRareGuestIndicator().
+    const definitions = this.systems.guestSystem.getAllDefinitions().filter((def) => !def.rare);
     const definition = Phaser.Utils.Array.GetRandom(definitions);
     this.systems.guestSystem.spawn(definition.id);
   }
@@ -428,12 +645,22 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-R', () => {
       new LocalSaveProvider().clear().then(() => window.location.reload());
     });
+    this.input.keyboard?.on('keydown-N', () => {
+      this.systems.dayNightSystem.toggle();
+      this.dayNightButton.setText(this.systems.dayNightSystem.isNight() ? '🌙' : '☀️');
+      this.redrawSky();
+    });
+    this.input.keyboard?.on('keydown-B', () => {
+      for (let i = 0; i < 30; i += 1) this.systems.happinessSystem.collectCrystal();
+    });
+    this.input.keyboard?.on('keydown-FIVE', () => guestSystem.spawn('aurora'));
+    this.input.keyboard?.on('keydown-SIX', () => guestSystem.spawn('comet'));
+    this.input.keyboard?.on('keydown-M', () => guestSystem.addTrust('moon', 40));
   }
 
   private drawSky(): void {
-    const sky = this.add.graphics();
-    sky.fillGradientStyle(PALETTE.skyTop, PALETTE.skyTop, PALETTE.skyBottom, PALETTE.skyBottom, 1);
-    sky.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    this.sky = this.add.graphics();
+    this.redrawSky();
   }
 
   private drawPlatform(): void {

@@ -48,6 +48,20 @@ const STAGE_EMOTION_BY_GUEST: Record<string, Record<EmotionStage, string>> = {
     CONTENT: 'BUTTERFLY_CHATTING',
     PEACEFUL: 'BUTTERFLY_HAPPY',
   },
+  aurora: {
+    DISTRESSED: 'AURORA_DIM',
+    CALMING: 'AURORA_FLICKERING',
+    RELAXED: 'AURORA_GLOWING',
+    CONTENT: 'AURORA_SHIMMERING',
+    PEACEFUL: 'AURORA_RADIANT',
+  },
+  comet: {
+    DISTRESSED: 'COMET_FADING',
+    CALMING: 'COMET_STIRRING',
+    RELAXED: 'COMET_STREAKING',
+    CONTENT: 'COMET_BLAZING',
+    PEACEFUL: 'COMET_BRILLIANT',
+  },
 };
 
 export class GuestSystem {

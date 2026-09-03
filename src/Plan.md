@@ -6,7 +6,7 @@ Dưới đây là **toàn bộ roadmap từ Pass 1 đến Pass 31**, mình đã 
 PHASE 1 — MVP FOUNDATION                 Pass 1–14   ✅ DONE
 PHASE 2 — CORE GAME DEPTH                Pass 15–17  ✅ DONE (hệ thống + nội dung — xem ghi chú trạng thái trong từng pass)
 PHASE 3 — CONTENT & SOCIAL INTERACTION   Pass 18–20  ✅ DONE (xem ghi chú trạng thái trong từng pass)
-PHASE 4 — WORLD PROGRESSION              Pass 21–23
+PHASE 4 — WORLD PROGRESSION              Pass 21–23  ✅ DONE (xem ghi chú trạng thái trong từng pass)
 PHASE 5 — PRESENTATION & GAME FEEL       Pass 24–26
 PHASE 6 — BALANCE & PLATFORM             Pass 27–30
 PHASE 7 — RELEASE QA                     Pass 31
@@ -739,9 +739,18 @@ Pass kindness onward
 
 ---
 
-# PHASE 4 — WORLD PROGRESSION
+# PHASE 4 — WORLD PROGRESSION ✅ (2026-09-03)
 
-# Pass 21 — Station Expansion
+**Trạng thái:** Cả 3 pass đã xong, đầy đủ không rút gọn (theo yêu cầu từ Phase 3) — 87/87 test pass, `tsc`/lint/build sạch, verify browser thật nhiều vòng. Phase này có phụ thuộc thật giữa các pass (khác Phase 3) nên làm theo đúng thứ tự: Pass 21 trước (cung cấp "Wind Garden" và chu kỳ đêm mà Pass 22 cần), rồi Pass 22, rồi Pass 23 (cần "rare guest reward" từ Pass 22).
+
+**3 bug thật tìm thấy khi verify bằng browser** (không phải suy đoán — đúng tinh thần "Visible ≠ Interactive" trong Plan):
+1. Quên lọc rare guest khỏi vòng spawn ngẫu nhiên — Aurora/Comet spawn như guest thường, phá vỡ toàn bộ thiết kế "phải tạo điều kiện mới gặp được". Đã sửa (`spawnRandomGuest` giờ lọc `!def.rare`).
+2. Mua hình dạng Cloudy mới không tự mặc — phải bấm 2 lần (mua, rồi mặc). Đã sửa để mua xong mặc luôn.
+3. Guest thường có thể "cướp chỗ" của rare guest do đua với timer spawn 3s — thêm guard tạm dừng random spawn khi đang có rare guest chờ mời, và check ngay khi guest rời đi thay vì chỉ dựa vào poll 2s.
+
+# Pass 21 — Station Expansion ✅
+
+**Đã làm:** `StationAreaSystem` mới (data-driven `areas.json`, 5 khu vực đúng theo Plan, unlock bằng crystal như `DecorationSystem`). "Decoration slots" của mỗi khu vực triển khai cụ thể: 4/5 decoration cũ (Pass 8) giờ có `requiredAreaId` — chỉ mua được sau khi mở khu tương ứng (VD: Wind Pinwheel cần Wind Pinwheel Garden). "Ambient interactions": mỗi khu có hiệu ứng nền riêng khi mở (khói trà, chong chóng quay, sao lấp lánh, mưa rơi — Graphics + tween, không cần asset mới). Thêm `DayNightSystem` (toggle thủ công, không phải đồng hồ thời gian thực — giữ đúng nguyên tắc "không tạo áp lực chờ đợi") làm điều kiện "night station" cho Aurora, mở khóa cùng Stargazing Corner.
 
 Trạm không nên chỉ là một màn hình có nhiều decoration.
 
@@ -781,7 +790,11 @@ Không biến thành city builder.
 
 ---
 
-# Pass 22 — Rare Guest System
+# Pass 22 — Rare Guest System ✅
+
+**Đã làm:** `RareGuestSystem` mới — pure logic, không tự spawn gì cả, chỉ trả về điều kiện đã đủ hay chưa (`isAuroraAvailable`/`isCometAvailable`), khớp đúng cả 4 điều kiện Aurora (moon trustLevel≥40, đêm, Wind Chime, moon_memory_3) và cả 2 điều kiện Comet (star_memory_4, Wind Garden). Aurora/Comet là guest thứ 5/6 trong `guests.json`, tái sử dụng 100% GuestSystem/EmotionSystem (đúng kiến trúc, không FSM riêng) nhưng đánh dấu `rare: true` để loại khỏi vòng spawn ngẫu nhiên. `StationScene` poll điều kiện mỗi 2s, hiện icon "✨ Một vị khách hiếm đang đến gần..." khi đủ điều kiện và không có guest hiện tại — bấm vào mới thật sự mời (`guestSystem.spawn`), đúng tinh thần "người chơi tạo ra điều kiện, rồi chủ động mời" thay vì tự động ập tới.
+
+Mỗi rare guest có đủ: arrival + 1 emotional need (5 stage riêng: DIM→RADIANT cho Aurora, FADING→BRILLIANT cho Comet) + 1 interaction (recipe riêng: Aurora Veil, Comet Trail) + 1 Photo Moment + 1 Journal memory + đóng vai trò "rare reward" cho Pass 23. Đã verify bằng browser thật toàn bộ chuỗi Comet: mở Wind Garden → capture photo Little Star → indicator hiện đúng lúc → bấm mời → Sao Chổi spawn đúng dialogue.
 
 Rare Guest không xuất hiện hoàn toàn random.
 
@@ -830,7 +843,15 @@ Rare Guest phải tạo cảm giác:
 
 ---
 
-# Pass 23 — Cloudy Cosmetics
+# Pass 23 — Cloudy Cosmetics ✅
+
+**Đã làm:** `src/entities/CloudyShapes.ts` — mỗi shape chỉ là một hàm sinh `Point[]` khác nhau (blob wobble cho default/cotton_candy với tham số khác nhau, công thức heart curve cho heart) rồi đưa cùng vào `SoftBodyMesh` sẵn có — đúng yêu cầu "không viết HeartCloudPhysics/CottonCandyPhysics riêng". `Cloudy.ts` thêm `setShape()`/`setAccessories()` để đổi trực tiếp không cần tạo lại scene. `CloudyCosmeticsSystem` map đủ cả 4 nguồn unlock trong Plan — không bỏ sót cái nào:
+- **Happiness**: mua Heart Cloud bằng crystal (💎8)
+- **Memory milestone**: bất kỳ guest nào unlock memory cuối (resolution) → tự mở Cotton Candy Cloud
+- **Guest relationship**: bất kỳ guest nào đạt trustLevel≥40 → tự mở Sunset Hat
+- **Rare guest reward**: capture photo Aurora → Rainbow Ribbon; capture photo Comet → Star Clip
+
+UI `CloudyCosmeticsShopUI` cho chọn shape (mua xong mặc luôn, đã sửa sau khi phát hiện bug ở trên) và bật/tắt phụ kiện. Đã verify bằng browser: mua Heart Cloud → Cloudy đổi hình thật, toast báo mở khóa, hình dạng giữ nguyên qua các lượt guest đến/đi.
 
 Customization cho Mây Bông.
 
@@ -1403,9 +1424,9 @@ release candidate
 | **P1**      | 18   | Journal Decoration    | ✅ |
 | **P1**      | 19   | Butterfly Messengers  | ✅ |
 | **P1**      | 20   | Paper Boat            | ✅ |
-| **P2**      | 21   | Station Expansion     |
-| **P2**      | 22   | Rare Guests           |
-| **P2**      | 23   | Cloudy Cosmetics      |
+| **P2**      | 21   | Station Expansion     | ✅ |
+| **P2**      | 22   | Rare Guests           | ✅ |
+| **P2**      | 23   | Cloudy Cosmetics      | ✅ |
 | **P3**      | 24   | Audio                 |
 | **P3**      | 25   | Game Feel             |
 | **P3**      | 26   | Asset Pipeline        |
@@ -1498,11 +1519,25 @@ Tổng cộng session này thêm: 1 system mới (`PaperBoatSystem`), 1 method m
 1. Pass 20 không thêm "small memory" reward — tránh trùng lặp
    với hệ thống memory của Pass 16/17.
 
-2. Nav bar StationScene giờ có 5 icon (thêm "🎐 Gửi lời nhắn").
-   "🌾 Thu hoạch" và "⚒️ Nâng cấp" vẫn là placeholder
-   "đang phát triển" — chưa thuộc pass nào đã làm.
+2. Nav bar StationScene giờ có 6 icon. "🌾 Thu hoạch" vẫn là
+   placeholder "đang phát triển"; "⚒️ Nâng cấp" đã được dùng
+   thật cho Pass 21 (Mở rộng trạm) ở Phase 4 bên dưới.
 
 3. Nên tag baseline mới, ví dụ v0.3.0-content-social,
    trước khi qua Phase 4 (Pass 21-23: Station Expansion,
    Rare Guests, Cloudy Cosmetics).
 ```
+
+---
+
+# CHECKPOINT — Phase 4 hoàn thiện (2026-09-03)
+
+Pass 21/22/23 đã xong, đầy đủ không rút gọn ngay từ đầu (áp dụng bài học từ Phase 3). Phase này có phụ thuộc thật giữa các pass nên làm tuần tự 21→22→23 thay vì song song.
+
+Tổng cộng thêm: 4 system mới (`StationAreaSystem`, `DayNightSystem`, `CloudyCosmeticsSystem`, `RareGuestSystem`), 2 guest mới (`aurora`, `comet`, đánh dấu `rare: true` để loại khỏi vòng spawn ngẫu nhiên), 2 UI mới (`StationAreaShopUI`, `CloudyCosmeticsShopUI`), `Cloudy.ts` được viết lại để nhận shape/accessory (`src/entities/CloudyShapes.ts` mới), `DecorationSystem` thêm `requiredAreaId` gating, 2 data file mới (`areas.json`, `cloudyCosmetics.json`). 87/87 test pass, `tsc`/lint/build sạch.
+
+**3 bug thật phát hiện khi verify bằng browser** (xem chi tiết ở ghi chú Phase 4 phía trên): rare guest lọt vào vòng spawn ngẫu nhiên, mua cosmetic không tự mặc, guest thường cướp chỗ rare guest do đua timer — cả 3 đều là loại lỗi chỉ lộ ra khi thực sự bấm thử trong browser, không phải khi đọc code hay chạy unit test.
+
+**Lưu ý phát hiện ngoài lề, không phải do tôi:** khi kiểm tra git status cuối phiên, thấy `src/Plan.md` và toàn bộ code từ đầu dự án đã được commit tự động vào git (24 commit local, chưa push lên `origin/main`, commit message dạng "feat: ..." mô tả đúng từng pass) — có vẻ môi trường của bạn có hook tự commit sau mỗi thay đổi. Tôi không tự ý commit gì (đúng nguyên tắc chỉ commit khi được yêu cầu) — chỉ báo lại để bạn biết, phòng khi đây không phải hành vi bạn mong đợi.
+
+Trước khi qua Phase 5 (Pass 24-26: Audio, Game Feel, Asset Pipeline), nên tag baseline mới, ví dụ `v0.4.0-world-progression`.

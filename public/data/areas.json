@@ -1,0 +1,9 @@
+{
+  "areas": [
+    { "id": "small_cloud", "name": "Đám Mây Nhỏ", "cost": 0, "order": 1 },
+    { "id": "tea_corner", "name": "Góc Trà Sương Sớm", "cost": 5, "order": 2 },
+    { "id": "wind_garden", "name": "Vườn Chong Chóng Gió", "cost": 10, "order": 3 },
+    { "id": "stargazing_corner", "name": "Góc Ngắm Sao", "cost": 15, "order": 4 },
+    { "id": "rain_garden", "name": "Vườn Mưa", "cost": 20, "order": 5 }
+  ]
+}

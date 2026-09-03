@@ -26,6 +26,24 @@
       "suitableEmotions": ["WET"],
       "suitableGuests": ["butterfly"],
       "soothingValue": 30
+    },
+    {
+      "id": "aurora_veil",
+      "name": "Aurora Veil",
+      "ingredients": ["star_dust", "morning_dew"],
+      "visualEffect": "aurora",
+      "suitableEmotions": ["DIM"],
+      "suitableGuests": ["aurora"],
+      "soothingValue": 30
+    },
+    {
+      "id": "comet_trail",
+      "name": "Comet Trail",
+      "ingredients": ["warm_sunbeam", "star_dust"],
+      "visualEffect": "comet",
+      "suitableEmotions": ["FADING"],
+      "suitableGuests": ["comet"],
+      "soothingValue": 30
     }
   ]
 }
