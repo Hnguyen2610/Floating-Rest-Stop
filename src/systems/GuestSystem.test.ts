@@ -8,7 +8,7 @@ const guestsData: GuestsData = {
     {
       id: 'sun',
       name: 'Sun',
-      initialEmotion: 'OVERHEATED',
+      initialEmotion: 'SUN_OVERHEATED',
       initialIntensity: 85,
       treatment: { type: 'recipe', recipeId: 'cool_drizzle' },
       needHint: 'needs a cool drizzle',
@@ -17,11 +17,13 @@ const guestsData: GuestsData = {
 };
 
 const emotionsData: EmotionsData = {
-  stageThresholds: { distressed: 70, calming: 40, relaxed: 15 },
+  stageThresholds: { distressed: 70, calming: 50, relaxed: 30, content: 10, peaceful: 0 },
   emotions: {
-    OVERHEATED: { label: 'Overheated', color: '#f28b82' },
-    RELAXED: { label: 'Relaxed', color: '#bfe3d0' },
-    HAPPY: { label: 'Happy', color: '#ffe08a' },
+    SUN_OVERHEATED: { label: 'Overheated', color: '#f28b82' },
+    SUN_STRESSED: { label: 'Stressed', color: '#f6bd60' },
+    SUN_UNEASY: { label: 'Uneasy', color: '#f9d68a' },
+    SUN_CALMING: { label: 'Calming', color: '#fde8a8' },
+    SUN_RELAXED: { label: 'Relaxed', color: '#ffe08a' },
   },
 };
 
@@ -39,7 +41,7 @@ describe('GuestSystem', () => {
 
     const state = system.spawn('sun');
 
-    expect(state.currentEmotion).toBe('OVERHEATED');
+    expect(state.currentEmotion).toBe('SUN_OVERHEATED');
     expect(state.emotionalIntensity).toBe(85);
     expect(state.visitStage).toBe('ARRIVING');
     expect(received).toHaveLength(1);
@@ -75,26 +77,28 @@ describe('GuestSystem', () => {
     expect(received).toHaveLength(1);
   });
 
-  it('flips currentEmotion to RELAXED/HAPPY once intensity crosses into those stages', () => {
+  it('flips currentEmotion to the guest-specific id for each stage as intensity drops', () => {
     const { system } = makeSystem();
     system.spawn('sun');
 
-    const relaxed = system.soothe(50); // 85 -> 35, RELAXED band (15-39)
-    expect(relaxed?.currentEmotion).toBe('RELAXED');
+    const relaxed = system.soothe(50); // 85 -> 35, RELAXED band (30-49)
+    expect(relaxed?.currentEmotion).toBe('SUN_UNEASY');
 
-    const happy = system.soothe(30); // 35 -> 5, HAPPY band (<15)
-    expect(happy?.currentEmotion).toBe('HAPPY');
+    const peaceful = system.soothe(30); // 35 -> 5, PEACEFUL band (<10)
+    expect(peaceful?.currentEmotion).toBe('SUN_RELAXED');
   });
 
-  it('emits guest:relaxed only on the transition into RELAXED/HAPPY, not on every soothe', () => {
+  it('emits guest:relaxed only on the transition into CONTENT/PEACEFUL, not on every soothe', () => {
     const { bus, system } = makeSystem();
     const received: unknown[] = [];
     bus.on('guest:relaxed', (payload) => received.push(payload));
 
     system.spawn('sun');
     system.soothe(10); // 85 -> 75, still DISTRESSED
-    system.soothe(40); // 75 -> 35, crosses into RELAXED: should fire once
-    system.soothe(25); // 35 -> 10, into HAPPY, but already relaxed before this call
+    system.soothe(20); // 75 -> 55, CALMING
+    system.soothe(20); // 55 -> 35, RELAXED (not content-or-better yet)
+    system.soothe(10); // 35 -> 25, crosses into CONTENT: should fire once
+    system.soothe(20); // 25 -> 5, into PEACEFUL, but already content-or-better before this call
 
     expect(received).toEqual([{ guestId: 'sun' }]);
   });
@@ -121,12 +125,12 @@ describe('GuestSystem', () => {
     expect(system.spawn('sun').visitCount).toBe(3);
   });
 
-  it('gains trust and arrives less distressed after a visit that ends relaxed or happier', () => {
+  it('gains trust and arrives less distressed after a visit that ends content or better', () => {
     const { system } = makeSystem();
 
     system.spawn('sun'); // intensity 85
-    system.soothe(60); // 85 -> 25, RELAXED
-    system.leave(); // ends relaxed -> gains trust
+    system.soothe(60); // 85 -> 25, CONTENT
+    system.leave(); // ends content-or-better -> gains trust
 
     const secondVisit = system.spawn('sun');
     expect(secondVisit.trustLevel).toBe(8);
@@ -149,7 +153,7 @@ describe('GuestSystem', () => {
 
     for (let i = 0; i < 10; i += 1) {
       system.spawn('sun');
-      system.soothe(90); // always ends relaxed/happy
+      system.soothe(90); // always ends content/peaceful
       system.leave();
     }
 

@@ -1,6 +1,9 @@
 export interface GuestSaveEntry {
   visitCount: number;
   trustLevel: number;
+  successfulTreatments: number;
+  memoryProgress: Array<[string, number]>;
+  specialInteractions: number;
 }
 
 export interface SaveData {

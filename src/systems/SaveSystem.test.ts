@@ -24,7 +24,7 @@ const guestsData: GuestsData = {
     {
       id: 'sun',
       name: 'Sun',
-      initialEmotion: 'OVERHEATED',
+      initialEmotion: 'SUN_OVERHEATED',
       initialIntensity: 85,
       treatment: { type: 'recipe', recipeId: 'cool_drizzle' },
       needHint: 'needs a cool drizzle',
@@ -32,8 +32,8 @@ const guestsData: GuestsData = {
   ],
 };
 const emotionsData: EmotionsData = {
-  stageThresholds: { distressed: 70, calming: 40, relaxed: 15 },
-  emotions: { OVERHEATED: { label: 'Overheated', color: '#f28b82' } },
+  stageThresholds: { distressed: 70, calming: 50, relaxed: 30, content: 10, peaceful: 0 },
+  emotions: { SUN_OVERHEATED: { label: 'Overheated', color: '#f28b82' } },
 };
 const decorationsData: DecorationsData = {
   decorations: [
@@ -42,7 +42,13 @@ const decorationsData: DecorationsData = {
 };
 const journalData: JournalData = {
   chapters: [
-    { guestId: 'sun', guestName: 'Sun', memories: [{ id: 'sun_memory_1', diaryText: '...' }] },
+    {
+      id: 'sun_chapter_1',
+      guestId: 'sun',
+      guestName: 'Sun',
+      title: '01 First Visit',
+      memories: [{ id: 'sun_memory_1', diaryText: '...', hint: 'soothe the sun' }],
+    },
   ],
 };
 const photoMomentsData: PhotoMomentsData = {
@@ -55,7 +61,7 @@ function makeSystems() {
   const guestSystem = new GuestSystem(guestsData, emotionSystem, bus);
   const happinessSystem = new HappinessSystem(bus);
   const decorationSystem = new DecorationSystem(decorationsData, happinessSystem, bus);
-  const journalSystem = new JournalSystem(journalData, bus);
+  const journalSystem = new JournalSystem(journalData, bus, guestSystem);
   const photoMomentSystem = new PhotoMomentSystem(photoMomentsData, journalSystem, bus);
   return { bus, guestSystem, happinessSystem, decorationSystem, journalSystem, photoMomentSystem };
 }
@@ -66,7 +72,7 @@ describe('SaveSystem', () => {
     systems.happinessSystem.collectCrystal();
     systems.happinessSystem.collectCrystal();
     systems.guestSystem.spawn('sun');
-    systems.guestSystem.soothe(70);
+    systems.guestSystem.soothe(70); // 85 -> 15, CONTENT: leave() should gain trust
     systems.guestSystem.leave();
 
     const provider = new MemorySaveProvider();
@@ -75,7 +81,13 @@ describe('SaveSystem', () => {
     await saveSystem.saveNow();
 
     expect(provider.stored?.happinessCrystals).toBe(2);
-    expect(provider.stored?.guestProgress.sun).toEqual({ visitCount: 1, trustLevel: 8 });
+    expect(provider.stored?.guestProgress.sun).toEqual({
+      visitCount: 1,
+      trustLevel: 8,
+      successfulTreatments: 1,
+      memoryProgress: [],
+      specialInteractions: 0,
+    });
   });
 
   it('restores state from an existing save on construction', async () => {
@@ -84,7 +96,9 @@ describe('SaveSystem', () => {
       version: 1,
       happinessCrystals: 5,
       unlockedDecorations: ['wind_chime'],
-      guestProgress: { sun: { visitCount: 3, trustLevel: 16 } },
+      guestProgress: {
+        sun: { visitCount: 3, trustLevel: 16, successfulTreatments: 2, memoryProgress: [], specialInteractions: 0 },
+      },
       unlockedMemories: ['sun_memory_1'],
       capturedPhotoMoments: ['sun_cool_drizzle_01'],
     };
@@ -97,7 +111,13 @@ describe('SaveSystem', () => {
     expect(systems.decorationSystem.isUnlocked('wind_chime')).toBe(true);
     expect(systems.journalSystem.isUnlocked('sun_memory_1')).toBe(true);
     expect(systems.photoMomentSystem.isCaptured('sun_cool_drizzle_01')).toBe(true);
-    expect(systems.guestSystem.getProgress('sun')).toEqual({ visitCount: 3, trustLevel: 16 });
+    expect(systems.guestSystem.getProgress('sun')).toEqual({
+      visitCount: 3,
+      trustLevel: 16,
+      successfulTreatments: 2,
+      memoryProgress: new Map(),
+      specialInteractions: 0,
+    });
   });
 
   it('does not save before the initial load resolves', async () => {

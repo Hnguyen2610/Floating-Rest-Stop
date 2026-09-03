@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PhotoMomentSystem, type PhotoMomentsData } from './PhotoMomentSystem';
 import { JournalSystem, type JournalData } from './JournalSystem';
+import { GuestSystem, type GuestsData } from './GuestSystem';
+import { EmotionSystem, type EmotionsData } from './EmotionSystem';
 import { TypedEventBus, type GameEventMap } from '../core/EventBus';
 
 const photoMomentsData: PhotoMomentsData = {
@@ -9,13 +11,38 @@ const photoMomentsData: PhotoMomentsData = {
 
 const journalData: JournalData = {
   chapters: [
-    { guestId: 'sun', guestName: 'Sun', memories: [{ id: 'sun_memory_1', diaryText: '...' }] },
+    {
+      id: 'sun_chapter_1',
+      guestId: 'sun',
+      guestName: 'Sun',
+      title: '01 First Visit',
+      memories: [{ id: 'sun_memory_1', diaryText: '...', hint: 'soothe the sun' }],
+    },
   ],
+};
+
+const guestsData: GuestsData = {
+  guests: [
+    {
+      id: 'sun',
+      name: 'Sun',
+      initialEmotion: 'SUN_OVERHEATED',
+      initialIntensity: 85,
+      treatment: { type: 'recipe', recipeId: 'cool_drizzle' },
+      needHint: 'needs a cool drizzle',
+    },
+  ],
+};
+
+const emotionsData: EmotionsData = {
+  stageThresholds: { distressed: 70, calming: 50, relaxed: 30, content: 10, peaceful: 0 },
+  emotions: { SUN_OVERHEATED: { label: 'Overheated', color: '#f28b82' } },
 };
 
 function makeSystem() {
   const bus = new TypedEventBus<GameEventMap>();
-  const journalSystem = new JournalSystem(journalData, bus);
+  const guestSystem = new GuestSystem(guestsData, new EmotionSystem(emotionsData), bus);
+  const journalSystem = new JournalSystem(journalData, bus, guestSystem);
   const system = new PhotoMomentSystem(photoMomentsData, journalSystem, bus);
   return { bus, journalSystem, system };
 }

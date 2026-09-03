@@ -1,11 +1,7 @@
-export type EmotionId =
-  | 'OVERHEATED'
-  | 'STRESSED'
-  | 'LONELY'
-  | 'TIRED'
-  | 'INSECURE'
-  | 'RELAXED'
-  | 'HAPPY';
+// Emotion ids are guest-prefixed and open-ended (e.g. 'SUN_OVERHEATED',
+// 'MOON_PEACEFUL') so they aren't enumerable as a fixed union — EmotionSystem
+// validates a given id against emotions.json at runtime instead.
+export type EmotionId = string;
 
 export type VisitStage = 'ARRIVING' | 'PRESENT' | 'LEAVING';
 

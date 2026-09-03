@@ -31,6 +31,10 @@ export class AudioSystem {
     this.playTone(784, 0.2, 0.25, 0.09);
   }
 
+  playCraftFailSound(): void {
+    this.playTone(220, 0.18, 0.22);
+  }
+
   playCaptureSound(): void {
     this.playTone(988, 0.12, 0.28);
   }

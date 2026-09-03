@@ -32,6 +32,7 @@ export class WeatherSystem {
     private eventBus: TypedEventBus<GameEventMap>,
   ) {}
 
+  /** Add ingredient to mixer slot if available */
   addToMixer(ingredientId: string): boolean {
     if (this.mixerContents.length >= MIXER_CAPACITY) return false;
     this.mixerContents.push(ingredientId);
@@ -39,10 +40,25 @@ export class WeatherSystem {
     return true;
   }
 
+  /** Remove ingredient from mixer by index */
+  removeFromMixer(index: number): string | null {
+    if (index < 0 || index >= this.mixerContents.length) return null;
+    const removed = this.mixerContents.splice(index, 1)[0];
+    this.eventBus.emit('mixer:updated', { contents: [...this.mixerContents] });
+    return removed;
+  }
+
+  /** Get mixer contents */
   getMixerContents(): string[] {
     return [...this.mixerContents];
   }
 
+  /** Check if mixer has space */
+  hasMixerSpace(): boolean {
+    return this.mixerContents.length < MIXER_CAPACITY;
+  }
+
+  /** Clear mixer */
   clearMixer(): void {
     this.mixerContents = [];
     this.eventBus.emit('mixer:updated', { contents: [] });

@@ -88,6 +88,7 @@ export interface GameEventMap {
   'mixer:updated': { contents: string[] };
   'weather:created': { recipeId: string };
   'weather:used': { recipeId: string };
+  'journal:layout-updated': { itemId: string; x: number; y: number; rotation: number; scale: number };
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

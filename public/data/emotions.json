@@ -1,12 +1,82 @@
 {
-  "stageThresholds": { "distressed": 70, "calming": 40, "relaxed": 15 },
+  "stageThresholds": { "distressed": 70, "calming": 45, "relaxed": 25, "content": 10, "peaceful": 0 },
   "emotions": {
-    "OVERHEATED": { "label": "Nóng bức", "color": "#f28b82" },
-    "STRESSED": { "label": "Căng thẳng", "color": "#f6bd60" },
-    "LONELY": { "label": "Cô đơn", "color": "#9fb8ea" },
-    "TIRED": { "label": "Mệt mỏi", "color": "#b0b8c9" },
-    "INSECURE": { "label": "Thiếu tự tin", "color": "#c4bfd1" },
-    "RELAXED": { "label": "Thư giãn", "color": "#bfe3d0" },
-    "HAPPY": { "label": "Hạnh phúc", "color": "#ffe08a" }
+    "SUN_OVERHEATED": {
+      "label": "Nóng bức",
+      "color": "#f28b82",
+      "dialogue": ["Nóng quá... để mình yên một chút được không?", "Mình chỉ muốn hét lên thôi, không có ý gì đâu."]
+    },
+    "SUN_STRESSED": {
+      "label": "Căng thẳng",
+      "color": "#f6bd60",
+      "dialogue": ["Ừm... cơn gió đó dễ chịu thật.", "Có lẽ mình không cần phải nóng nảy như vậy."]
+    },
+    "SUN_UNEASY": {
+      "label": "Hơi lo lắng",
+      "color": "#f9d68a",
+      "dialogue": ["Mình vẫn hơi lo, nhưng đỡ hơn rồi.", "Cứ ở đây thêm chút nữa được không?"]
+    },
+    "SUN_CALMING": {
+      "label": "Đang dịu lại",
+      "color": "#fde8a8",
+      "dialogue": ["Lâu rồi mình mới thấy nhẹ nhõm thế này.", "Có ai đó ở bên, hóa ra dễ chịu thật."]
+    },
+    "SUN_RELAXED": {
+      "label": "Ấm áp và thư thái",
+      "color": "#ffe08a",
+      "dialogue": ["Mình chưa từng thấy ánh sáng của mình dịu như lúc này.", "Cảm ơn vì đã kiên nhẫn với một mặt trời cáu kỉnh như mình."]
+    },
+
+    "MOON_LONELY": {
+      "label": "Cô đơn",
+      "color": "#6b7fb0",
+      "dialogue": ["Có ai ngoài đó không... hay chỉ mình mình thôi?", "Đêm nay lại dài và lạnh như mọi khi."]
+    },
+    "MOON_DISTANT": {
+      "label": "Xa cách",
+      "color": "#8a9bc4",
+      "dialogue": ["Mình... không quen có ai đó ở gần thế này.", "Cứ ở đó thôi, không cần nói gì cũng được."]
+    },
+    "MOON_OPENING": {
+      "label": "Bắt đầu cởi mở",
+      "color": "#9fb8ea",
+      "dialogue": ["Mình kể bạn nghe một chuyện nhỏ nhé?", "Bầu trời hôm nay bớt lạnh hơn mình tưởng."]
+    },
+    "MOON_SHARING": {
+      "label": "Đang sẻ chia",
+      "color": "#c3d4f0",
+      "dialogue": ["Mình chưa kể chuyện này với ai bao giờ.", "Được lắng nghe... cảm giác lạ mà ấm áp."]
+    },
+    "MOON_PEACEFUL": {
+      "label": "Bình yên",
+      "color": "#d9c9ec",
+      "dialogue": ["Mình không còn thấy một mình nữa.", "Cảm ơn vì đã ở lại đến tận bây giờ."]
+    },
+
+    "STAR_INSECURE": {
+      "label": "Thiếu tự tin",
+      "color": "#b0b8c9",
+      "dialogue": ["Mình... mình bé quá, chắc không ai để ý đâu.", "Xin lỗi, mình hơi run, đừng cười mình nhé."]
+    },
+    "STAR_HESITANT": {
+      "label": "Còn ngập ngừng",
+      "color": "#c4bfd1",
+      "dialogue": ["Bạn thật sự nghĩ mình làm được à?", "Mình vẫn ngại, nhưng thử một chút xem sao."]
+    },
+    "STAR_TRYING": {
+      "label": "Đang cố gắng",
+      "color": "#d8d3e6",
+      "dialogue": ["Nhìn này — mình vừa lấp lánh một chút đó!", "Có lẽ mình không tệ như mình nghĩ."]
+    },
+    "STAR_BELIEVING": {
+      "label": "Bắt đầu tin tưởng",
+      "color": "#e8dff2",
+      "dialogue": ["Bạn nói mình lấp lánh đẹp... mình tin thật rồi đó.", "Mình đang bắt đầu thích ánh sáng của chính mình."]
+    },
+    "STAR_CONFIDENT": {
+      "label": "Tự tin lấp lánh",
+      "color": "#fdf2a4",
+      "dialogue": ["Mình không cần sáng nhất — mình chỉ cần là mình.", "Cảm ơn vì đã kiên nhẫn chờ mình tự tin lên."]
+    }
   }
 }

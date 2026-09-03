@@ -1,12 +1,24 @@
-export type EmotionStage = 'DISTRESSED' | 'CALMING' | 'RELAXED' | 'HAPPY';
+export type EmotionStage =
+  | 'DISTRESSED'
+  | 'CALMING'
+  | 'RELAXED'
+  | 'CONTENT'
+  | 'PEACEFUL';
 
 export interface EmotionMeta {
   label: string;
   color: string;
+  dialogue?: string[];
 }
 
 export interface EmotionsData {
-  stageThresholds: { distressed: number; calming: number; relaxed: number };
+  stageThresholds: {
+    distressed: number;
+    calming: number;
+    relaxed: number;
+    content: number;
+    peaceful: number
+  };
   emotions: Record<string, EmotionMeta>;
 }
 
@@ -14,11 +26,13 @@ export class EmotionSystem {
   constructor(private data: EmotionsData) {}
 
   getStage(intensity: number): EmotionStage {
-    const { distressed, calming, relaxed } = this.data.stageThresholds;
+    const { distressed, calming, relaxed, content, peaceful } = this.data.stageThresholds;
     if (intensity >= distressed) return 'DISTRESSED';
     if (intensity >= calming) return 'CALMING';
     if (intensity >= relaxed) return 'RELAXED';
-    return 'HAPPY';
+    if (intensity >= content) return 'CONTENT';
+    if (intensity >= peaceful) return 'PEACEFUL';
+    return 'PEACEFUL'; // below the lowest threshold is the calmest stage, not the most distressed
   }
 
   soothe(intensity: number, amount: number): number {

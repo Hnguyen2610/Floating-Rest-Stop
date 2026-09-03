@@ -64,7 +64,11 @@ export class SaveSystem {
   private gatherFromSystems(): SaveData {
     const guestProgress: Record<string, GuestSaveEntry> = {};
     for (const def of this.systems.guestSystem.getAllDefinitions()) {
-      guestProgress[def.id] = this.systems.guestSystem.getProgress(def.id);
+      const progress = this.systems.guestSystem.getProgress(def.id);
+      guestProgress[def.id] = {
+        ...progress,
+        memoryProgress: [...progress.memoryProgress.entries()],
+      };
     }
 
     return {
@@ -83,7 +87,10 @@ export class SaveSystem {
     this.systems.journalSystem.restoreUnlocked(data.unlockedMemories);
     this.systems.photoMomentSystem.restoreCaptured(data.capturedPhotoMoments);
     for (const [guestId, progress] of Object.entries(data.guestProgress)) {
-      this.systems.guestSystem.restoreProgress(guestId, progress);
+      this.systems.guestSystem.restoreProgress(guestId, {
+        ...progress,
+        memoryProgress: new Map(progress.memoryProgress),
+      });
     }
   }
 }

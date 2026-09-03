@@ -44,7 +44,7 @@ export class StationScene extends Phaser.Scene {
     this.drawTitle();
     this.cloudy = new Cloudy(this, GAME_WIDTH / 2, GAME_HEIGHT * 0.48);
 
-    new InventoryUI(this, 24, 76, this.systems.ingredientSystem, (id) =>
+    new InventoryUI(this, 24, 76, this.systems.ingredientSystem, this.systems.weatherSystem, (id) =>
       this.handleInventoryTap(id),
     );
     this.mixerUI = new WeatherMixerUI(
@@ -53,6 +53,8 @@ export class StationScene extends Phaser.Scene {
       GAME_HEIGHT - 90,
       this.systems.ingredientSystem,
       this.systems.weatherSystem,
+      () => this.systems.audioSystem.playCraftSuccessSound(),
+      () => this.systems.audioSystem.playCraftFailSound(),
     );
     new CrystalCounter(
       this,
@@ -106,16 +108,15 @@ export class StationScene extends Phaser.Scene {
     const y = GAME_HEIGHT * 0.42;
     this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
     this.activeGuestEntity.playArrive();
-    this.updateGuestHint(state, meta.label);
+    this.updateGuestHint(state, meta);
   };
 
   private readonly handleGuestLeft = (): void => {
     this.departureTimer?.remove();
     this.departureTimer = null;
     const entity = this.activeGuestEntity;
-    if (!entity) return;
     this.activeGuestEntity = null;
-    entity.playLeave(() => entity.destroy());
+    entity?.playLeave(() => entity.destroy());
     this.photoMomentIcon?.destroy();
     this.photoMomentIcon = null;
     this.guestHintUI.showIdle();
@@ -126,23 +127,21 @@ export class StationScene extends Phaser.Scene {
     this.activeGuestEntity?.updateEmotion(meta);
     this.checkPhotoMoment(state);
     this.scheduleDepartureIfHappy(state);
-    this.updateGuestHint(state, meta.label);
+    this.updateGuestHint(state, meta);
   };
 
-  private updateGuestHint(state: GuestState, emotionLabel: string): void {
+  private updateGuestHint(state: GuestState, meta: { label: string; color: string; dialogue?: string[] }): void {
     const definition = this.systems.guestSystem
       .getAllDefinitions()
       .find((def) => def.id === state.id);
     if (!definition) return;
 
-    const stage = this.systems.emotionSystem.getStage(state.emotionalIntensity);
-    const hint =
-      stage === 'HAPPY'
-        ? 'đang rất vui vẻ — cảm ơn bạn đã lắng nghe mình'
-        : stage === 'RELAXED'
-          ? 'đang dịu lại rồi, cứ tiếp tục nhé'
-          : definition.needHint;
-    this.guestHintUI.show(definition.name, emotionLabel, hint);
+    const line =
+      meta.dialogue && meta.dialogue.length > 0
+        ? Phaser.Utils.Array.GetRandom(meta.dialogue)
+        : definition.needHint;
+
+    this.guestHintUI.show(definition.name, meta.label, line);
   }
 
   private readonly handleGuestRelaxed = (): void => this.spawnHappinessCrystal();
@@ -177,16 +176,16 @@ export class StationScene extends Phaser.Scene {
 
   private drawBottomNav(): void {
     new BottomNavUI(this, 60, GAME_HEIGHT - 26, [
-      { icon: '📖', label: 'Nhật ký', onTap: () => this.scene.start('JournalScene') },
+      { icon: '📓', label: 'Nhật ký', onTap: () => this.scene.start('JournalScene') },
       { icon: '🎨', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
       { icon: '🌾', label: 'Thu hoạch', onTap: () => this.showFeatureComingSoon() },
-      { icon: '⬆️', label: 'Nâng cấp', onTap: () => this.showFeatureComingSoon() },
+      { icon: '⚒️', label: 'Nâng cấp', onTap: () => this.showFeatureComingSoon() },
     ]);
   }
 
   private showFeatureComingSoon(): void {
     const toast = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, '🚧 Tính năng đang phát triển', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, '🔧 Tính năng đang phát triển', {
         fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#5b4a63',
@@ -241,7 +240,6 @@ export class StationScene extends Phaser.Scene {
     if (Phaser.Geom.Circle.Contains(dropZone, screenX, screenY)) {
       if (this.systems.weatherSystem.addToMixer(ingredient.definition.id)) {
         ingredient.destroy();
-        this.tryAutoCraft();
         return;
       }
     }
@@ -250,23 +248,12 @@ export class StationScene extends Phaser.Scene {
     ingredient.destroy();
   }
 
-  private tryAutoCraft(): void {
-    if (this.systems.weatherSystem.getMixerContents().length < 2) return;
-    const success = this.systems.weatherSystem.tryCraft();
-    if (success) {
-      this.systems.audioSystem.playCraftSuccessSound();
-    } else {
-      this.mixerUI.playCraftFail();
-      this.time.delayedCall(500, () => this.systems.weatherSystem.clearMixer());
-    }
-  }
-
   private handleInventoryTap(id: string): void {
     if (!this.systems.ingredientSystem.spend(id)) return;
     if (this.systems.weatherSystem.addToMixer(id)) {
-      this.tryAutoCraft();
+      // Ingredient added to mixer successfully
     } else {
-      // Mixer was full — give the ingredient back rather than losing it.
+      // Mixer was full - give the ingredient back rather than losing it
       this.systems.ingredientSystem.collect(id);
     }
   }
@@ -319,7 +306,7 @@ export class StationScene extends Phaser.Scene {
 
   private checkPhotoMoment(state: GuestState): void {
     if (this.photoMomentIcon) return;
-    if (this.systems.emotionSystem.getStage(state.emotionalIntensity) !== 'HAPPY') return;
+    if (this.systems.emotionSystem.getStage(state.emotionalIntensity) !== 'PEACEFUL') return;
 
     const moment = this.systems.photoMomentSystem.getMomentForGuest(state.id);
     if (!moment || this.systems.photoMomentSystem.isCaptured(moment.id)) return;
@@ -341,9 +328,9 @@ export class StationScene extends Phaser.Scene {
 
   private scheduleDepartureIfHappy(state: GuestState): void {
     if (this.departureTimer) return;
-    if (this.systems.emotionSystem.getStage(state.emotionalIntensity) !== 'HAPPY') return;
+    if (this.systems.emotionSystem.getStage(state.emotionalIntensity) !== 'PEACEFUL') return;
 
-    // Give the player a moment to see the Happy state and catch the photo
+    // Give the player a moment to see the Peaceful state and catch the photo
     // moment before the guest drifts off on their own — no countdown shown,
     // no penalty either way, matching the "no time pressure" brief.
     this.departureTimer = this.time.delayedCall(8000, () => {
@@ -376,12 +363,10 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-Z', () => {
       weatherSystem.addToMixer('morning_dew');
       weatherSystem.addToMixer('cool_breeze');
-      this.tryAutoCraft();
     });
     this.input.keyboard?.on('keydown-X', () => {
       weatherSystem.addToMixer('warm_sunbeam');
       weatherSystem.addToMixer('rainbow_fragment');
-      this.tryAutoCraft();
     });
     this.input.keyboard?.on('keydown-C', () => happinessSystem.collectCrystal());
     this.input.keyboard?.on('keydown-J', () => {

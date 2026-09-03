@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
 import type { IngredientSystem } from '../systems/IngredientSystem';
+import type { WeatherSystem } from '../systems/WeatherSystem';
 
 const ROW_HEIGHT = 30;
 const ROW_WIDTH = 70;
@@ -14,7 +15,8 @@ export class InventoryUI extends Phaser.GameObjects.Container {
     x: number,
     y: number,
     ingredientSystem: IngredientSystem,
-    onTapIngredient: (id: string) => void,
+    _weatherSystem: WeatherSystem,
+    private onTap: (id: string) => void,
   ) {
     super(scene, x, y);
     scene.add.existing(this);
@@ -36,8 +38,8 @@ export class InventoryUI extends Phaser.GameObjects.Container {
       row.add([dot, label]);
 
       row.setSize(ROW_WIDTH, ROW_HEIGHT);
-      row.setInteractive();
-      row.on('pointerdown', () => onTapIngredient(definition.id));
+      row.setInteractive({ useHandCursor: true });
+      row.on('pointerdown', () => this.onTap(definition.id));
 
       this.add(row);
       this.counts.set(definition.id, label);

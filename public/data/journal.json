@@ -1,32 +1,199 @@
 {
   "chapters": [
     {
+      "id": "sun_chapter_1",
       "guestId": "sun",
       "guestName": "Mặt Trời Cáu Kỉnh",
+      "title": "01 Lần Ghé Đầu Tiên",
+      "requiredVisitCount": 1,
+      "requiredTrustLevel": 0,
       "memories": [
         {
           "id": "sun_memory_1",
-          "diaryText": "Hôm nay mình nhận ra rằng không phải lúc nào mình cũng cần phải tỏa sáng thật mạnh."
+          "diaryText": "Hôm nay mình nhận ra rằng không phải lúc nào mình cũng cần phải tỏa sáng thật mạnh.",
+          "hint": "Hãy giúp Mặt Trời dịu bớt cơn nóng nảy — pha một ly Cool Drizzle nhé.",
+          "unlockedAtStage": "SUN_STRESSED"
         }
       ]
     },
     {
+      "id": "sun_chapter_2",
+      "guestId": "sun",
+      "guestName": "Mặt Trời Cáu Kỉnh",
+      "title": "02 Học Cách Dịu Lại",
+      "requiredVisitCount": 2,
+      "requiredTrustLevel": 8,
+      "memories": [
+        {
+          "id": "sun_memory_2",
+          "diaryText": "Cơn gió mát hôm nay khiến mình bớt cáu hơn thường lệ. Có lẽ giận dữ không phải cách duy nhất để được chú ý.",
+          "hint": "Cứ tiếp tục ở lại bên Mặt Trời, đến khi cơn gió mát làm dịu cả sự lo lắng.",
+          "unlockedAtStage": "SUN_UNEASY"
+        }
+      ]
+    },
+    {
+      "id": "sun_chapter_3",
+      "guestId": "sun",
+      "guestName": "Mặt Trời Cáu Kỉnh",
+      "title": "03 Một Buổi Chiều Yên Tĩnh",
+      "requiredVisitCount": 4,
+      "requiredTrustLevel": 24,
+      "memories": [
+        {
+          "id": "sun_memory_3",
+          "diaryText": "Mình đã ngồi yên một lúc lâu mà không thấy cần phải chứng minh gì cả. Cảm giác này lạ, nhưng dễ chịu.",
+          "hint": "Hãy để Mặt Trời được yên tĩnh một lúc, không cần vội vàng gì cả.",
+          "unlockedAtStage": "SUN_CALMING"
+        }
+      ]
+    },
+    {
+      "id": "sun_chapter_4",
+      "guestId": "sun",
+      "guestName": "Mặt Trời Cáu Kỉnh",
+      "title": "04 Ánh Sáng Dịu Dàng Hơn",
+      "requiredVisitCount": 6,
+      "requiredTrustLevel": 40,
+      "requiredSuccessfulTreatments": 3,
+      "memories": [
+        {
+          "id": "sun_memory_4",
+          "diaryText": "Mình vẫn là mặt trời, vẫn tỏa sáng — chỉ là giờ ánh sáng của mình dịu dàng hơn, và mình không còn thấy mệt vì điều đó.",
+          "hint": "Ở lại đến khi Mặt Trời thật sự thư thái, rồi chụp lại khoảnh khắc ấy.",
+          "photoMomentId": "sun_cool_drizzle_01"
+        }
+      ]
+    },
+
+    {
+      "id": "moon_chapter_1",
       "guestId": "moon",
       "guestName": "Mặt Trăng Trầm Ngâm",
+      "title": "01 Lần Ghé Đầu Tiên",
+      "requiredVisitCount": 1,
+      "requiredTrustLevel": 0,
       "memories": [
         {
           "id": "moon_memory_1",
-          "diaryText": "Có ai đó lắng nghe mình, dù chỉ một lúc thôi, cũng đủ làm bầu trời bớt lạnh lẽo."
+          "diaryText": "Có ai đó lắng nghe mình, dù chỉ một lúc thôi, cũng đủ làm bầu trời bớt lạnh lẽo.",
+          "hint": "Hãy pha Starry Lullaby để Mặt Trăng bớt cô đơn.",
+          "unlockedAtStage": "MOON_DISTANT"
         }
       ]
     },
     {
+      "id": "moon_chapter_2",
+      "guestId": "moon",
+      "guestName": "Mặt Trăng Trầm Ngâm",
+      "title": "02 Bắt Đầu Hé Mở",
+      "requiredVisitCount": 2,
+      "requiredTrustLevel": 8,
+      "memories": [
+        {
+          "id": "moon_memory_2",
+          "diaryText": "Mình kể một chuyện nhỏ, chỉ một chuyện thôi. Không ai cười mình cả. Có lẽ lần sau mình sẽ kể thêm.",
+          "hint": "Kiên nhẫn ở lại, để Mặt Trăng dám kể một điều nhỏ.",
+          "unlockedAtStage": "MOON_OPENING"
+        }
+      ]
+    },
+    {
+      "id": "moon_chapter_3",
+      "guestId": "moon",
+      "guestName": "Mặt Trăng Trầm Ngâm",
+      "title": "03 Những Điều Thầm Kín",
+      "requiredVisitCount": 4,
+      "requiredTrustLevel": 24,
+      "memories": [
+        {
+          "id": "moon_memory_3",
+          "diaryText": "Đêm nay mình đã kể hết những điều mình giấu kín từ lâu. Bầu trời vẫn tối, nhưng không còn thấy trống trải.",
+          "hint": "Tiếp tục lắng nghe, Mặt Trăng sẽ dần mở lòng nhiều hơn.",
+          "unlockedAtStage": "MOON_SHARING"
+        }
+      ]
+    },
+    {
+      "id": "moon_chapter_4",
+      "guestId": "moon",
+      "guestName": "Mặt Trăng Trầm Ngâm",
+      "title": "04 Không Còn Lạnh Lẽo",
+      "requiredVisitCount": 6,
+      "requiredTrustLevel": 40,
+      "requiredSuccessfulTreatments": 3,
+      "memories": [
+        {
+          "id": "moon_memory_4",
+          "diaryText": "Mình từng nghĩ một mình mãi cũng ổn thôi. Nhưng giờ mình biết: được ai đó nhớ đến, mới thực sự là bình yên.",
+          "hint": "Ở lại đến khi Mặt Trăng thật sự bình yên, rồi chụp lại khoảnh khắc ấy.",
+          "photoMomentId": "moon_starry_lullaby_01"
+        }
+      ]
+    },
+
+    {
+      "id": "star_chapter_1",
       "guestId": "little_star",
       "guestName": "Bé Sao Nhút Nhát",
+      "title": "01 Lần Ghé Đầu Tiên",
+      "requiredVisitCount": 1,
+      "requiredTrustLevel": 0,
       "memories": [
         {
           "id": "star_memory_1",
-          "diaryText": "Mình lấp lánh hơn một chút mỗi khi có ai đó kiên nhẫn ở bên mình."
+          "diaryText": "Mình lấp lánh hơn một chút mỗi khi có ai đó kiên nhẫn ở bên mình.",
+          "hint": "Hãy vuốt thật nhẹ nhàng để Bé Sao bớt lo sợ.",
+          "unlockedAtStage": "STAR_HESITANT"
+        }
+      ]
+    },
+    {
+      "id": "star_chapter_2",
+      "guestId": "little_star",
+      "guestName": "Bé Sao Nhút Nhát",
+      "title": "02 Những Bước Đầu Ngập Ngừng",
+      "requiredVisitCount": 2,
+      "requiredTrustLevel": 8,
+      "memories": [
+        {
+          "id": "star_memory_2",
+          "diaryText": "Mình đã thử lấp lánh mà không nhìn xem có ai đang chê cười không. Chỉ một lần thôi, nhưng mình đã làm được.",
+          "hint": "Đừng vội, để Bé Sao dám thử lấp lánh một lần.",
+          "unlockedAtStage": "STAR_TRYING"
+        }
+      ]
+    },
+    {
+      "id": "star_chapter_3",
+      "guestId": "little_star",
+      "guestName": "Bé Sao Nhút Nhát",
+      "title": "03 Bắt Đầu Tin Tưởng",
+      "requiredVisitCount": 4,
+      "requiredTrustLevel": 24,
+      "memories": [
+        {
+          "id": "star_memory_3",
+          "diaryText": "Có người nói mình lấp lánh đẹp, dù mình không phải ngôi sao sáng nhất. Lần đầu tiên mình tin điều đó là thật.",
+          "hint": "Tiếp tục kiên nhẫn, Bé Sao sẽ dần tin vào chính mình.",
+          "unlockedAtStage": "STAR_BELIEVING"
+        }
+      ]
+    },
+    {
+      "id": "star_chapter_4",
+      "guestId": "little_star",
+      "guestName": "Bé Sao Nhút Nhát",
+      "title": "04 Lấp Lánh Theo Cách Riêng",
+      "requiredVisitCount": 6,
+      "requiredTrustLevel": 40,
+      "requiredSuccessfulTreatments": 3,
+      "memories": [
+        {
+          "id": "star_memory_4",
+          "diaryText": "Mình không cần phải sáng nhất bầu trời. Mình chỉ cần sáng theo cách của riêng mình — vậy là đủ rồi.",
+          "hint": "Ở lại đến khi Bé Sao thật sự tự tin, rồi chụp lại khoảnh khắc ấy.",
+          "photoMomentId": "star_gentle_polish_01"
         }
       ]
     }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EmotionSystem, type EmotionsData } from './EmotionSystem';
 
 const data: EmotionsData = {
-  stageThresholds: { distressed: 70, calming: 40, relaxed: 15 },
+  stageThresholds: { distressed: 70, calming: 50, relaxed: 30, content: 10, peaceful: 0 },
   emotions: {
     OVERHEATED: { label: 'Overheated', color: '#f28b82' },
   },
@@ -15,11 +15,13 @@ describe('EmotionSystem', () => {
     expect(system.getStage(100)).toBe('DISTRESSED');
     expect(system.getStage(70)).toBe('DISTRESSED');
     expect(system.getStage(69)).toBe('CALMING');
-    expect(system.getStage(40)).toBe('CALMING');
-    expect(system.getStage(39)).toBe('RELAXED');
-    expect(system.getStage(15)).toBe('RELAXED');
-    expect(system.getStage(14)).toBe('HAPPY');
-    expect(system.getStage(0)).toBe('HAPPY');
+    expect(system.getStage(50)).toBe('CALMING');
+    expect(system.getStage(49)).toBe('RELAXED');
+    expect(system.getStage(30)).toBe('RELAXED');
+    expect(system.getStage(29)).toBe('CONTENT');
+    expect(system.getStage(10)).toBe('CONTENT');
+    expect(system.getStage(9)).toBe('PEACEFUL');
+    expect(system.getStage(0)).toBe('PEACEFUL');
   });
 
   it('clamps soothe() to the 0-100 range', () => {

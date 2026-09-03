@@ -46,7 +46,7 @@ export async function createGameSystems(
   const weatherSystem = new WeatherSystem(data.recipes, eventBus);
   const happinessSystem = new HappinessSystem(eventBus);
   const decorationSystem = new DecorationSystem(data.decorations, happinessSystem, eventBus);
-  const journalSystem = new JournalSystem(data.journal, eventBus);
+  const journalSystem = new JournalSystem(data.journal, eventBus, guestSystem);
   const photoMomentSystem = new PhotoMomentSystem(data.photoMoments, journalSystem, eventBus);
   const saveSystem = new SaveSystem(
     saveProvider,
