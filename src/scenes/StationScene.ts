@@ -20,6 +20,8 @@ import { DecorationShopUI } from '../ui/DecorationShopUI';
 import { PaperBoatUI } from '../ui/PaperBoatUI';
 import { StationAreaShopUI } from '../ui/StationAreaShopUI';
 import { CloudyCosmeticsShopUI } from '../ui/CloudyCosmeticsShopUI';
+import { AudioSettingsUI } from '../ui/AudioSettingsUI';
+import { RecipeBookUI } from '../ui/RecipeBookUI';
 import { GuestHintUI } from '../ui/GuestHintUI';
 import { BottomNavUI } from '../ui/BottomNavUI';
 import { eventBus } from '../core/EventBus';
@@ -42,6 +44,8 @@ export class StationScene extends Phaser.Scene {
   private paperBoatUI!: PaperBoatUI;
   private stationAreaShopUI!: StationAreaShopUI;
   private cloudyCosmeticsShopUI!: CloudyCosmeticsShopUI;
+  private audioSettingsUI!: AudioSettingsUI;
+  private recipeBookUI!: RecipeBookUI;
   private sky!: Phaser.GameObjects.Graphics;
   private dayNightButton!: Phaser.GameObjects.Text;
   private rareGuestIndicator: Phaser.GameObjects.Text | null = null;
@@ -52,6 +56,7 @@ export class StationScene extends Phaser.Scene {
   private floatingIngredients: FloatingIngredient[] = [];
   private departureTimer: Phaser.Time.TimerEvent | null = null;
   private butterflyStoryShown = false;
+  private lastPolishSoundAt = 0;
   private readonly crystalCounterPosition = { x: GAME_WIDTH - 32, y: 32 };
 
   constructor() {
@@ -96,9 +101,7 @@ export class StationScene extends Phaser.Scene {
       GAME_HEIGHT - 96,
       this.systems.decorationSystem,
     );
-    this.paperBoatUI = new PaperBoatUI(this, this.systems.paperBoatSystem, () =>
-      this.systems.audioSystem.playCaptureSound(),
-    );
+    this.paperBoatUI = new PaperBoatUI(this, this.systems.paperBoatSystem, this.systems.audioSystem);
     this.stationAreaShopUI = new StationAreaShopUI(
       this,
       GAME_WIDTH / 2,
@@ -112,14 +115,23 @@ export class StationScene extends Phaser.Scene {
       this.systems.cloudyCosmeticsSystem,
       () => this.applyCloudyCosmetics(),
     );
+    this.audioSettingsUI = new AudioSettingsUI(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, this.systems.audioSystem);
+    this.recipeBookUI = new RecipeBookUI(
+      this,
+      this.systems.weatherSystem,
+      this.systems.ingredientSystem,
+      this.systems.guestSystem,
+    );
     this.drawMuteButton();
     this.drawDayNightToggle();
+    this.drawRecipeBookButton();
     this.guestHintUI = new GuestHintUI(this, GAME_WIDTH * 0.24, GAME_HEIGHT * 0.42 - 100);
     this.drawBottomNav();
 
     this.wireEvents();
     this.resumeState();
     this.drawAreaMarkers();
+    this.syncAmbience();
 
     this.time.addEvent({
       delay: 4000,
@@ -224,6 +236,7 @@ export class StationScene extends Phaser.Scene {
   private readonly handleAreaUnlocked = ({ id }: { id: string }): void => {
     this.drawAreaMarker(id);
     if (id === 'stargazing_corner') this.dayNightButton.setVisible(true);
+    this.syncAmbience();
   };
 
   private readonly handleCloudyCosmeticUnlocked = ({ kind, id }: { kind: 'shape' | 'accessory'; id: string }): void => {
@@ -316,6 +329,15 @@ export class StationScene extends Phaser.Scene {
       audioSystem.setMuted(!audioSystem.isMuted());
       label.setText(audioSystem.isMuted() ? '🔇' : '🔊');
     });
+
+    const settingsButton = this.add
+      .text(GAME_WIDTH - 64, 70, '⚙️', { fontFamily: FONT_FAMILY, fontSize: '18px' })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    settingsButton.on('pointerdown', () => {
+      this.audioSettingsUI.toggle();
+      label.setText(audioSystem.isMuted() ? '🔇' : '🔊');
+    });
   }
 
   // Manual day/night toggle (Pass 21) — only revealed once Stargazing Corner
@@ -330,8 +352,19 @@ export class StationScene extends Phaser.Scene {
       this.systems.dayNightSystem.toggle();
       this.dayNightButton.setText(isNightIcon());
       this.redrawSky();
+      this.syncAmbience();
     });
     this.dayNightButton.setVisible(this.systems.stationAreaSystem.isUnlocked('stargazing_corner'));
+  }
+
+  // Sits right above the mixer bowl — exactly where a player wondering
+  // "which ingredients make what?" is already looking.
+  private drawRecipeBookButton(): void {
+    const button = this.add
+      .text(GAME_WIDTH - 90, GAME_HEIGHT - 112 - 66, '📖', { fontFamily: FONT_FAMILY, fontSize: '20px' })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    button.on('pointerdown', () => this.recipeBookUI.toggle());
   }
 
   private redrawSky(): void {
@@ -343,6 +376,14 @@ export class StationScene extends Phaser.Scene {
       this.sky.fillGradientStyle(PALETTE.skyTop, PALETTE.skyTop, PALETTE.skyBottom, PALETTE.skyBottom, 1);
     }
     this.sky.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+  }
+
+  private syncAmbience(): void {
+    this.systems.audioSystem.setAmbienceContext({
+      isNight: this.systems.dayNightSystem.isNight(),
+      hasWindGarden: this.systems.stationAreaSystem.isUnlocked('wind_garden'),
+      hasRainGarden: this.systems.stationAreaSystem.isUnlocked('rain_garden'),
+    });
   }
 
   private drawAreaMarkers(): void {
@@ -477,13 +518,13 @@ export class StationScene extends Phaser.Scene {
     const dropZone = this.mixerUI.getDropZone();
     if (Phaser.Geom.Circle.Contains(dropZone, screenX, screenY)) {
       if (this.systems.weatherSystem.addToMixer(ingredient.definition.id)) {
-        ingredient.destroy();
+        ingredient.playLanded(() => ingredient.destroy());
         return;
       }
     }
 
     this.systems.ingredientSystem.collect(ingredient.definition.id);
-    ingredient.destroy();
+    ingredient.playLanded(() => ingredient.destroy());
   }
 
   private handleInventoryTap(id: string): void {
@@ -541,7 +582,17 @@ export class StationScene extends Phaser.Scene {
 
     if (treatment.type === 'direct' && interaction.type === 'rub') {
       this.systems.guestSystem.soothe(Math.min(interaction.distance, 15) * 0.1);
+      this.playPolishSoundThrottled();
     }
+  }
+
+  // A rub interaction fires on every pointermove while dragging — throttle so
+  // the polish sound stays a light texture instead of a spammy rattle.
+  private playPolishSoundThrottled(): void {
+    const now = this.time.now;
+    if (now - this.lastPolishSoundAt < 180) return;
+    this.lastPolishSoundAt = now;
+    this.systems.audioSystem.playPolishSound();
   }
 
   private tellButterflyStoryIfReady(): void {
@@ -649,6 +700,7 @@ export class StationScene extends Phaser.Scene {
       this.systems.dayNightSystem.toggle();
       this.dayNightButton.setText(this.systems.dayNightSystem.isNight() ? '🌙' : '☀️');
       this.redrawSky();
+      this.syncAmbience();
     });
     this.input.keyboard?.on('keydown-B', () => {
       for (let i = 0; i < 30; i += 1) this.systems.happinessSystem.collectCrystal();

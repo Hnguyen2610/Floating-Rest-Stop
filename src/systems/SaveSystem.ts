@@ -93,7 +93,7 @@ export class SaveSystem {
       unlockedMemories: this.systems.journalSystem.getUnlockedIds(),
       capturedPhotoMoments: this.systems.photoMomentSystem.getCapturedIds(),
       journalLayout: [...this.systems.journalSystem.getAllJournalLayouts().entries()],
-      paperBoatSentCount: this.systems.paperBoatSystem.getSentCount(),
+      paperBoat: this.systems.paperBoatSystem.getSaveState(),
       unlockedAreas: this.systems.stationAreaSystem.getUnlockedIds(),
       isNight: this.systems.dayNightSystem.isNight(),
       cloudyCosmetics: this.systems.cloudyCosmeticsSystem.getSaveState(),
@@ -107,7 +107,9 @@ export class SaveSystem {
     this.systems.journalSystem.restoreUnlocked(data.unlockedMemories);
     this.systems.photoMomentSystem.restoreCaptured(data.capturedPhotoMoments);
     this.systems.journalSystem.restoreJournalLayouts(data.journalLayout ?? []);
-    this.systems.paperBoatSystem.restoreSentCount(data.paperBoatSentCount ?? 0);
+    this.systems.paperBoatSystem.restoreState(
+      data.paperBoat ?? { sentCount: 0, incomingMessageId: null, canSend: false },
+    );
     this.systems.dayNightSystem.restoreIsNight(data.isNight ?? false);
     if (data.cloudyCosmetics) this.systems.cloudyCosmeticsSystem.restoreState(data.cloudyCosmetics);
     for (const [guestId, progress] of Object.entries(data.guestProgress)) {

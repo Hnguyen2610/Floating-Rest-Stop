@@ -45,11 +45,14 @@ export class InventoryUI extends Phaser.GameObjects.Container {
       this.counts.set(definition.id, label);
     });
 
-    eventBus.on('ingredient:collected', ({ id, count }) => {
-      this.counts.get(id)?.setText(String(count));
-    });
-    eventBus.on('ingredient:spent', ({ id, count }) => {
-      this.counts.get(id)?.setText(String(count));
-    });
+    eventBus.on('ingredient:collected', ({ id, count }) => this.updateCount(id, count));
+    eventBus.on('ingredient:spent', ({ id, count }) => this.updateCount(id, count));
+  }
+
+  private updateCount(id: string, count: number): void {
+    const label = this.counts.get(id);
+    if (!label) return;
+    label.setText(String(count));
+    this.scene.tweens.add({ targets: label, scale: 1.35, duration: 100, yoyo: true });
   }
 }

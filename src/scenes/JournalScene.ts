@@ -3,6 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY } from '../core/GameConfi
 import { getGameSystems } from '../core/GameSystems';
 import { JournalSystem, type JournalChapter, type JournalItemLayout, type MemoryDefinition } from '../systems/JournalSystem';
 import type { GuestSystem } from '../systems/GuestSystem';
+import type { AudioSystem } from '../systems/AudioSystem';
 
 interface StickerDefinition {
   id: string;
@@ -15,6 +16,7 @@ const STICKER_SCALE_STEPS = [0.7, 1, 1.3];
 export class JournalScene extends Phaser.Scene {
   private journalSystem!: JournalSystem;
   private guestSystem!: GuestSystem;
+  private audioSystem!: AudioSystem;
   private stickers: StickerDefinition[] = [];
   private editMode = false;
   private stickerPalette!: Phaser.GameObjects.Container;
@@ -30,6 +32,7 @@ export class JournalScene extends Phaser.Scene {
     const systems = getGameSystems();
     this.journalSystem = systems.journalSystem;
     this.guestSystem = systems.guestSystem;
+    this.audioSystem = systems.audioSystem;
     this.stickers = (this.cache.json.get('stickers') as { stickers: StickerDefinition[] }).stickers;
 
     this.drawBackground();
@@ -285,6 +288,7 @@ export class JournalScene extends Phaser.Scene {
     back: Phaser.GameObjects.Container,
   ): void {
     const showingFront = front.visible;
+    this.audioSystem.playPageSound();
     this.tweens.add({
       targets: card,
       scaleX: 0,
@@ -375,10 +379,10 @@ export class JournalScene extends Phaser.Scene {
     const x = GAME_WIDTH / 2;
     const y = GAME_HEIGHT / 2;
     this.journalSystem.setJournalItemLayout(itemId, stickerType, x, y, 0, 1);
-    this.renderSticker(itemId, { stickerType, x, y, rotation: 0, scale: 1 });
+    this.renderSticker(itemId, { stickerType, x, y, rotation: 0, scale: 1 }, true);
   }
 
-  private renderSticker(itemId: string, layout: JournalItemLayout): void {
+  private renderSticker(itemId: string, layout: JournalItemLayout, animateIn = false): void {
     const definition = this.stickers.find((sticker) => sticker.id === layout.stickerType);
     const emoji = definition?.emoji ?? '❓';
 
@@ -389,6 +393,14 @@ export class JournalScene extends Phaser.Scene {
       if (this.editMode) icon.setInteractive({ useHandCursor: true });
       this.wireStickerInteraction(itemId, icon);
       this.placedStickers.set(itemId, icon);
+
+      // Freshly placed from the palette should feel dropped into place; a
+      // sticker being restored from a save just appears as-is.
+      if (animateIn) {
+        icon.setScale(0);
+        this.tweens.add({ targets: icon, scale: layout.scale, duration: 220, ease: 'Back.easeOut' });
+        return;
+      }
     }
     icon.setPosition(layout.x, layout.y);
     icon.setRotation(Phaser.Math.DegToRad(layout.rotation));

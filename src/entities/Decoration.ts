@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE } from '../core/GameConfig';
+import { resolveDecorationAsset, hasLoadedTexture } from '../core/AssetRegistry';
 
 export type DecorationVisual =
   | 'wind_chime'
@@ -27,7 +28,16 @@ export class Decoration extends Phaser.GameObjects.Container {
     if (interactive) this.wireInteraction();
   }
 
+  // Presentation-layer asset swap point (Pass 26) — same pattern as Guest:
+  // draw a real texture if one's registered and preloaded, otherwise fall
+  // back to the procedural placeholder below.
   private render(): void {
+    const asset = resolveDecorationAsset(this.visual);
+    if (hasLoadedTexture(this.scene, asset)) {
+      this.add(this.scene.add.image(0, 0, asset.key));
+      return;
+    }
+
     const graphics = this.scene.add.graphics();
     switch (this.visual) {
       case 'wind_chime':

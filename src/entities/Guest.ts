@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE, GUEST_IDLE_CONFIG } from '../core/GameConfig';
+import { resolveEmotionAsset, hasLoadedTexture } from '../core/AssetRegistry';
 import type { EmotionMeta } from '../systems/EmotionSystem';
 import type { GuestState } from '../types/guest';
 
@@ -9,6 +10,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
   protected readonly baseX: number;
   protected readonly baseY: number;
   protected readonly bodyGraphics: Phaser.GameObjects.Graphics;
+  private spriteImage: Phaser.GameObjects.Image | null = null;
   private idleTime = Math.random() * Math.PI * 2;
 
   constructor(
@@ -26,7 +28,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
 
     this.bodyGraphics = scene.add.graphics();
     this.add(this.bodyGraphics);
-    this.renderBody(this.bodyGraphics);
+    this.renderVisual();
     this.addFace();
     this.wireInteraction();
   }
@@ -41,9 +43,32 @@ export abstract class Guest extends Phaser.GameObjects.Container {
 
   updateEmotion(meta: EmotionMeta): void {
     this.emotionMeta = meta;
+    this.renderVisual();
+    this.playRelief();
+  }
+
+  // Presentation-layer asset swap point (Pass 26): if a real texture is
+  // registered and preloaded for this guest's current emotion, draw that
+  // instead of the procedural placeholder — renderBody() itself never
+  // changes, so every guest subclass is already swap-ready for free.
+  private renderVisual(): void {
+    const asset = resolveEmotionAsset(this.guestState.currentEmotion);
+    if (hasLoadedTexture(this.scene, asset)) {
+      this.bodyGraphics.clear();
+      this.bodyGraphics.setVisible(false);
+      if (!this.spriteImage) {
+        this.spriteImage = this.scene.add.image(0, 0, asset.key);
+        this.addAt(this.spriteImage, 0);
+      } else {
+        this.spriteImage.setTexture(asset.key);
+      }
+      return;
+    }
+
+    this.spriteImage?.setVisible(false);
+    this.bodyGraphics.setVisible(true);
     this.bodyGraphics.clear();
     this.renderBody(this.bodyGraphics);
-    this.playRelief();
   }
 
   playArrive(): void {
@@ -95,7 +120,24 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     // Container hit-test coords are relative to the top-left of setSize(), not the
     // container's origin, so a centered circle must sit at (width/2, height/2).
     this.setInteractive(new Phaser.Geom.Circle(50, 50, 50), Phaser.Geom.Circle.Contains);
-    this.on('pointerdown', () => this.onInteract({ type: 'tap' }));
+    this.on('pointerdown', () => {
+      this.playTapAcknowledge();
+      this.onInteract({ type: 'tap' });
+    });
+  }
+
+  // Immediate acknowledgment that the tap registered, independent of whether
+  // it actually did anything — INPUT should never go unanswered while the
+  // game decides what the RESULT is.
+  private playTapAcknowledge(): void {
+    this.scene.tweens.add({
+      targets: this,
+      scaleX: 0.92,
+      scaleY: 1.06,
+      duration: 70,
+      yoyo: true,
+      ease: 'Sine.easeOut',
+    });
   }
 
   protected abstract renderBody(graphics: Phaser.GameObjects.Graphics): void;

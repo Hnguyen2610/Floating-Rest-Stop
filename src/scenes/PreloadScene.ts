@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { createGameSystems } from '../core/GameSystems';
+import { getPlatformAdapter } from '../core/Platform';
 import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
+import { YouTubePlayablesSaveProvider } from '../services/save/YouTubePlayablesSaveProvider';
+import type { SaveProvider } from '../services/save/SaveProvider';
 import type { GuestsData } from '../systems/GuestSystem';
 import type { EmotionsData } from '../systems/EmotionSystem';
 import type { IngredientsData } from '../systems/IngredientSystem';
@@ -37,6 +40,11 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   private async initialize(): Promise<void> {
+    const platform = getPlatformAdapter();
+    const saveProvider: SaveProvider = platform.isPlayablesEnv
+      ? new YouTubePlayablesSaveProvider()
+      : new LocalSaveProvider();
+
     const systems = await createGameSystems(
       {
         guests: this.cache.json.get('guests') as GuestsData,
@@ -50,11 +58,16 @@ export class PreloadScene extends Phaser.Scene {
         messages: this.cache.json.get('messages') as PaperMessagesData,
         cloudyCosmetics: this.cache.json.get('cloudyCosmetics') as CloudyCosmeticsData,
       },
-      new LocalSaveProvider(),
+      saveProvider,
     );
     window.addEventListener('beforeunload', () => {
       systems.saveSystem.saveNow().catch(() => undefined);
     });
+
+    systems.audioSystem.setMuted(!platform.isAudioEnabled());
+    platform.onAudioEnabledChange((enabled) => systems.audioSystem.setMuted(!enabled));
+
+    platform.signalGameReady();
     this.scene.start('StationScene');
   }
 }

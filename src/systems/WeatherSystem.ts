@@ -64,6 +64,10 @@ export class WeatherSystem {
     this.eventBus.emit('mixer:updated', { contents: [] });
   }
 
+  getAllRecipes(): RecipeDefinition[] {
+    return this.recipesData.recipes;
+  }
+
   getRecipe(id: string): RecipeDefinition {
     const recipe = this.recipesData.recipes.find((r) => r.id === id);
     if (!recipe) throw new Error(`Unknown recipe: ${id}`);

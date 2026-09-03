@@ -118,7 +118,9 @@ describe('SaveSystem', () => {
       specialInteractions: 0,
     });
     expect(provider.stored?.journalLayout).toEqual([]);
-    expect(provider.stored?.paperBoatSentCount).toBe(0);
+    // soothe() above crossed into CONTENT, which also fired guest:relaxed —
+    // PaperBoatSystem listens for that too, so a message is already waiting.
+    expect(provider.stored?.paperBoat).toEqual({ sentCount: 0, incomingMessageId: 'did_well', canSend: false });
     expect(provider.stored?.unlockedAreas).toEqual(['small_cloud']);
     expect(provider.stored?.isNight).toBe(false);
     expect(provider.stored?.cloudyCosmetics).toEqual({
@@ -141,7 +143,7 @@ describe('SaveSystem', () => {
       unlockedMemories: ['sun_memory_1'],
       capturedPhotoMoments: ['sun_cool_drizzle_01'],
       journalLayout: [['sticker1', { stickerType: 'cloud', x: 10, y: 20, rotation: 0, scale: 1 }]],
-      paperBoatSentCount: 4,
+      paperBoat: { sentCount: 4, incomingMessageId: null, canSend: true },
       unlockedAreas: ['tea_corner'],
       isNight: true,
       cloudyCosmetics: {
@@ -175,6 +177,7 @@ describe('SaveSystem', () => {
       scale: 1,
     });
     expect(systems.paperBoatSystem.getSentCount()).toBe(4);
+    expect(systems.paperBoatSystem.canSendNow()).toBe(true);
     expect(systems.stationAreaSystem.isUnlocked('tea_corner')).toBe(true);
     expect(systems.dayNightSystem.isNight()).toBe(true);
     expect(systems.cloudyCosmeticsSystem.isShapeUnlocked('heart')).toBe(true);

@@ -4,6 +4,8 @@ import { BootScene } from '../scenes/BootScene';
 import { PreloadScene } from '../scenes/PreloadScene';
 import { StationScene } from '../scenes/StationScene';
 import { JournalScene } from '../scenes/JournalScene';
+import { initPlatformAdapter } from './Platform';
+import { getGameSystems } from './GameSystems';
 
 export function createGame(parent: string): Phaser.Game {
   const config: Phaser.Types.Core.GameConfig = {
@@ -19,5 +21,25 @@ export function createGame(parent: string): Phaser.Game {
     scene: [BootScene, PreloadScene, StationScene, JournalScene],
   };
 
-  return new Phaser.Game(config);
+  const platform = initPlatformAdapter();
+  const game = new Phaser.Game(config);
+
+  game.events.once(Phaser.Core.Events.POST_RENDER, () => {
+    platform.signalFirstFrameReady();
+  });
+
+  platform.onPause(() => {
+    game.loop.sleep();
+    // Systems may not exist yet if paused during boot — nothing to save then.
+    try {
+      getGameSystems().saveSystem.saveNow().catch(() => undefined);
+    } catch {
+      /* not initialized yet */
+    }
+  });
+  platform.onResume(() => {
+    game.loop.wake();
+  });
+
+  return game;
 }

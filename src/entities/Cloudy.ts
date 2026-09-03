@@ -3,6 +3,12 @@ import { SoftBodyMesh, type Point } from '../utils/SoftBodyMesh';
 import { createCloudyShapePoints } from './CloudyShapes';
 import { CLOUDY_CONFIG, SOFT_BODY_CONFIG, PALETTE } from '../core/GameConfig';
 
+// Unlike Guest/Decoration, Cloudy's silhouette isn't a texture-swap candidate
+// for the Pass 26 asset pipeline: the whole shape is the live SoftBodyMesh
+// output (squish/drag physics reused across shapes per Pass 23), not a
+// static per-state image. `cloudyShapeIdToAssetKey` in AssetRegistry.ts
+// exists for naming consistency (so a future accessory/overlay sprite has a
+// key to register under) but nothing here resolves through it.
 export class Cloudy extends Phaser.GameObjects.Container {
   private mesh: SoftBodyMesh;
   private readonly blobGraphics: Phaser.GameObjects.Graphics;

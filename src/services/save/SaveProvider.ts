@@ -21,6 +21,12 @@ export interface CloudyCosmeticsSaveEntry {
   equippedAccessories: string[];
 }
 
+export interface PaperBoatSaveEntry {
+  sentCount: number;
+  incomingMessageId: string | null;
+  canSend: boolean;
+}
+
 export interface SaveData {
   version: number;
   happinessCrystals: number;
@@ -29,7 +35,7 @@ export interface SaveData {
   unlockedMemories: string[];
   capturedPhotoMoments: string[];
   journalLayout: Array<[string, JournalItemSaveEntry]>;
-  paperBoatSentCount: number;
+  paperBoat: PaperBoatSaveEntry;
   unlockedAreas: string[];
   isNight: boolean;
   cloudyCosmetics: CloudyCosmeticsSaveEntry;

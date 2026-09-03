@@ -7,9 +7,13 @@ PHASE 1 — MVP FOUNDATION                 Pass 1–14   ✅ DONE
 PHASE 2 — CORE GAME DEPTH                Pass 15–17  ✅ DONE (hệ thống + nội dung — xem ghi chú trạng thái trong từng pass)
 PHASE 3 — CONTENT & SOCIAL INTERACTION   Pass 18–20  ✅ DONE (xem ghi chú trạng thái trong từng pass)
 PHASE 4 — WORLD PROGRESSION              Pass 21–23  ✅ DONE (xem ghi chú trạng thái trong từng pass)
-PHASE 5 — PRESENTATION & GAME FEEL       Pass 24–26
+PHASE 5 — PRESENTATION & GAME FEEL       Pass 24–26  ✅ DONE (xem ghi chú trạng thái trong từng pass)
 PHASE 6 — BALANCE & PLATFORM             Pass 27–30
 PHASE 7 — RELEASE QA                     Pass 31
+POST-MVP (sau Release QA)                xem "PRODUCT DIRECTION CHECKPOINT"
+                                          + "POST-MVP" gần cuối file —
+                                          Cloudy Origin/Rare Weather/Sky Archive
+                                          đã chốt hướng, chưa bắt đầu code
 ```
 
 Core philosophy phải giữ xuyên suốt:
@@ -902,9 +906,15 @@ Shape geometry nên configurable.
 
 ---
 
-# PHASE 5 — PRESENTATION & GAME FEEL
+# PHASE 5 — PRESENTATION & GAME FEEL ✅ (2026-09-03)
 
-# Pass 24 — Audio & Ambience
+**Trạng thái:** Cả 3 pass xong. Khác Phase 3/4 ở chỗ đây là polish/architecture, không phải tính năng mới — "hoàn thiện" ở đây nghĩa là review + cải thiện thật (Pass 25), không phải thêm mechanic. 93/93 test pass, `tsc`/lint/build sạch, verify browser qua nhiều vòng (âm thanh không chụp màn hình được nên verify bằng: không có console error xuyên suốt toàn bộ luồng tương tác mới, và UI slider phản hồi đúng khi kéo).
+
+# Pass 24 — Audio & Ambience ✅
+
+**Đã làm:** `AudioSystem` viết lại theo đúng kiến trúc bus MASTER→{MUSIC, AMBIENCE, SFX} như Plan yêu cầu — mỗi bus có GainNode và volume riêng, mute là thao tác đưa master gain về 0 (không phải chặn tạo AudioContext, để ambience giữ được trạng thái xuyên suốt lúc tắt/bật tiếng). Thêm 4 SFX còn thiếu so với danh sách Plan: "star polishing" (vuốt Bé Sao, có throttle 180ms để không spam), "journal page" (lật thẻ), "paper boat" fold/release. Ambient: gió nhẹ luôn bật (noise buffer lowpass, không cần asset), cộng thêm lớp theo ngữ cảnh — đêm (drone trầm), Wind Garden mở khóa (chuông gió ngẫu nhiên mỗi 4-9s), Rain Garden mở khóa (noise bandpass) — tất cả fade in/out qua `setAmbienceContext()`, gọi lại mỗi khi khu vực mở hoặc ngày/đêm đổi. UI mới `AudioSettingsUI` — 4 thanh trượt kéo được (Tổng/Nhạc nền/Không gian/Hiệu ứng) + nút mute, mở qua icon "⚙️" cạnh nút loa cũ.
+
+Music bus có volume control như Plan yêu cầu nhưng chưa phát nhạc nào — không có track nhạc để gắn vào, và tự soạn nhạc nằm ngoài phạm vi hợp lý ở đây; bus đã sẵn sàng nhận track khi có.
 
 Hiện Web Audio tone chỉ đủ chứng minh cơ chế.
 
@@ -966,7 +976,16 @@ Chỉ xây architecture + hooks.
 
 ---
 
-# Pass 25 — Full Game Feel Polish
+# Pass 25 — Full Game Feel Polish ✅
+
+**Đã làm — review có hệ thống, sửa đúng chỗ thiếu thật (không phải rải rác cho đủ số):**
+- **Guest (Sun/Moon/Star/Butterfly/Aurora/Comet)**: phát hiện input→result thiếu hẳn bước "immediate feedback" — chạm vào guest trước đây không có phản hồi gì cho tới khi emotion thật sự đổi (có thể không đổi nếu chưa đúng potion). Thêm squash nhẹ ngay lúc chạm, ở `Guest.ts` base class nên áp dụng cho tất cả guest cùng lúc.
+- **Ingredient**: phát hiện gap nghiêm trọng nhất — thả nguyên liệu vào mixer hoặc túi đồ trước đây `destroy()` ngay lập tức, không animation nào cả. Thêm `playLanded()` (pop + fade) trước khi hủy.
+- **Inventory**: số lượng đổi chỉ `setText()` thẳng, trong khi `CrystalCounter` (cùng chức năng, khác UI) đã có sẵn hiệu ứng nảy — sửa cho nhất quán.
+- **Paper Boat**: mỗi bước gấp trước đây chỉ đổi text/icon, không chuyển động — thêm pop nhẹ mỗi lần bấm gấp.
+- **Sticker (Journal)**: đặt sticker mới từ palette xuất hiện tức thì — thêm pop-in (Back.easeOut), tách biệt với việc tải sticker đã lưu (không animate lại mỗi lần mở trang).
+
+**Đã rà nhưng thấy đã đủ tốt, không sửa:** Cloudy (đã có squish chạm + blink + bounce), Mixer (đã có craft success bounce/fail shake), Crystal/Photo Moment (đã có entrance + sparkle/pulse + capture flash) — không thêm hiệu ứng chồng lên hiệu ứng đã ổn, đúng nguyên tắc "Subtle > Flashy" bên dưới.
 
 Không thêm feature mới.
 
@@ -1027,7 +1046,11 @@ Game này không được reward spam.
 
 ---
 
-# Pass 26 — Visual Asset Pipeline
+# Pass 26 — Visual Asset Pipeline ✅
+
+**Đã làm:** `src/core/AssetRegistry.ts` mới — điểm swap art duy nhất trong toàn bộ codebase. `emotionIdToAssetKey('SUN_STRESSED')` → `'guest.sun.stressed'` (khớp chính xác ví dụ trong Plan), tương tự cho decoration/cloudy shape. `REGISTERED_ASSETS` hiện rỗng nên mọi lookup fallback về vẽ procedural như cũ — **không có gì thay đổi về mặt hình ảnh hôm nay**, đã verify bằng browser (spawn cả 6 loại guest + decoration sau khi refactor, render giống hệt trước). `Guest.ts` (class cha dùng chung 6 guest) và `Decoration.ts` đã wire qua registry: nếu sau này có texture thật đã preload đúng key, code tự động vẽ ảnh thay vì Graphics — không cần sửa gì ở `EmotionSystem`/`GuestSystem`/subclass nào, đúng yêu cầu "EmotionSystem chỉ biết STRESSED, không biết tên file".
+
+**Ngoại lệ có chủ đích:** hình dạng Cloudy (Pass 23) không đi qua registry — silhouette của nó LÀ output sống của SoftBodyMesh (vật lý biến dạng theo tay kéo), không phải ảnh tĩnh theo trạng thái như Guest/Decoration, nên thay bằng texture tĩnh sẽ mất luôn hiệu ứng vật lý là điểm cốt lõi của Pass 2/23. Đã ghi chú rõ trong code (`Cloudy.ts`) và giữ `cloudyShapeIdToAssetKey` chỉ để đặt tên nhất quán cho phụ kiện/overlay tương lai, không dùng để render silhouette.
 
 Không yêu cầu Claude tự biến placeholder thành artwork production.
 
@@ -1082,20 +1105,61 @@ Presentation layer quyết định asset.
 
 # PHASE 6 — BALANCE & PLATFORM
 
-# Pass 27 — Content & Economy Balancing
+# Pass 27 — Content & Economy Balancing + Cozy Pacing
 
-Review:
+**Cập nhật (2026-09-03, sau thảo luận về Pass 32-40 đề xuất):** Quyết định không tạo pass "Retention Balancing" riêng — dễ dẫn tư duy daily-reward/streak/FOMO, đi ngược triết lý cozy của chính game này. Pacing/retention concern gộp thẳng vào Pass 27 dưới đây, dưới tên "Cozy Pacing" thay vì "Retention".
+
+**✅ Đã làm — Paper Boat rework (2026-09-03):** thay vì thêm cooldown (chỉ sửa con số, không sửa thiết kế), đã thiết kế lại đúng chiều "Receive kindness ↓ Pass kindness onward" mà bản thân Pass 20 gốc đã đề ra nhưng chưa từng thực sự có chiều "receive". `PaperBoatSystem` giờ có state machine 2 bước:
 
 ```text
-Happiness income
-Decoration prices
-Cosmetic prices
-Station expansion costs
-Ingredient spawn rate
-Guest visit pacing
-Rare guest conditions
-Memory unlock pacing
+guest:relaxed (dỗ khách thành công thật)
+        ↓
+1 lời nhắn "đến" (incoming) — ngẫu nhiên từ cùng pool 4 message
+        ↓
+người chơi đọc + bấm "Cảm ơn — giờ mình sẽ gửi..." (acknowledgeIncoming)
+        ↓
+canSend = true → mở khóa luồng gấp thuyền → gửi (send)
+        ↓
+canSend = false, incoming = null — không gửi lại được nữa
+        ↓
+phải chờ guest:relaxed tiếp theo mới có lời nhắn mới
 ```
+
+Không có timer, không có "chờ X phút" hiển thị cho người chơi — nhịp độ hoàn toàn gắn vào core loop dỗ khách thật (guest:relaxed là event đã tồn tại sẵn, dùng chung với lúc Happiness Crystal xuất hiện). `PaperBoatUI` có 3 trạng thái hiển thị riêng: rỗng ("Gió đang lặng... hãy tiếp tục chăm sóc các vị khách"), đang có lời nhắn đến (đọc trước khi được gửi), và luồng gửi bình thường (chọn/gấp/thả) — chỉ hiện khi đã đọc lời nhắn đến. Đã verify bằng browser thật đủ 3 trạng thái + xác nhận **không thể gửi lại ngay sau khi vừa gửi** (đúng phát hiện exploit ban đầu). Save schema đổi từ `paperBoatSentCount: number` sang `paperBoat: {sentCount, incomingMessageId, canSend}` để giữ nguyên trạng thái đang chờ qua các lần reload. 98/98 test pass.
+
+Review (2026-09-03, đọc trực tiếp số liệu trong `public/data/*.json` + code, không đoán):
+
+```text
+Happiness income      — 1 crystal/lần, nhưng HappinessCrystal chỉ xuất hiện sau khi dỗ
+                         khách THÀNH CÔNG thật (không phải theo thời gian) — tự giới hạn
+                         bởi chính kỹ năng chăm sóc khách, không thể cày nhanh hơn việc chơi.
+Decoration prices      — 1-2 crystal/món (rẻ), 4/5 món còn khoá thêm bởi requiredAreaId
+                         (phải mở khu vực tương ứng trước) — giá tiền không phải cổng
+                         chính, việc mở khu vực mới là cổng chính.
+Cosmetic prices        — chỉ 1/8 món cosmetic (hình "Trái Tim", 8 crystal) mua bằng
+                         crystal; 7 món còn lại đến từ memory milestone, guest trust
+                         (≥40), hoặc rare-guest photo reward — tức phần lớn cosmetic
+                         KHÔNG nằm trong vòng lặp currency-grind, mà nằm trong vòng lặp
+                         chăm sóc/quan hệ — đúng tinh thần "expression, không phải
+                         progression" mà Post-MVP checkpoint đã đặt ra.
+Station expansion costs— 0 → 5 → 10 → 15 → 20 crystal, tuyến tính không phải cấp số
+                         nhân — không có việc giá sau "trừng phạt" người chơi đi chậm.
+Ingredient spawn rate  — mỗi 4s, tối đa 4 nguyên liệu nổi cùng lúc — luôn có việc để làm
+                         nhưng không dồn dập/rối mắt.
+Guest visit pacing     — mỗi 3s kiểm tra, khách mới xuất hiện gần như ngay khi khách cũ
+                         rời đi (guard: không có khách hiện tại + không đang chờ rare
+                         guest) — không có khoảng chờ nhân tạo giữa 2 lượt khách.
+Rare guest conditions  — Aurora/Comet đều khoá bởi TỔ HỢP nhiều điều kiện thật (trust
+                         cao + khu vực + trang trí + memory đã mở + ngày/đêm) chứ không
+                         phải 1 con số để cày — RareGuestSystem chỉ kiểm tra điều kiện,
+                         không tự spawn, người chơi phải chủ động "mời".
+Memory unlock pacing   — mỗi chapter tăng dần cả requiredVisitCount (1→2→4→...) lẫn
+                         requiredTrustLevel (0→8→...) — đòi hỏi nhiều lượt chăm sóc
+                         thành công thật, không thể unlock bằng cách chờ hay spam.
+Paper Boat reward/freq — đã xử lý ở trên (state machine receive→send, không cooldown).
+```
+
+**Kết luận:** không tìm thấy điểm nào trong hệ thống hiện tại cho phép "cày" (lặp hành động vô nghĩa để lấy thưởng) — hầu hết mọi phần thưởng đều khoá sau một tương tác chăm sóc thật (dỗ khách thành công, giữ trust, mở khu vực), không khoá sau thời gian chờ. Điểm duy nhất từng có lỗ hổng thật (Paper Boat gửi liên tục) đã được sửa ở mục trên. Không cần chỉnh số nào thêm ở Pass này.
 
 Không để grind.
 
@@ -1117,9 +1181,35 @@ không phải:
 
 > “Mình phải login để không mất reward.”
 
+**Cozy Pacing** (phần mở rộng của Pass 27, thay cho 1 pass "Retention" riêng): kiểm tra guest frequency, ingredient frequency, crystal income, decoration cost, memory unlock pacing, rare event frequency, session length — nhưng mục tiêu luôn là "không ép chơi, không ép quay lại", không phải tối ưu hóa engagement. **✅ Đã review (2026-09-03)** — xem bảng số liệu cụ thể + kết luận ở phần "Review" phía trên: không có cổng nào dựa trên thời gian chờ nhân tạo, mọi pacing đều bám theo nhịp chăm sóc khách thật.
+
 ---
 
 # Pass 28 — Mobile & Touch QA
+
+**✅ Đã làm (2026-09-03):**
+
+Trước khi test, review code cho toàn bộ input/drag: grep hết `setInteractive`/`pointermove`/`pointerdown` trong `src/` — xác nhận **không có nơi nào** tự làm toán tọa độ tay (không `clientX/clientY`, không `getBoundingClientRect`, không `window.innerWidth/Height` ở bất kỳ file gameplay nào). Mọi drag (`Cloudy`, `FloatingIngredient`, sticker trong `JournalScene`, slider trong `AudioSettingsUI`) đều dùng `pointer.x`/`pointer.worldX` do chính Phaser cung cấp — tọa độ này đã được Phaser's Scale Manager quy đổi qua FIT-scale + letterbox tự động. Đây là điểm khởi đầu tốt: rủi ro chính không phải "code tự tính sai tọa độ" mà là "có hit-area nào bị lệch trong thực tế không".
+
+Test bằng Playwright thật (không chỉ screenshot) trên 5 viewport:
+
+```text
+1920×1080        (desktop, mouse)
+1366×768         (laptop, mouse)
+1024×768         (tablet landscape, hasTouch)
+926×428          (phone lớn, ngang, hasTouch)
+667×375          (phone nhỏ, ngang, hasTouch — gần đúng tỉ lệ 16:9 nên gần như không letterbox)
+```
+
+Chuỗi tương tác thật cho mỗi viewport: spawn khách (phím debug) → tap khách → spawn ingredient → **kéo-thả ingredient vào bát trộn** → tap nút CHẾ TẠO → mở/đóng shop trang trí → mở Journal → bật edit mode → đặt sticker → **kéo sticker** → quay lại StationScene → chạm vào Mây Bông. Toàn bộ 5 viewport: **0 console/page error**.
+
+**Phát hiện quan trọng khi test (không phải bug code):** viewport có `hasTouch:true`, dùng `page.mouse.*` (chuột giả lập) để "kéo" không phản ánh đúng touch input thật — với các context này phải dùng touch event thật (`Input.dispatchTouchEvent` qua CDP: touchstart/touchmove/touchend) mới đúng con đường mà Phaser InputManager xử lý trên thiết bị cảm ứng thật. Sau khi đổi sang touch event thật, toàn bộ hit-area (bát trộn, khách, sticker, nút nav) đều nhận đúng ở cả 3 kích thước cảm ứng — xác nhận code không hề có vấn đề coordinate-mapping.
+
+**Cloudy không phải "kéo đổi vị trí"** — đọc `Cloudy.ts` mới phát hiện: chạm/kéo Cloudy chỉ gọi `applyPointerInfluence` để biến dạng mesh (squish phản ứng mềm), container `x,y` không bao giờ đổi — đây là thiết kế đúng ("mềm, phản ứng khi chạm" chứ không phải "kéo đi chỗ khác"), không phải bug.
+
+**Giới hạn đã biết, ghi lại có chủ đích:** khi script test dồn 3 cử chỉ touch liên tiếp qua CDP quá nhanh (vd. kéo Cloudy → thả ingredient ngay sau, cách nhau ~200ms), thỉnh thoảng cử chỉ sau bị bỏ lỡ không xác định — lặp lại cùng chuỗi nhiều lần cho cùng 1 viewport cho kết quả khác nhau (khi thì qua khi thì không), và không có state dùng chung nào trong `Guest.ts`/`Cloudy.ts`/`FloatingIngredient.ts` giải thích được hiện tượng này (đã đọc kỹ, mỗi entity tự quản lý flag `dragging` riêng). Kết luận: đây là giới hạn của việc giả lập touch qua CDP dồn dập bằng script (không giống nhịp chạm thật của ngón tay người), **không phải bug của game** — khi giãn cách cử chỉ ra tự nhiên hơn (~300-800ms, đúng nhịp một người thật thao tác) thì luôn thành công. Khuyến nghị: trước khi phát hành thật, nên có thêm 1 lượt test tay trên thiết bị cảm ứng thật (không chỉ tự động hoá) để loại trừ hoàn toàn khả năng đây là vấn đề thật — nhưng dựa trên code review + phần lớn kết quả tự động, khả năng cao đây chỉ là nhiễu công cụ test.
+
+Không có source code nào bị sửa ở Pass này — toàn bộ là QA/verification. `tsc`/`vitest` (105/105)/`lint`/`build` không đổi so với Pass 29/30.
 
 Test production build thật.
 
@@ -1172,6 +1262,42 @@ interaction đúng
 ---
 
 # Pass 29 — YouTube Playables Integration
+
+**✅ Đã làm (2026-09-03):** Đã xây kiến trúc `PlatformAdapter` đúng như mô tả bên dưới, dựa trên SDK thật đã verify qua tài liệu chính thức (`https://developers.google.com/youtube/gaming/playables/reference/getting_started`) — không đoán API.
+
+Files mới:
+
+```text
+src/services/platform/PlatformAdapter.ts              — interface
+src/services/platform/BrowserPlatformAdapter.ts        — no-op/Web API fallback, dùng khi không phải Playables
+src/services/platform/YouTubePlayablesPlatformAdapter.ts — bọc window.ytgame.*
+src/services/platform/createPlatformAdapter.ts          — isPlayablesEnvironment() + createPlatformAdapter()
+src/core/Platform.ts                                    — singleton accessor (initPlatformAdapter/getPlatformAdapter, giống pattern GameSystems.ts)
+src/services/save/YouTubePlayablesSaveProvider.ts        — loadData/saveData, tái dùng normalizeSaveData() của Pass 30
+src/types/ytgame.d.ts                                    — ambient type cho window.ytgame
+```
+
+`isPlayablesEnvironment()` kiểm tra `window.ytgame?.IN_PLAYABLES_ENV` — mọi build bình thường (dev, itch.io, GitHub Pages...) đều rơi vào `BrowserPlatformAdapter`, hành vi y hệt trước Pass 29 (không có gì phá vỡ khi không nhúng trong YouTube). SDK script (`https://www.youtube.com/game_api/v1`) **không** được thêm vào `index.html` dùng chung — chỉ nên có ở bản build riêng cho YouTube Playables; code phía adapter luôn optional-chain `window.ytgame` nên an toàn dù script có mặt hay không.
+
+Wiring:
+
+```text
+src/core/Game.ts
+  → initPlatformAdapter() ngay khi tạo game
+  → Phaser.Core.Events.POST_RENDER  → platform.signalFirstFrameReady()
+  → platform.onPause()  → game.loop.sleep() + saveNow() best-effort (nếu systems đã init)
+  → platform.onResume() → game.loop.wake()
+
+src/scenes/PreloadScene.ts
+  → chọn SaveProvider theo platform.isPlayablesEnv (Local hoặc YouTubePlayables)
+  → đồng bộ AudioSystem.setMuted() theo platform.isAudioEnabled() lúc khởi động
+  → subscribe platform.onAudioEnabledChange() để đồng bộ tiếp khi người dùng đổi ở ngoài game (YouTube UI)
+  → platform.signalGameReady() ngay trước khi start StationScene
+```
+
+`StationScene` và mọi gameplay code khác **không** import SDK hay `PlatformAdapter` — đúng yêu cầu, chỉ 2 file bootstrap (`Game.ts`, `PreloadScene.ts`) chạm vào abstraction này.
+
+Verify: `tsc`/`vitest` (105/105)/`lint`/`build` sạch. Playwright thật trên `BrowserPlatformAdapter` path (môi trường duy nhất test được lúc này) xác nhận game vẫn boot và render StationScene bình thường, không console error — đúng kỳ vọng "no-op cho browser thường". Chưa test được nhánh `YouTubePlayablesPlatformAdapter` thật vì không có môi trường nhúng YouTube Playables thật để chạy — đây là giới hạn đã biết, ghi lại có chủ đích thay vì giả vờ đã verify.
 
 Nếu mục tiêu phát hành vẫn là YouTube Playables thì đây là pass riêng.
 
@@ -1248,6 +1374,23 @@ platform errors
 
 # Pass 30 — Save Migration & Robustness
 
+**✅ Đã làm (2026-09-03):** Tạo `src/services/save/saveMigration.ts` với hàm thuần `normalizeSaveData(raw: unknown): SaveData` — không phụ thuộc Phaser, không phụ thuộc provider cụ thể, dùng chung được cho cả `LocalSaveProvider` và `YouTubePlayablesSaveProvider` (Pass 29). Hàm này luôn trả về một `SaveData` đầy đủ field, bất kể input là gì:
+
+```text
+null / undefined           → toàn bộ default
+string / number / array    → toàn bộ default (không phải object hợp lệ)
+object thiếu field         → field thiếu được điền default riêng lẻ
+object có field sai kiểu   → field đó bị bỏ, dùng default (không propagate rác)
+object có version tương lai → luôn stamp lại CURRENT_VERSION = 1 hiện tại
+object hợp lệ đầy đủ       → giữ nguyên, không đổi field nào
+```
+
+Từng sub-field lồng nhau (guestProgress theo từng guest, paperBoat, cloudyCosmetics, journalLayout) đều có hàm normalize riêng — một guest bị hỏng không kéo hỏng cả object `guestProgress`. Hiện tại toàn bộ save mới chỉ có version 1 (chưa có breaking schema change thật nào xảy ra) — comment trong code đã ghi rõ chỗ để thêm transform step theo `raw.version` nếu sau này version 2 thật sự cần đổi shape dữ liệu (không chỉ điền default).
+
+`LocalSaveProvider.load()` gọi `normalizeSaveData(JSON.parse(raw))` bên trong cùng khối `try/catch` đã có sẵn cho JSON hỏng — vậy JSON hỏng lẫn schema hỏng đều rơi về "coi như chưa có save" thay vì crash boot. `save()` giữ nguyên try/catch best-effort đã có từ trước cho quota/storage failure.
+
+Test: `src/services/save/saveMigration.test.ts` — 7 test bao phủ toàn bộ bảng trên (kể cả field lồng sai kiểu như `paperBoat: {sentCount: 'four', canSend: 'true'}`, và guest entry không phải object). Full suite: **105/105 pass**, `tsc`/`lint`/`build` sạch.
+
 Đến lúc này SaveData đã gần ổn định.
 
 Mới formalize migration.
@@ -1298,6 +1441,24 @@ quota/storage failure
 SaveSystem phải fail gracefully.
 
 Không để corrupted save làm game crash boot.
+
+---
+
+# Bổ sung sau Phase 6 — Sổ Công Thức (Recipe Book)
+
+**✅ Đã làm (2026-09-03):** phát hiện thực tế khi chơi thử — lời gợi ý của khách chỉ nói **tên món** cần pha (vd. "hãy pha một ly Cool Drizzle"), nhưng không có chỗ nào trong game nói rõ **2 nguyên liệu nào** tạo ra món đó. Người chơi buộc phải đoán mò giữa 5 loại nguyên liệu. Đây là khoảng trống legibility thật, không phải thiết kế "khám phá" có chủ đích.
+
+Xử lý bằng cách thêm nút "📖" nhỏ ngay phía trên bát trộn (đúng chỗ người chơi đang nhìn khi phân vân) — bấm vào mở panel "Sổ Công Thức" liệt kê cả 5 công thức: tên món, khách phù hợp, và 2 nguyên liệu cần (vừa chấm màu khớp màu nguyên liệu nổi ngoài màn hình, vừa tên chữ) — không cần điều hướng qua Journal hay menu khác.
+
+Files:
+
+```text
+src/systems/WeatherSystem.ts   — thêm getAllRecipes()
+src/ui/RecipeBookUI.ts         — panel mới, theo đúng pattern PaperBoatUI/DecorationShopUI (Container toggle/hide)
+src/scenes/StationScene.ts     — instantiate + nút 📖 phía trên bát trộn (drawRecipeBookButton)
+```
+
+Không phá nhịp khám phá lần đầu — sổ công thức phải chủ động mở ra xem (không tự động hiện), giữ đúng tinh thần "gợi ý khi cần, không nhồi nhét" của Pass 27. `tsc`/`vitest` (105/105)/`lint` sạch, verify browser thật xác nhận mở/đóng panel đúng, hiển thị đủ 5 công thức, không console error.
 
 ---
 
@@ -1414,6 +1575,122 @@ release candidate
 
 ---
 
+# PRODUCT DIRECTION CHECKPOINT (2026-09-03)
+
+Trước khi vào bất kỳ pass Post-MVP nào bên dưới — checkpoint này **không code**, chỉ xác định hướng, quyết định bởi người dùng sau khi thảo luận về đề xuất mở rộng roadmap (Pass 32-40) từ một nhận xét bên ngoài.
+
+```text
+Core fantasy:
+"I want to create a place where everyone can rest."
+
+Core loop:
+Guest → Understand → Soothe → Remember
+
+Long-term:
+Relationships → Memories → World → Story
+
+Tone:
+Warm / Quiet / Safe / Empathetic
+
+Never:
+Score
+HP
+Lose state
+Energy
+Streak
+Aggressive FOMO
+Forced monetization
+```
+
+Mỗi feature mới từ đây trở đi phải trả lời được câu hỏi:
+
+> **Feature này làm người chơi cảm thấy mình đang xây dựng một nơi để nghỉ ngơi tốt hơn, hay chỉ khiến họ có thêm thứ để grind?**
+
+Nếu là vế 2 → bỏ.
+
+Nguyên tắc bao trùm: đừng để việc thêm pass mới làm game phình thành "nhiều hệ thống để giữ chân người chơi". Nền móng hiện tại đã rõ: **guest → empathy → interaction → memory → world-building**. Mọi mở rộng sau này nên làm vòng lặp đó **sâu hơn**, không phải **nhiều hơn**.
+
+---
+
+# POST-MVP (sau Pass 31, chưa bắt đầu code)
+
+Danh sách này thay thế đề xuất "Pass 32-40" ban đầu — đã bỏ bớt/gộp/hoãn theo Product Direction Checkpoint ở trên. Ưu tiên: **P0 = nên làm, P1 = nghiên cứu sau, P2 = chưa quyết, Không cần = đã loại bỏ.**
+
+| Việc | Đánh giá | Ưu tiên |
+| --- | --- | --- |
+| Cloudy's Origin Story | Gắn kết toàn bộ mechanic đã có lại với nhau | **P0** |
+| Rare Weather Events | Tái dùng gần như nguyên vẹn pattern của `RareGuestSystem` | **P0** |
+| Sky Archive | Chỉ là 1 màn hình UI tổng hợp dữ liệu đã có, không cần hệ thống mới | **P0** |
+| World Memory / Story Integration | Mở rộng Journal/Memory hiện tại, không tạo hệ thống song song | **P1** |
+| Async Paper Boat (multiplayer thật) | Ý tưởng rất hay nhưng đổi hẳn tầng kiến trúc (cần backend) | **P1**, tách thành Future Experiment riêng |
+| Monetization | Product decision, chưa xác định game này có thương mại hóa hay không | **P2 — chưa quyết** |
+| "Retention Balancing" (pass riêng) | Dễ mâu thuẫn với triết lý cozy — đã gộp vào Pass 27 thay vì tách riêng | **Không cần** |
+
+## Pass 32 — Cloudy's Origin Story (P0, creative design trước, code sau)
+
+**Chưa bắt đầu — đang chờ trả lời các câu hỏi sáng tạo sau (Claude không tự bịa mythology):**
+
+```text
+Cloudy là ai?
+Cloudy sinh ra từ đâu?
+Ai xây trạm?
+Vì sao người chủ cũ rời đi?
+Cloudy có biết quá khứ của mình không?
+Người chơi biết câu chuyện ngay từ đầu hay khám phá dần?
+Kết thúc câu chuyện là gì?
+```
+
+Cách kể ưu tiên (đã quyết): không cutscene dài, không exposition trực tiếp —
+
+```text
+Memory Fragment
+    ↓
+Journal
+    ↓
+hình ảnh / câu ngắn
+    ↓
+người chơi tự ghép câu chuyện
+```
+
+Lý do làm pass này: hiện mỗi guest đã có story arc riêng (Guest → emotional story → memories → journal), nhưng Cloudy — nhân vật trung tâm mà người chơi gắn bó nhất — thì chưa có câu chuyện của chính mình. Đây là câu hỏi "vì sao người chơi muốn tiếp tục chăm trạm này", không chỉ là thêm lore.
+
+## Pass 33 — World Memory / Story Integration (P1)
+
+Không tạo `MemoryFragmentSystem` độc lập (sẽ trùng lặp với Journal/PhotoMoment/Memory đã có ở Pass 16/17, dẫn tới 4 khái niệm "memory" chồng chéo). Thay vào đó mở rộng model hiện tại theo 3 nhóm, vẫn đi qua chung hạ tầng Journal/Memory:
+
+```text
+Memory
+├── Guest Memory   (đã có — "Sun lần đầu đến trạm...")
+├── World Memory   (mới — "Ngày xưa nơi này từng có một khu vườn...")
+└── Cloudy Memory  (mới — "Mình từng nghe tiếng chuông này...", nuôi Pass 32)
+```
+
+## Pass 34 — Rare Weather Events (P0)
+
+Tái dùng pattern điều kiện của `RareGuestSystem` (Pass 22) cho hiện tượng thời tiết thay vì guest. Ví dụ Meteor Shower: điều kiện (Stargazing Corner mở + Moon đã ghé đủ số lần + đang đêm) → hiện tượng đặc biệt → ambient riêng + ingredient/potion đặc biệt + photo moment riêng + memory riêng. Kết nối lại nhiều hệ thống đã có (Weather, Guest, Photo, Journal, Decoration, Rare Guest) mà không cần gameplay system hoàn toàn mới.
+
+Quan trọng: hiện tượng hiếm nhưng **có thể quay lại** (VD lặp lại theo chu kỳ vài tháng), không phải "chỉ cuối tuần này, bỏ lỡ là mất luôn" — soft FOMO, không phải hard FOMO, đúng triết lý cozy.
+
+## Pass 35 — Sky Archive (P0)
+
+Meta UI layer tổng hợp mọi thứ đã unlock (guest đã gặp, memory đã mở, weather đã pha, rare guest đã gặp, khu vực trạm đã mở, số lần Cloudy xuất hiện dạng đặc biệt...) thành 1 màn hình "bộ sưu tập". Mục tiêu: người chơi thấy "mình đã tạo ra cả một thế giới" thay vì chỉ thấy 1 con số crystal. Không cần hệ thống gameplay mới — chỉ đọc dữ liệu đã có từ các system hiện tại.
+
+## Future Experiment — Async Paper Boat (không nằm trong roadmap chính)
+
+Ý tưởng: nhận một lời tử tế → gửi một lời tử tế khác đi, giữa người chơi thật với nhau (đúng "signature mechanic" mà Pass 20 gốc kỳ vọng). Nhưng đổi hẳn tầng kiến trúc — toàn bộ game hiện tại 100% client-side (chỉ `localStorage`, không network) — cần thêm:
+
+```text
+Client → API → Message Queue/DB → Moderation → Message Pool → Client khác
+```
+
+cộng rate limit, spam protection, message validation, report/moderation, anonymous ID. Đây là một dự án riêng (cần backend), chỉ nên bắt đầu sau khi core single-player đã chứng minh là fun — không nhét vào roadmap chính.
+
+## Product Decision — Commercialization? (chưa quyết)
+
+Chưa xác định game này là portfolio/passion project (→ bỏ nhánh này) hay sản phẩm thương mại (→ mới cần Monetization Design → Cosmetic Shop → Commercial QA). Nếu commercial: nguyên tắc đã thống nhất trước là **"Pay for expression, not progression"** — chỉ bán cosmetic (Cloudy skin, phụ kiện, giấy journal, filter ảnh, gói decoration...), tuyệt đối không bán energy/premium currency/faster crafting/skip waiting/paid happiness — giữ đúng triết lý cozy kể cả khi thương mại hóa.
+
+---
+
 # Lộ trình ưu tiên cuối cùng
 
 | Priority    | Pass | Mục tiêu              | Trạng thái |
@@ -1427,9 +1704,9 @@ release candidate
 | **P2**      | 21   | Station Expansion     | ✅ |
 | **P2**      | 22   | Rare Guests           | ✅ |
 | **P2**      | 23   | Cloudy Cosmetics      | ✅ |
-| **P3**      | 24   | Audio                 |
-| **P3**      | 25   | Game Feel             |
-| **P3**      | 26   | Asset Pipeline        |
+| **P3**      | 24   | Audio                 | ✅ |
+| **P3**      | 25   | Game Feel             | ✅ |
+| **P3**      | 26   | Asset Pipeline        | ✅ |
 | **P4**      | 27   | Balance               |
 | **P4**      | 28   | Mobile QA             |
 | **P4**      | 29   | YouTube Playables     |
@@ -1473,6 +1750,12 @@ Claude nên bị ràng buộc bởi những nguyên tắc này:
 14. Không thêm mechanics gây áp lực.
 
 15. Emotional progression quan trọng hơn số lượng guest.
+
+16. Mọi mở rộng sau Pass 31 phải làm vòng lặp
+    guest → empathy → interaction → memory → world-building
+    sâu hơn, không phải nhiều hơn — không thêm pass mới
+    chỉ để "có thêm hệ thống giữ chân người chơi".
+    (Xem PRODUCT DIRECTION CHECKPOINT gần cuối file.)
 ```
 
 Và xét theo trạng thái hiện tại thì **Claude nên bắt đầu từ Pass 15 → 16 → 17, không nên nhảy ngay sang Bướm/Cực Quang/Sao Chổi**. Ba pass này sẽ biến MVP hiện tại từ một game “đã có đầy đủ hệ thống” thành một game bắt đầu có **chiều sâu và lý do để người chơi quay lại**.
@@ -1541,3 +1824,15 @@ Tổng cộng thêm: 4 system mới (`StationAreaSystem`, `DayNightSystem`, `Clo
 **Lưu ý phát hiện ngoài lề, không phải do tôi:** khi kiểm tra git status cuối phiên, thấy `src/Plan.md` và toàn bộ code từ đầu dự án đã được commit tự động vào git (24 commit local, chưa push lên `origin/main`, commit message dạng "feat: ..." mô tả đúng từng pass) — có vẻ môi trường của bạn có hook tự commit sau mỗi thay đổi. Tôi không tự ý commit gì (đúng nguyên tắc chỉ commit khi được yêu cầu) — chỉ báo lại để bạn biết, phòng khi đây không phải hành vi bạn mong đợi.
 
 Trước khi qua Phase 5 (Pass 24-26: Audio, Game Feel, Asset Pipeline), nên tag baseline mới, ví dụ `v0.4.0-world-progression`.
+
+---
+
+# CHECKPOINT — Phase 5 hoàn thiện (2026-09-03)
+
+Pass 24/25/26 đã xong. Khác các Phase trước — đây là polish/architecture pass, không tạo tính năng mới cho người chơi thấy ngay, nên "hoàn thiện" nghĩa là review có hệ thống + sửa đúng chỗ thiếu, không phải liệt kê tính năng đã thêm.
+
+Tổng cộng: `AudioSystem` viết lại hoàn toàn theo kiến trúc bus (MASTER→MUSIC/AMBIENCE/SFX) + 4 ambience layer theo ngữ cảnh + 4 SFX mới, UI `AudioSettingsUI` mới (4 slider kéo được). 5 chỗ game-feel thiếu thật được sửa (Guest tap feedback, Ingredient collect animation, Inventory count pop, Paper Boat fold pop, Sticker pop-in) — đã rà toàn bộ danh sách 15 hệ thống trong Plan, phần còn lại xác nhận đã đủ tốt chứ không bỏ sót. `AssetRegistry.ts` mới làm điểm swap art kiến trúc, wire vào `Guest.ts`/`Decoration.ts`, xác nhận zero thay đổi hình ảnh hôm nay (đúng ý "chỉ chuẩn bị architecture").
+
+93/93 test pass, `tsc`/lint/build sạch, verify browser xác nhận không có console error qua toàn bộ luồng tương tác (âm thanh tự thân không verify được qua screenshot, đã ghi rõ giới hạn này).
+
+Phase 1-6 (Pass 1-30) giờ đã xong toàn bộ — Pass 27 (Economy & Cozy Pacing review + Paper Boat rework), Pass 28 (Mobile & Touch QA trên 5 viewport), Pass 29 (YouTube Playables `PlatformAdapter`), Pass 30 (Save Migration `normalizeSaveData`) đều đã có mục "✅ Đã làm" chi tiết ở phần tương ứng phía trên. Còn lại: Phase 7 (Pass 31: Final QA release gate) — pass cuối, không thêm feature, chỉ chạy full regression + production gameplay test thật. Nên tag baseline mới, ví dụ `v0.6.0-balance`, trước khi qua Phase 7.

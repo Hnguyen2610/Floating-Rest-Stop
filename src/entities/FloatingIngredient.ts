@@ -64,6 +64,20 @@ export class FloatingIngredient extends Phaser.GameObjects.Container {
     this.onDropped(this, pointer.worldX, pointer.worldY);
   };
 
+  // A quick pop-and-fade so a drop reads as "landed" rather than just
+  // vanishing — called by the scene right before destroying this ingredient.
+  playLanded(onComplete: () => void): void {
+    this.disableInteractive();
+    this.scene.tweens.add({
+      targets: this,
+      scale: 1.4,
+      alpha: 0,
+      duration: 180,
+      ease: 'Sine.easeOut',
+      onComplete,
+    });
+  }
+
   private wireInput(): void {
     this.on('pointerdown', () => {
       this.dragging = true;
