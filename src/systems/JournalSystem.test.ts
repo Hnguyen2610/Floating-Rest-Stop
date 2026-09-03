@@ -85,19 +85,37 @@ describe('JournalSystem', () => {
 
   it('can set and get journal item layout', () => {
     const { system } = makeJournalSystem();
-    system.setJournalItemLayout('test_item', 100, 200, 45, 1.5);
+    system.setJournalItemLayout('test_item', 'cloud', 100, 200, 45, 1.5);
     const layout = system.getJournalItemLayout('test_item');
-    expect(layout).toEqual({ x: 100, y: 200, rotation: 45, scale: 1.5 });
+    expect(layout).toEqual({ stickerType: 'cloud', x: 100, y: 200, rotation: 45, scale: 1.5 });
   });
 
   it('returns all journal layouts', () => {
     const { system } = makeJournalSystem();
-    system.setJournalItemLayout('item1', 10, 20);
-    system.setJournalItemLayout('item2', 30, 40);
+    system.setJournalItemLayout('item1', 'cloud', 10, 20);
+    system.setJournalItemLayout('item2', 'star', 30, 40);
     const layouts = system.getAllJournalLayouts();
     expect(layouts.size).toBe(2);
-    expect(layouts.get('item1')).toEqual({ x: 10, y: 20, rotation: 0, scale: 1 });
-    expect(layouts.get('item2')).toEqual({ x: 30, y: 40, rotation: 0, scale: 1 });
+    expect(layouts.get('item1')).toEqual({ stickerType: 'cloud', x: 10, y: 20, rotation: 0, scale: 1 });
+    expect(layouts.get('item2')).toEqual({ stickerType: 'star', x: 30, y: 40, rotation: 0, scale: 1 });
+  });
+
+  it('removes a journal item and emits journal:item-removed', () => {
+    const { bus, system } = makeJournalSystem();
+    const received: unknown[] = [];
+    bus.on('journal:item-removed', (payload) => received.push(payload));
+
+    system.setJournalItemLayout('item1', 'cloud', 10, 20);
+    system.removeJournalItem('item1');
+
+    expect(system.getJournalItemLayout('item1')).toBeUndefined();
+    expect(received).toEqual([{ itemId: 'item1' }]);
+  });
+
+  it('can restore journal layouts from saved entries', () => {
+    const { system } = makeJournalSystem();
+    system.restoreJournalLayouts([['item1', { stickerType: 'cloud', x: 5, y: 6, rotation: 0, scale: 1 }]]);
+    expect(system.getJournalItemLayout('item1')).toEqual({ stickerType: 'cloud', x: 5, y: 6, rotation: 0, scale: 1 });
   });
 
   it('gates chapter accessibility on visit count, trust, and successful treatments', () => {

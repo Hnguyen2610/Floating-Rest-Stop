@@ -17,6 +17,15 @@
       "suitableEmotions": ["LONELY", "TIRED"],
       "suitableGuests": ["moon"],
       "soothingValue": 30
+    },
+    {
+      "id": "gentle_breeze",
+      "name": "Gentle Breeze",
+      "ingredients": ["cool_breeze", "rainbow_fragment"],
+      "visualEffect": "breeze",
+      "suitableEmotions": ["WET"],
+      "suitableGuests": ["butterfly"],
+      "soothingValue": 30
     }
   ]
 }

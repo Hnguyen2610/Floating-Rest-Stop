@@ -1,0 +1,8 @@
+{
+  "messages": [
+    { "id": "did_well", "text": "Hôm nay bạn đã làm rất tốt." },
+    { "id": "rest_is_ok", "text": "Không sao nếu bạn cần nghỉ ngơi." },
+    { "id": "no_rush", "text": "Bạn không cần phải vội." },
+    { "id": "peaceful_flight", "text": "Mong chuyến bay của bạn thật bình yên." }
+  ]
+}

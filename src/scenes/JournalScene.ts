@@ -1,12 +1,26 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { getGameSystems } from '../core/GameSystems';
-import { JournalSystem, type JournalChapter, type MemoryDefinition } from '../systems/JournalSystem';
+import { JournalSystem, type JournalChapter, type JournalItemLayout, type MemoryDefinition } from '../systems/JournalSystem';
 import type { GuestSystem } from '../systems/GuestSystem';
+
+interface StickerDefinition {
+  id: string;
+  name: string;
+  emoji: string;
+}
+
+const STICKER_SCALE_STEPS = [0.7, 1, 1.3];
 
 export class JournalScene extends Phaser.Scene {
   private journalSystem!: JournalSystem;
   private guestSystem!: GuestSystem;
+  private stickers: StickerDefinition[] = [];
+  private editMode = false;
+  private stickerPalette!: Phaser.GameObjects.Container;
+  private selectionToolbar!: Phaser.GameObjects.Container;
+  private placedStickers = new Map<string, Phaser.GameObjects.Text>();
+  private selectedItemId: string | null = null;
 
   constructor() {
     super('JournalScene');
@@ -16,11 +30,16 @@ export class JournalScene extends Phaser.Scene {
     const systems = getGameSystems();
     this.journalSystem = systems.journalSystem;
     this.guestSystem = systems.guestSystem;
+    this.stickers = (this.cache.json.get('stickers') as { stickers: StickerDefinition[] }).stickers;
 
     this.drawBackground();
     this.drawTitle();
     this.drawBackButton();
     this.drawChapters();
+    this.drawSelectionToolbar();
+    this.drawStickerPalette();
+    this.drawDecorationToggle();
+    this.drawStickers();
   }
 
   private drawBackground(): void {
@@ -277,5 +296,177 @@ export class JournalScene extends Phaser.Scene {
         this.tweens.add({ targets: card, scaleX: 1, duration: 140, ease: 'Sine.easeOut' });
       },
     });
+  }
+
+  // --- Journal decoration (Pass 18) ---------------------------------------
+
+  private drawDecorationToggle(): void {
+    const button = this.add
+      .text(GAME_WIDTH - 60, 40, '🎀 Trang trí', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '14px',
+        color: '#5b4a63',
+        backgroundColor: '#fdfbf7',
+        padding: { x: 8, y: 4 },
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    button.on('pointerdown', () => this.toggleEditMode());
+  }
+
+  private toggleEditMode(): void {
+    this.editMode = !this.editMode;
+    this.stickerPalette.setVisible(this.editMode);
+    this.placedStickers.forEach((icon) => {
+      if (this.editMode) icon.setInteractive({ useHandCursor: true });
+      else icon.disableInteractive();
+    });
+    if (!this.editMode) this.deselectSticker();
+  }
+
+  private drawStickerPalette(): void {
+    this.stickerPalette = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 30);
+    this.stickerPalette.setDepth(700);
+
+    const panelWidth = this.stickers.length * 56 + 16;
+    const backdrop = this.add
+      .rectangle(0, 0, panelWidth, 52, PALETTE.cloudWhite, 0.95)
+      .setStrokeStyle(1, PALETTE.eyeColor, 0.25);
+    this.stickerPalette.add(backdrop);
+
+    const startX = -(this.stickers.length - 1) * 28;
+    this.stickers.forEach((sticker, index) => {
+      const itemX = startX + index * 56;
+      const button = this.add.text(itemX, 0, sticker.emoji, { fontSize: '26px' }).setOrigin(0.5);
+      button.setInteractive({ useHandCursor: true });
+      button.on('pointerdown', () => this.placeSticker(sticker.id));
+      this.stickerPalette.add(button);
+    });
+
+    this.stickerPalette.setVisible(false);
+  }
+
+  private drawSelectionToolbar(): void {
+    this.selectionToolbar = this.add.container(0, 0);
+    this.selectionToolbar.setDepth(800);
+
+    const bg = this.add.rectangle(0, 0, 90, 28, PALETTE.cloudWhite, 0.95).setStrokeStyle(1, PALETTE.eyeColor, 0.3);
+    const rotateBtn = this.add.text(-28, 0, '↻', { fontSize: '16px', color: '#5b4a63' }).setOrigin(0.5);
+    const scaleBtn = this.add.text(0, 0, '⤢', { fontSize: '16px', color: '#5b4a63' }).setOrigin(0.5);
+    const removeBtn = this.add.text(28, 0, '🗑', { fontSize: '14px' }).setOrigin(0.5);
+    [rotateBtn, scaleBtn, removeBtn].forEach((btn) => btn.setInteractive({ useHandCursor: true }));
+
+    rotateBtn.on('pointerdown', () => this.rotateSelected());
+    scaleBtn.on('pointerdown', () => this.cycleScaleSelected());
+    removeBtn.on('pointerdown', () => this.removeSelected());
+
+    this.selectionToolbar.add([bg, rotateBtn, scaleBtn, removeBtn]);
+    this.selectionToolbar.setVisible(false);
+  }
+
+  private drawStickers(): void {
+    this.journalSystem.getAllJournalLayouts().forEach((layout, itemId) => {
+      this.renderSticker(itemId, layout);
+    });
+  }
+
+  private placeSticker(stickerType: string): void {
+    const itemId = `${stickerType}_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const x = GAME_WIDTH / 2;
+    const y = GAME_HEIGHT / 2;
+    this.journalSystem.setJournalItemLayout(itemId, stickerType, x, y, 0, 1);
+    this.renderSticker(itemId, { stickerType, x, y, rotation: 0, scale: 1 });
+  }
+
+  private renderSticker(itemId: string, layout: JournalItemLayout): void {
+    const definition = this.stickers.find((sticker) => sticker.id === layout.stickerType);
+    const emoji = definition?.emoji ?? '❓';
+
+    let icon = this.placedStickers.get(itemId);
+    if (!icon) {
+      icon = this.add.text(layout.x, layout.y, emoji, { fontSize: '28px' }).setOrigin(0.5);
+      icon.setDepth(500);
+      if (this.editMode) icon.setInteractive({ useHandCursor: true });
+      this.wireStickerInteraction(itemId, icon);
+      this.placedStickers.set(itemId, icon);
+    }
+    icon.setPosition(layout.x, layout.y);
+    icon.setRotation(Phaser.Math.DegToRad(layout.rotation));
+    icon.setScale(layout.scale);
+  }
+
+  private wireStickerInteraction(itemId: string, icon: Phaser.GameObjects.Text): void {
+    let dragging = false;
+    let moved = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    icon.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      dragging = true;
+      moved = false;
+      offsetX = icon.x - pointer.worldX;
+      offsetY = icon.y - pointer.worldY;
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!dragging) return;
+      moved = true;
+      icon.setPosition(pointer.worldX + offsetX, pointer.worldY + offsetY);
+    });
+
+    this.input.on('pointerup', () => {
+      if (!dragging) return;
+      dragging = false;
+      if (moved) this.saveStickerPosition(itemId, icon);
+      else this.selectSticker(itemId, icon);
+    });
+  }
+
+  private saveStickerPosition(itemId: string, icon: Phaser.GameObjects.Text): void {
+    const layout = this.journalSystem.getJournalItemLayout(itemId);
+    if (!layout) return;
+    this.journalSystem.setJournalItemLayout(itemId, layout.stickerType, icon.x, icon.y, layout.rotation, layout.scale);
+  }
+
+  private selectSticker(itemId: string, icon: Phaser.GameObjects.Text): void {
+    this.selectedItemId = itemId;
+    this.selectionToolbar.setPosition(icon.x, icon.y - 36);
+    this.selectionToolbar.setVisible(true);
+  }
+
+  private deselectSticker(): void {
+    this.selectedItemId = null;
+    this.selectionToolbar.setVisible(false);
+  }
+
+  private rotateSelected(): void {
+    const layout = this.selectedItemId ? this.journalSystem.getJournalItemLayout(this.selectedItemId) : undefined;
+    const icon = this.selectedItemId ? this.placedStickers.get(this.selectedItemId) : undefined;
+    if (!this.selectedItemId || !layout || !icon) return;
+
+    const rotation = (layout.rotation + 15) % 360;
+    icon.setRotation(Phaser.Math.DegToRad(rotation));
+    this.journalSystem.setJournalItemLayout(this.selectedItemId, layout.stickerType, layout.x, layout.y, rotation, layout.scale);
+    this.selectionToolbar.setPosition(icon.x, icon.y - 36);
+  }
+
+  private cycleScaleSelected(): void {
+    const layout = this.selectedItemId ? this.journalSystem.getJournalItemLayout(this.selectedItemId) : undefined;
+    const icon = this.selectedItemId ? this.placedStickers.get(this.selectedItemId) : undefined;
+    if (!this.selectedItemId || !layout || !icon) return;
+
+    const currentIndex = STICKER_SCALE_STEPS.indexOf(layout.scale);
+    const nextScale = STICKER_SCALE_STEPS[(currentIndex + 1) % STICKER_SCALE_STEPS.length] ?? 1;
+    icon.setScale(nextScale);
+    this.journalSystem.setJournalItemLayout(this.selectedItemId, layout.stickerType, layout.x, layout.y, layout.rotation, nextScale);
+  }
+
+  private removeSelected(): void {
+    if (!this.selectedItemId) return;
+    const icon = this.placedStickers.get(this.selectedItemId);
+    icon?.destroy();
+    this.placedStickers.delete(this.selectedItemId);
+    this.journalSystem.removeJournalItem(this.selectedItemId);
+    this.deselectSticker();
   }
 }

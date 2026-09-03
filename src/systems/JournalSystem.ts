@@ -26,9 +26,17 @@ export interface JournalData {
   chapters: JournalChapter[];
 }
 
+export interface JournalItemLayout {
+  stickerType: string;
+  x: number;
+  y: number;
+  rotation: number;
+  scale: number;
+}
+
 export class JournalSystem {
   private unlocked = new Set<string>();
-  private journalLayout: Map<string, { x: number; y: number; rotation: number; scale: number }> = new Map();
+  private journalLayout: Map<string, JournalItemLayout> = new Map();
 
   constructor(
     private data: JournalData,
@@ -87,17 +95,33 @@ export class JournalSystem {
   }
 
   // Journal decoration layout management
-  setJournalItemLayout(itemId: string, x: number, y: number, rotation: number = 0, scale: number = 1): void {
-    this.journalLayout.set(itemId, { x, y, rotation, scale });
+  setJournalItemLayout(
+    itemId: string,
+    stickerType: string,
+    x: number,
+    y: number,
+    rotation: number = 0,
+    scale: number = 1,
+  ): void {
+    this.journalLayout.set(itemId, { stickerType, x, y, rotation, scale });
     this.eventBus.emit('journal:layout-updated', { itemId, x, y, rotation, scale });
   }
 
-  getJournalItemLayout(itemId: string): { x: number; y: number; rotation: number; scale: number } | undefined {
+  getJournalItemLayout(itemId: string): JournalItemLayout | undefined {
     return this.journalLayout.get(itemId);
   }
 
-  getAllJournalLayouts(): Map<string, { x: number; y: number; rotation: number; scale: number }> {
+  getAllJournalLayouts(): Map<string, JournalItemLayout> {
     return new Map(this.journalLayout);
+  }
+
+  removeJournalItem(itemId: string): void {
+    if (!this.journalLayout.delete(itemId)) return;
+    this.eventBus.emit('journal:item-removed', { itemId });
+  }
+
+  restoreJournalLayouts(entries: Array<[string, JournalItemLayout]>): void {
+    this.journalLayout = new Map(entries);
   }
 
   // Check if a chapter is accessible based on player progress

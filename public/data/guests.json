@@ -23,6 +23,14 @@
       "initialIntensity": 75,
       "treatment": { "type": "direct", "interactionId": "gentle_polish" },
       "needHint": "đang thiếu tự tin — hãy vuốt thật nhẹ nhàng, đừng vội"
+    },
+    {
+      "id": "butterfly",
+      "name": "Đàn Bướm Đưa Tin",
+      "initialEmotion": "BUTTERFLY_WET",
+      "initialIntensity": 80,
+      "treatment": { "type": "recipe", "recipeId": "gentle_breeze" },
+      "needHint": "cánh đang ướt sương và mỏi — hãy pha Gentle Breeze rồi chạm nhẹ vào đàn bướm nhé"
     }
   ]
 }

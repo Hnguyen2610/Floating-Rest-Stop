@@ -1,5 +1,5 @@
 import type { TypedEventBus, GameEventMap } from '../core/EventBus';
-import type { EmotionSystem } from './EmotionSystem';
+import { type EmotionSystem, type EmotionStage } from './EmotionSystem';
 import type { GuestDefinition, GuestState, GuestTreatment } from '../types/guest';
 
 export interface GuestsData {
@@ -16,6 +16,39 @@ export interface GuestProgress {
 
 const TRUST_GAIN_ON_GOOD_VISIT = 8;
 const MIN_INITIAL_INTENSITY = 30;
+
+// Each guest's flavor of emotion id per shared 5-stage progression. Falls back
+// to 'sun' for any guest id not listed here.
+const STAGE_EMOTION_BY_GUEST: Record<string, Record<EmotionStage, string>> = {
+  sun: {
+    DISTRESSED: 'SUN_OVERHEATED',
+    CALMING: 'SUN_STRESSED',
+    RELAXED: 'SUN_UNEASY',
+    CONTENT: 'SUN_CALMING',
+    PEACEFUL: 'SUN_RELAXED',
+  },
+  moon: {
+    DISTRESSED: 'MOON_LONELY',
+    CALMING: 'MOON_DISTANT',
+    RELAXED: 'MOON_OPENING',
+    CONTENT: 'MOON_SHARING',
+    PEACEFUL: 'MOON_PEACEFUL',
+  },
+  little_star: {
+    DISTRESSED: 'STAR_INSECURE',
+    CALMING: 'STAR_HESITANT',
+    RELAXED: 'STAR_TRYING',
+    CONTENT: 'STAR_BELIEVING',
+    PEACEFUL: 'STAR_CONFIDENT',
+  },
+  butterfly: {
+    DISTRESSED: 'BUTTERFLY_WET',
+    CALMING: 'BUTTERFLY_RESTING',
+    RELAXED: 'BUTTERFLY_DRYING',
+    CONTENT: 'BUTTERFLY_CHATTING',
+    PEACEFUL: 'BUTTERFLY_HAPPY',
+  },
+};
 
 export class GuestSystem {
   private current: GuestState | null = null;
@@ -50,6 +83,21 @@ export class GuestSystem {
       ...progress,
       memoryProgress: progress.memoryProgress ?? new Map<string, number>()
     });
+  }
+
+  // Light-touch trust gain from outside a visit (e.g. sending a kind message
+  // via Paper Boat) — smaller than the trust earned from an actual good visit,
+  // so it stays a bonus rather than a way to skip soothing guests in person.
+  addTrust(guestId: string, amount: number): void {
+    const progress = this.progress.get(guestId) ?? {
+      visitCount: 0,
+      trustLevel: 0,
+      successfulTreatments: 0,
+      memoryProgress: new Map<string, number>(),
+      specialInteractions: 0,
+    };
+    progress.trustLevel += amount;
+    this.progress.set(guestId, progress);
   }
 
   spawn(guestId: string): GuestState {
@@ -120,15 +168,8 @@ export class GuestSystem {
 
     this.current.emotionalIntensity = this.emotionSystem.soothe(this.current.emotionalIntensity, amount);
     const stage = this.emotionSystem.getStage(this.current.emotionalIntensity);
-
-    // Update current emotion based on stage
-    switch (stage) {
-      case 'DISTRESSED': this.current.currentEmotion = this.getDistressedEmotion(this.current.id); break;
-      case 'CALMING': this.current.currentEmotion = this.getCalmingEmotion(this.current.id); break;
-      case 'RELAXED': this.current.currentEmotion = this.getRelaxedEmotion(this.current.id); break;
-      case 'CONTENT': this.current.currentEmotion = this.getContentEmotion(this.current.id); break;
-      case 'PEACEFUL': this.current.currentEmotion = this.getPeacefulEmotion(this.current.id); break;
-    }
+    const stageEmotions = STAGE_EMOTION_BY_GUEST[this.current.id] ?? STAGE_EMOTION_BY_GUEST.sun;
+    this.current.currentEmotion = stageEmotions[stage];
 
     this.eventBus.emit('guest:emotion-changed', this.current);
 
@@ -141,51 +182,5 @@ export class GuestSystem {
   private isContentOrBetter(intensity: number): boolean {
     const stage = this.emotionSystem.getStage(intensity);
     return stage === 'CONTENT' || stage === 'PEACEFUL';
-  }
-
-  // Helper methods to get appropriate emotion IDs for each stage
-  private getDistressedEmotion(guestId: string): string {
-    switch (guestId) {
-      case 'sun': return 'SUN_OVERHEATED';
-      case 'moon': return 'MOON_LONELY';
-      case 'little_star': return 'STAR_INSECURE';
-      default: return 'SUN_OVERHEATED';
-    }
-  }
-
-  private getCalmingEmotion(guestId: string): string {
-    switch (guestId) {
-      case 'sun': return 'SUN_STRESSED';
-      case 'moon': return 'MOON_DISTANT';
-      case 'little_star': return 'STAR_HESITANT';
-      default: return 'SUN_STRESSED';
-    }
-  }
-
-  private getRelaxedEmotion(guestId: string): string {
-    switch (guestId) {
-      case 'sun': return 'SUN_UNEASY';
-      case 'moon': return 'MOON_OPENING';
-      case 'little_star': return 'STAR_TRYING';
-      default: return 'SUN_UNEASY';
-    }
-  }
-
-  private getContentEmotion(guestId: string): string {
-    switch (guestId) {
-      case 'sun': return 'SUN_CALMING';
-      case 'moon': return 'MOON_SHARING';
-      case 'little_star': return 'STAR_BELIEVING';
-      default: return 'SUN_CALMING';
-    }
-  }
-
-  private getPeacefulEmotion(guestId: string): string {
-    switch (guestId) {
-      case 'sun': return 'SUN_RELAXED';
-      case 'moon': return 'MOON_PEACEFUL';
-      case 'little_star': return 'STAR_CONFIDENT';
-      default: return 'SUN_RELAXED';
-    }
   }
 }

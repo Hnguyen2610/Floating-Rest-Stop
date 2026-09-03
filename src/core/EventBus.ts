@@ -89,6 +89,8 @@ export interface GameEventMap {
   'weather:created': { recipeId: string };
   'weather:used': { recipeId: string };
   'journal:layout-updated': { itemId: string; x: number; y: number; rotation: number; scale: number };
+  'journal:item-removed': { itemId: string };
+  'paperboat:sent': { messageId: string; trustGuestId: string | null };
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

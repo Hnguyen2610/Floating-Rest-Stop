@@ -6,6 +6,7 @@ import { Guest, type GuestInteraction } from '../entities/Guest';
 import { SunGuest } from '../guests/SunGuest';
 import { MoonGuest } from '../guests/MoonGuest';
 import { LittleStarGuest } from '../guests/LittleStarGuest';
+import { ButterflyGuest } from '../guests/ButterflyGuest';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
 import { HappinessCrystal } from '../entities/HappinessCrystal';
 import { Decoration, type DecorationVisual } from '../entities/Decoration';
@@ -14,6 +15,7 @@ import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
 import { CrystalCounter } from '../ui/CrystalCounter';
 import { DecorationShopUI } from '../ui/DecorationShopUI';
+import { PaperBoatUI } from '../ui/PaperBoatUI';
 import { GuestHintUI } from '../ui/GuestHintUI';
 import { BottomNavUI } from '../ui/BottomNavUI';
 import { eventBus } from '../core/EventBus';
@@ -26,10 +28,12 @@ export class StationScene extends Phaser.Scene {
   private mixerUI!: WeatherMixerUI;
   private guestHintUI!: GuestHintUI;
   private decorationShopUI!: DecorationShopUI;
+  private paperBoatUI!: PaperBoatUI;
   private activeGuestEntity: Guest | null = null;
   private photoMomentIcon: PhotoMomentIcon | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
   private departureTimer: Phaser.Time.TimerEvent | null = null;
+  private butterflyStoryShown = false;
   private readonly crystalCounterPosition = { x: GAME_WIDTH - 32, y: 32 };
 
   constructor() {
@@ -50,7 +54,7 @@ export class StationScene extends Phaser.Scene {
     this.mixerUI = new WeatherMixerUI(
       this,
       GAME_WIDTH - 90,
-      GAME_HEIGHT - 90,
+      GAME_HEIGHT - 112,
       this.systems.ingredientSystem,
       this.systems.weatherSystem,
       () => this.systems.audioSystem.playCraftSuccessSound(),
@@ -67,6 +71,9 @@ export class StationScene extends Phaser.Scene {
       GAME_WIDTH / 2,
       GAME_HEIGHT - 96,
       this.systems.decorationSystem,
+    );
+    this.paperBoatUI = new PaperBoatUI(this, this.systems.paperBoatSystem, () =>
+      this.systems.audioSystem.playCaptureSound(),
     );
     this.drawMuteButton();
     this.guestHintUI = new GuestHintUI(this, GAME_WIDTH * 0.24, GAME_HEIGHT * 0.42 - 100);
@@ -103,12 +110,16 @@ export class StationScene extends Phaser.Scene {
     this.departureTimer?.remove();
     this.departureTimer = null;
     this.activeGuestEntity?.destroy();
+    this.butterflyStoryShown = false;
     const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
     const x = GAME_WIDTH * 0.24;
     const y = GAME_HEIGHT * 0.42;
     this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
     this.activeGuestEntity.playArrive();
     this.updateGuestHint(state, meta);
+
+    // "Cloudy → chỗ nằm mềm": Cloudy visibly welcomes the tired flock in.
+    if (state.id === 'butterfly') this.cloudy.playHappyBounce();
   };
 
   private readonly handleGuestLeft = (): void => {
@@ -149,12 +160,20 @@ export class StationScene extends Phaser.Scene {
   private readonly handleDecorationPlaced = ({ id }: { id: string }): void =>
     this.placeDecoration(id);
 
+  private readonly handlePaperBoatSent = ({ trustGuestId }: { trustGuestId: string | null }): void => {
+    if (!trustGuestId) return;
+    const definition = this.systems.guestSystem.getAllDefinitions().find((def) => def.id === trustGuestId);
+    if (!definition) return;
+    this.showToast(`💌 Lời nhắn của bạn đã sưởi ấm lòng ${definition.name}`);
+  };
+
   private wireEvents(): void {
     eventBus.on('guest:arrived', this.handleGuestArrived);
     eventBus.on('guest:left', this.handleGuestLeft);
     eventBus.on('guest:emotion-changed', this.handleEmotionChanged);
     eventBus.on('guest:relaxed', this.handleGuestRelaxed);
     eventBus.on('decoration:placed', this.handleDecorationPlaced);
+    eventBus.on('paperboat:sent', this.handlePaperBoatSent);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       eventBus.off('guest:arrived', this.handleGuestArrived);
@@ -162,6 +181,7 @@ export class StationScene extends Phaser.Scene {
       eventBus.off('guest:emotion-changed', this.handleEmotionChanged);
       eventBus.off('guest:relaxed', this.handleGuestRelaxed);
       eventBus.off('decoration:placed', this.handleDecorationPlaced);
+      eventBus.off('paperboat:sent', this.handlePaperBoatSent);
     });
   }
 
@@ -178,19 +198,26 @@ export class StationScene extends Phaser.Scene {
     new BottomNavUI(this, 60, GAME_HEIGHT - 26, [
       { icon: '📓', label: 'Nhật ký', onTap: () => this.scene.start('JournalScene') },
       { icon: '🎨', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
+      { icon: '🎐', label: 'Gửi lời nhắn', onTap: () => this.paperBoatUI.toggle() },
       { icon: '🌾', label: 'Thu hoạch', onTap: () => this.showFeatureComingSoon() },
       { icon: '⚒️', label: 'Nâng cấp', onTap: () => this.showFeatureComingSoon() },
     ]);
   }
 
   private showFeatureComingSoon(): void {
+    this.showToast('🔧 Tính năng đang phát triển');
+  }
+
+  private showToast(text: string): void {
     const toast = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, '🔧 Tính năng đang phát triển', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, text, {
         fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#5b4a63',
         backgroundColor: '#fdfbf7',
         padding: { x: 16, y: 10 },
+        align: 'center',
+        wordWrap: { width: GAME_WIDTH * 0.7 },
       })
       .setOrigin(0.5)
       .setAlpha(0);
@@ -272,6 +299,8 @@ export class StationScene extends Phaser.Scene {
         return new MoonGuest(this, x, y, state, meta, onInteract);
       case 'little_star':
         return new LittleStarGuest(this, x, y, state, meta, onInteract);
+      case 'butterfly':
+        return new ButterflyGuest(this, x, y, state, meta, onInteract);
       default:
         throw new Error(`Unknown guest id: ${state.id}`);
     }
@@ -283,7 +312,12 @@ export class StationScene extends Phaser.Scene {
 
     if (treatment.type === 'recipe' && interaction.type === 'tap') {
       const potionId = this.systems.weatherSystem.usePotion();
-      if (!potionId) return;
+      if (!potionId) {
+        // "Tap gently → nghe chuyện": a tap that isn't priming a potion would
+        // otherwise do nothing — for Butterfly mid-chat, turn it into a story instead.
+        this.tellButterflyStoryIfReady();
+        return;
+      }
       if (potionId === treatment.recipeId) {
         this.systems.guestSystem.soothe(this.systems.weatherSystem.getRecipe(potionId).soothingValue);
       }
@@ -293,6 +327,19 @@ export class StationScene extends Phaser.Scene {
     if (treatment.type === 'direct' && interaction.type === 'rub') {
       this.systems.guestSystem.soothe(Math.min(interaction.distance, 15) * 0.1);
     }
+  }
+
+  private tellButterflyStoryIfReady(): void {
+    if (this.butterflyStoryShown) return;
+    const guest = this.systems.guestSystem.getCurrentGuest();
+    if (!guest || guest.id !== 'butterfly' || guest.currentEmotion !== 'BUTTERFLY_CHATTING') return;
+
+    const stories = (this.cache.json.get('stories') as Record<string, string[]>).butterfly ?? [];
+    if (stories.length === 0) return;
+
+    this.butterflyStoryShown = true;
+    const story = Phaser.Utils.Array.GetRandom(stories);
+    this.showToast(`🦋 ${story}`);
   }
 
   private spawnHappinessCrystal(): void {
@@ -358,11 +405,16 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ONE', () => guestSystem.spawn('sun'));
     this.input.keyboard?.on('keydown-TWO', () => guestSystem.spawn('moon'));
     this.input.keyboard?.on('keydown-THREE', () => guestSystem.spawn('little_star'));
+    this.input.keyboard?.on('keydown-FOUR', () => guestSystem.spawn('butterfly'));
     this.input.keyboard?.on('keydown-Q', () => guestSystem.leave());
     this.input.keyboard?.on('keydown-I', () => this.spawnIngredient());
     this.input.keyboard?.on('keydown-Z', () => {
       weatherSystem.addToMixer('morning_dew');
       weatherSystem.addToMixer('cool_breeze');
+    });
+    this.input.keyboard?.on('keydown-V', () => {
+      weatherSystem.addToMixer('cool_breeze');
+      weatherSystem.addToMixer('rainbow_fragment');
     });
     this.input.keyboard?.on('keydown-X', () => {
       weatherSystem.addToMixer('warm_sunbeam');

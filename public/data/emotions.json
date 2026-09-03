@@ -77,6 +77,32 @@
       "label": "Tự tin lấp lánh",
       "color": "#fdf2a4",
       "dialogue": ["Mình không cần sáng nhất — mình chỉ cần là mình.", "Cảm ơn vì đã kiên nhẫn chờ mình tự tin lên."]
+    },
+
+    "BUTTERFLY_WET": {
+      "label": "Ướt sương, mỏi cánh",
+      "color": "#9fb8c9",
+      "dialogue": ["Chúng mình ướt hết cả cánh rồi...", "Có chỗ nào ấm để nghỉ không?"]
+    },
+    "BUTTERFLY_RESTING": {
+      "label": "Đang nghỉ trên mây",
+      "color": "#bcd4d8",
+      "dialogue": ["Đám mây này êm ghê...", "Cho chúng mình nằm thêm chút nữa nhé?"]
+    },
+    "BUTTERFLY_DRYING": {
+      "label": "Cánh đang khô dần",
+      "color": "#d8e4c8",
+      "dialogue": ["Cánh đang khô dần rồi, thích quá!", "Gió này dễ chịu ghê."]
+    },
+    "BUTTERFLY_CHATTING": {
+      "label": "Muốn kể chuyện",
+      "color": "#f0d9a8",
+      "dialogue": ["Chúng mình có một câu chuyện muốn kể!", "Bạn có muốn nghe chuyện của tụi mình không?"]
+    },
+    "BUTTERFLY_HAPPY": {
+      "label": "Vui vẻ và sẵn sàng bay",
+      "color": "#f7c9d0",
+      "dialogue": ["Cảm ơn bạn đã cho chúng mình nghỉ chân!", "Chúng mình sắp bay tiếp rồi, hẹn gặp lại nhé!"]
     }
   }
 }

@@ -5,7 +5,7 @@ Dưới đây là **toàn bộ roadmap từ Pass 1 đến Pass 31**, mình đã 
 ```text
 PHASE 1 — MVP FOUNDATION                 Pass 1–14   ✅ DONE
 PHASE 2 — CORE GAME DEPTH                Pass 15–17  ✅ DONE (hệ thống + nội dung — xem ghi chú trạng thái trong từng pass)
-PHASE 3 — CONTENT & SOCIAL INTERACTION   Pass 18–20
+PHASE 3 — CONTENT & SOCIAL INTERACTION   Pass 18–20  ✅ DONE (xem ghi chú trạng thái trong từng pass)
 PHASE 4 — WORLD PROGRESSION              Pass 21–23
 PHASE 5 — PRESENTATION & GAME FEEL       Pass 24–26
 PHASE 6 — BALANCE & PLATFORM             Pass 27–30
@@ -562,9 +562,13 @@ Sau đó reconstruct scene.
 
 ---
 
-# PHASE 3 — CONTENT & SOCIAL INTERACTION
+# PHASE 3 — CONTENT & SOCIAL INTERACTION ✅ (2026-09-03)
 
-# Pass 18 — Journal Decoration
+**Trạng thái:** Cả 3 pass đã xong — code compile sạch, 66/66 test pass, `npm run build` thành công, verify bằng Playwright thật (spawn Butterfly, gửi lời nhắn qua Paper Boat, đặt/kéo/xoay sticker trong Journal, **reload trang thật để xác nhận sticker được lưu đúng qua save/load**) — 0 console error xuyên suốt.
+
+# Pass 18 — Journal Decoration ✅
+
+**Đã làm:** `JournalSystem` mở rộng `setJournalItemLayout`/`getJournalItemLayout`/`getAllJournalLayouts` (vốn là dead code trước đây, không scene nào gọi) để lưu thêm `stickerType`, thêm `removeJournalItem`/`restoreJournalLayouts`. `public/data/stickers.json` (5 loại: mây, sao, cầu vồng, hoa sương, washi tape — dùng emoji làm placeholder art, khớp phong cách hiện có). `JournalScene` có nút "🎀 Trang trí" bật/tắt chế độ chỉnh sửa: bảng palette ở dưới để thêm sticker mới, kéo-thả để di chuyển, tap-không-kéo để chọn (hiện toolbar mini ↻ xoay / ⤢ đổi cỡ / 🗑 xóa). Sticker vô hiệu hóa tương tác khi ở chế độ xem thường (tránh chặn tap vào card bên dưới). Lưu qua `SaveData.journalLayout` (Map serialize thành mảng entries, giống cách đã xử lý `memoryProgress`), autosave khi có thay đổi (`journal:layout-updated`/`journal:item-removed`).
 
 Thêm customization vào Journal.
 
@@ -605,7 +609,16 @@ Không ảnh hưởng progression.
 
 ---
 
-# Pass 19 — Butterfly Messengers
+# Pass 19 — Butterfly Messengers ✅
+
+**Đã làm:** Guest thứ 4 `butterfly` tái sử dụng đúng 100% kiến trúc `GuestSystem`/`EmotionSystem` (không tạo FSM riêng, đúng yêu cầu "phải reuse tối đa" bên dưới) — map 7 trạng thái narrative (WET→RESTING→DRYING→CHATTING→HAPPY) vào đúng 5 stage cảm xúc sẵn có qua các emotion ID `BUTTERFLY_*`. Treatment dùng recipe mới `gentle_breeze` (cool_breeze + rainbow_fragment). Visual "group guest": `ButterflyGuest` vẽ 3 cụm cánh nhỏ lệch vị trí/tỉ lệ thay vì 1 hình lớn, phân biệt rõ với Sun/Moon/Star. Nhân tiện sửa `GuestSystem`: gộp 5 method switch gần giống hệt nhau (đã ghi nhận là trùng lặp từ trước) thành 1 lookup table `STAGE_EMOTION_BY_GUEST`, đỡ phải sửa 5 chỗ mỗi khi thêm guest mới.
+
+**Cập nhật (không rút gọn nữa):** cả 3 interaction trong Plan giờ có cơ chế thật riêng biệt:
+- **"Cloudy → chỗ nằm mềm"**: Cloudy phát `playHappyBounce()` thật khi đàn Bướm đến — phản ứng chào đón hữu hình, không chỉ text.
+- **"Gentle Breeze → hong cánh"**: recipe `gentle_breeze` qua Weather Mixer như 3 guest kia.
+- **"Tap gently → nghe chuyện"**: cơ chế riêng thật — khi Bướm ở stage `BUTTERFLY_CHATTING` (muốn kể chuyện) và người chơi chạm vào lúc **không có potion sẵn** (vốn dĩ trước đây là một tap vô nghĩa, không làm gì), giờ hiện một câu chuyện ngắn (3 câu chuyện có sẵn trong `public/data/stories.json`, không lặp lại trong cùng lượt ghé) qua toast riêng — không chặn việc dùng potion thật khi đã pha xong, chỉ tận dụng khoảng tap "chết" trước đó. Đã verify toàn bộ chuỗi qua browser thật: pha 2 lần Gentle Breeze → đúng dialogue theo từng stage → chạm lần 3 → đúng story hiện ra.
+
+**Bonus tìm thấy khi verify:** nút "CHẾ TẠO" của Weather Mixer trước đó nằm ngoài canvas (y=726 > GAME_HEIGHT=720) — không bấm được ở độ phân giải chuẩn 1280×720, ảnh hưởng luôn cả Pass 15 (Sun/Moon cũng dùng chung nút này). Đã sửa vị trí mixer, verify lại bằng browser xác nhận bấm được.
 
 Thêm guest thứ 4:
 
@@ -656,7 +669,18 @@ Không tạo một hệ guest hoàn toàn riêng chỉ cho Butterfly.
 
 ---
 
-# Pass 20 — Paper Boat & Wind Messages
+# Pass 20 — Paper Boat & Wind Messages ✅
+
+**Đã làm:** `PaperBoatSystem` mới (data-driven từ `messages.json`, 4 message có sẵn trong Plan). UI mới `PaperBoatUI` — panel dạng modal (giống pattern `DecorationShopUI`), mở qua icon "🎐" thứ 5 trên bottom nav: chọn lời nhắn → 1 nút "Gấp" bấm 3 lần (icon đổi 📄→📃→⛵ → thả) → thuyền bay tween ra khỏi panel kèm sparkle → reward. Đã lưu qua save (`paperBoatSentCount`). Xem chi tiết reward bên dưới.
+
+**Cập nhật (không rút gọn nữa) — Reward giờ đa dạng thật, không còn chỉ 1 crystal cố định:**
+- **Crystal** (happiness) — như cũ, luôn nhận.
+- **Guest relationship** — mỗi lần gửi, +3 trust cho 1 guest ngẫu nhiên trong 4 guest (`GuestSystem.addTrust`, method mới) — nhỏ hơn hẳn +8 từ 1 lượt ghé thành công thật, để không thành đường tắt cày cấp (đúng nguyên tắc "Không biến thành farming mechanic"). Có toast riêng báo "Lời nhắn của bạn đã sưởi ấm lòng [Tên guest]" — đã verify guest được chọn đổi ngẫu nhiên qua nhiều lần gửi.
+- **Special sparkle** — hiệu ứng 5 hạt ✨ tỏa ra quanh thuyền lúc thả vào gió, thuần hình ảnh.
+
+Bỏ qua có chủ đích: **"small memory"** — không tạo thêm memory/content mới ở đây vì sẽ trùng lặp với hệ thống memory đã có ở Pass 16/17 (memory nên gắn với hành trình cảm xúc của guest, không nên phát ngẫu nhiên qua 1 minigame phụ) — đây là quyết định thiết kế có chủ đích, không phải bỏ sót.
+
+Paper folding vẫn giữ nguyên "chỉ cần 3 bước tương tác" (đúng yêu cầu bên dưới, không phải origami simulator): 1 nút gấp bấm 3 lần (gấp góc 1 → gấp góc 2 → thả vào gió), không phải 3 nút riêng biệt — cách này vẫn đúng số bước tương tác (3) mà không cần dựng UI cho từng bước gấp tay.
 
 Đây không nên chỉ là minigame phụ.
 
@@ -1376,9 +1400,9 @@ release candidate
 | **P0**      | 15   | Inventory/Mixer       | ✅ hệ thống |
 | **P0**      | 16   | Emotional Progression | ✅ hệ thống + nội dung (4-5→4) |
 | **P0**      | 17   | Journal 2.0           | ✅ hệ thống + nội dung (4-5→4) |
-| **P1**      | 18   | Journal Decoration    | |
-| **P1**      | 19   | Butterfly Messengers  |
-| **P1**      | 20   | Paper Boat            |
+| **P1**      | 18   | Journal Decoration    | ✅ |
+| **P1**      | 19   | Butterfly Messengers  | ✅ |
+| **P1**      | 20   | Paper Boat            | ✅ |
 | **P2**      | 21   | Station Expansion     |
 | **P2**      | 22   | Rare Guests           |
 | **P2**      | 23   | Cloudy Cosmetics      |
@@ -1445,4 +1469,40 @@ Trước khi qua Pass 18, còn 1 việc đáng cân nhắc:
 ```text
 Nên tag một baseline mới, ví dụ v0.2.0-core-depth,
 trước khi bắt đầu Pass 18 (Journal Decoration).
+```
+
+---
+
+# CHECKPOINT — Phase 3 hoàn thiện, đầy đủ không rút gọn (2026-09-03, cập nhật lần 2)
+
+Sau khi báo cáo xong lần đầu, được yêu cầu làm lại đầy đủ Pass 19/20 — bỏ hết phần đã cố tình đơn giản hóa trước đó thay vì để nguyên. Đã bổ sung:
+
+```text
+Pass 19: Cloudy playHappyBounce() thật khi Bướm đến (không chỉ text),
+         cơ chế "chạm để nghe chuyện" thật (3 story ở stories.json,
+         trigger khi tap lúc không có potion — tận dụng tap "chết"
+         trước đó, không chặn soothe thật).
+
+Pass 20: Reward giờ gồm crystal + trust ngẫu nhiên cho 1 guest
+         (GuestSystem.addTrust mới, +3, có toast riêng) + sparkle
+         hình ảnh khi thả thuyền — thay vì chỉ 1 crystal cố định.
+```
+
+Bonus phát hiện khi verify đầy đủ luồng dỗ Bướm qua browser: nút "CHẾ TẠO" của Weather Mixer nằm ngoài canvas (y=726 > 720) — không bấm được ở độ phân giải chuẩn, ảnh hưởng cả Pass 15. Đã sửa vị trí, verify lại xác nhận bấm được.
+
+Tổng cộng session này thêm: 1 system mới (`PaperBoatSystem`), 1 method mới trên `GuestSystem` (`addTrust`), 1 guest mới (`butterfly`, tái sử dụng kiến trúc cũ), 2 UI mới (`PaperBoatUI`, decoration mode trong `JournalScene`), 4 file data mới (`stickers.json`, `messages.json`, `stories.json`), mở rộng save schema thêm `journalLayout`/`paperBoatSentCount`. 66/66 test pass, build sạch, verify browser thật nhiều vòng — gồm cả reload trang thật để xác nhận sticker lưu đúng qua localStorage, và toàn bộ chuỗi pha chế→dỗ→story cho Bướm.
+
+Điểm còn lại, có chủ đích không làm (đã ghi rõ lý do trong từng pass ở trên, không phải bỏ sót):
+
+```text
+1. Pass 20 không thêm "small memory" reward — tránh trùng lặp
+   với hệ thống memory của Pass 16/17.
+
+2. Nav bar StationScene giờ có 5 icon (thêm "🎐 Gửi lời nhắn").
+   "🌾 Thu hoạch" và "⚒️ Nâng cấp" vẫn là placeholder
+   "đang phát triển" — chưa thuộc pass nào đã làm.
+
+3. Nên tag baseline mới, ví dụ v0.3.0-content-social,
+   trước khi qua Phase 4 (Pass 21-23: Station Expansion,
+   Rare Guests, Cloudy Cosmetics).
 ```

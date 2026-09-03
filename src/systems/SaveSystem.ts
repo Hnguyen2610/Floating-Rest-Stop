@@ -5,6 +5,7 @@ import type { DecorationSystem } from './DecorationSystem';
 import type { GuestSystem } from './GuestSystem';
 import type { JournalSystem } from './JournalSystem';
 import type { PhotoMomentSystem } from './PhotoMomentSystem';
+import type { PaperBoatSystem } from './PaperBoatSystem';
 
 const SAVE_DATA_VERSION = 1;
 const AUTOSAVE_DEBOUNCE_MS = 1000;
@@ -15,6 +16,7 @@ export interface SaveableSystems {
   guestSystem: GuestSystem;
   journalSystem: JournalSystem;
   photoMomentSystem: PhotoMomentSystem;
+  paperBoatSystem: PaperBoatSystem;
 }
 
 export class SaveSystem {
@@ -51,6 +53,9 @@ export class SaveSystem {
     this.eventBus.on('decoration:unlocked', trigger);
     this.eventBus.on('memory:unlocked', trigger);
     this.eventBus.on('guest:left', trigger);
+    this.eventBus.on('journal:layout-updated', trigger);
+    this.eventBus.on('journal:item-removed', trigger);
+    this.eventBus.on('paperboat:sent', trigger);
   }
 
   private scheduleAutosave(): void {
@@ -78,6 +83,8 @@ export class SaveSystem {
       guestProgress,
       unlockedMemories: this.systems.journalSystem.getUnlockedIds(),
       capturedPhotoMoments: this.systems.photoMomentSystem.getCapturedIds(),
+      journalLayout: [...this.systems.journalSystem.getAllJournalLayouts().entries()],
+      paperBoatSentCount: this.systems.paperBoatSystem.getSentCount(),
     };
   }
 
@@ -86,6 +93,8 @@ export class SaveSystem {
     this.systems.decorationSystem.restoreUnlocked(data.unlockedDecorations);
     this.systems.journalSystem.restoreUnlocked(data.unlockedMemories);
     this.systems.photoMomentSystem.restoreCaptured(data.capturedPhotoMoments);
+    this.systems.journalSystem.restoreJournalLayouts(data.journalLayout ?? []);
+    this.systems.paperBoatSystem.restoreSentCount(data.paperBoatSentCount ?? 0);
     for (const [guestId, progress] of Object.entries(data.guestProgress)) {
       this.systems.guestSystem.restoreProgress(guestId, {
         ...progress,

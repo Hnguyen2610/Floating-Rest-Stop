@@ -7,6 +7,7 @@ import { GuestSystem, type GuestsData } from './GuestSystem';
 import { EmotionSystem, type EmotionsData } from './EmotionSystem';
 import { JournalSystem, type JournalData } from './JournalSystem';
 import { PhotoMomentSystem, type PhotoMomentsData } from './PhotoMomentSystem';
+import { PaperBoatSystem, type PaperMessagesData } from './PaperBoatSystem';
 import { TypedEventBus, type GameEventMap } from '../core/EventBus';
 
 class MemorySaveProvider implements SaveProvider {
@@ -54,6 +55,9 @@ const journalData: JournalData = {
 const photoMomentsData: PhotoMomentsData = {
   photoMoments: [{ id: 'sun_cool_drizzle_01', guestId: 'sun', memoryId: 'sun_memory_1' }],
 };
+const messagesData: PaperMessagesData = {
+  messages: [{ id: 'did_well', text: 'You did well today.' }],
+};
 
 function makeSystems() {
   const bus = new TypedEventBus<GameEventMap>();
@@ -63,7 +67,8 @@ function makeSystems() {
   const decorationSystem = new DecorationSystem(decorationsData, happinessSystem, bus);
   const journalSystem = new JournalSystem(journalData, bus, guestSystem);
   const photoMomentSystem = new PhotoMomentSystem(photoMomentsData, journalSystem, bus);
-  return { bus, guestSystem, happinessSystem, decorationSystem, journalSystem, photoMomentSystem };
+  const paperBoatSystem = new PaperBoatSystem(messagesData, happinessSystem, guestSystem, bus);
+  return { bus, guestSystem, happinessSystem, decorationSystem, journalSystem, photoMomentSystem, paperBoatSystem };
 }
 
 describe('SaveSystem', () => {
@@ -88,6 +93,8 @@ describe('SaveSystem', () => {
       memoryProgress: [],
       specialInteractions: 0,
     });
+    expect(provider.stored?.journalLayout).toEqual([]);
+    expect(provider.stored?.paperBoatSentCount).toBe(0);
   });
 
   it('restores state from an existing save on construction', async () => {
@@ -101,6 +108,8 @@ describe('SaveSystem', () => {
       },
       unlockedMemories: ['sun_memory_1'],
       capturedPhotoMoments: ['sun_cool_drizzle_01'],
+      journalLayout: [['sticker1', { stickerType: 'cloud', x: 10, y: 20, rotation: 0, scale: 1 }]],
+      paperBoatSentCount: 4,
     };
 
     const systems = makeSystems();
@@ -118,6 +127,14 @@ describe('SaveSystem', () => {
       memoryProgress: new Map(),
       specialInteractions: 0,
     });
+    expect(systems.journalSystem.getJournalItemLayout('sticker1')).toEqual({
+      stickerType: 'cloud',
+      x: 10,
+      y: 20,
+      rotation: 0,
+      scale: 1,
+    });
+    expect(systems.paperBoatSystem.getSentCount()).toBe(4);
   });
 
   it('does not save before the initial load resolves', async () => {

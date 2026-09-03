@@ -6,6 +6,14 @@ export interface GuestSaveEntry {
   specialInteractions: number;
 }
 
+export interface JournalItemSaveEntry {
+  stickerType: string;
+  x: number;
+  y: number;
+  rotation: number;
+  scale: number;
+}
+
 export interface SaveData {
   version: number;
   happinessCrystals: number;
@@ -13,6 +21,8 @@ export interface SaveData {
   guestProgress: Record<string, GuestSaveEntry>;
   unlockedMemories: string[];
   capturedPhotoMoments: string[];
+  journalLayout: Array<[string, JournalItemSaveEntry]>;
+  paperBoatSentCount: number;
 }
 
 export interface SaveProvider {

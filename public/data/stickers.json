@@ -1,0 +1,9 @@
+{
+  "stickers": [
+    { "id": "cloud", "name": "Mây nhỏ", "emoji": "☁️" },
+    { "id": "star", "name": "Ngôi sao", "emoji": "⭐" },
+    { "id": "rainbow", "name": "Cầu vồng", "emoji": "🌈" },
+    { "id": "mist_flower", "name": "Hoa sương", "emoji": "🌸" },
+    { "id": "washi_tape", "name": "Băng washi", "emoji": "🎀" }
+  ]
+}
