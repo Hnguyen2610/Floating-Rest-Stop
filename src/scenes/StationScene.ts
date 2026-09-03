@@ -98,7 +98,7 @@ export class StationScene extends Phaser.Scene {
     this.decorationShopUI = new DecorationShopUI(
       this,
       GAME_WIDTH / 2,
-      GAME_HEIGHT - 96,
+      GAME_HEIGHT - 130,
       this.systems.decorationSystem,
     );
     this.paperBoatUI = new PaperBoatUI(this, this.systems.paperBoatSystem, this.systems.audioSystem);
@@ -278,14 +278,19 @@ export class StationScene extends Phaser.Scene {
     if (currentGuest) this.handleGuestArrived(currentGuest);
   }
 
+  // Two separate clusters (menu/customization bottom-left, active-play bottom-
+  // right near the mixer) rather than one long row — matches the reference
+  // layout's split rather than a single row spanning the whole width.
   private drawBottomNav(): void {
-    new BottomNavUI(this, 60, GAME_HEIGHT - 26, [
-      { icon: '📓', label: 'Nhật ký', onTap: () => this.scene.start('JournalScene') },
-      { icon: '🎨', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
-      { icon: '🎐', label: 'Gửi lời nhắn', onTap: () => this.paperBoatUI.toggle() },
-      { icon: '🌾', label: 'Thu hoạch', onTap: () => this.showFeatureComingSoon() },
-      { icon: '🗺️', label: 'Mở rộng trạm', onTap: () => this.stationAreaShopUI.toggle() },
-      { icon: '☁️', label: 'Mây Bông', onTap: () => this.cloudyCosmeticsShopUI.toggle() },
+    new BottomNavUI(this, 64, GAME_HEIGHT - 50, [
+      { icon: '📓', iconKey: 'nav-journal', label: 'Nhật ký', onTap: () => this.scene.start('JournalScene') },
+      { icon: '🎨', iconKey: 'nav-decoration', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
+      { icon: '🗺️', iconKey: 'nav-station', label: 'Mở rộng trạm', onTap: () => this.stationAreaShopUI.toggle() },
+    ]);
+    new BottomNavUI(this, 900, GAME_HEIGHT - 50, [
+      { icon: '🎐', iconKey: 'nav-paperboat', label: 'Gửi lời nhắn', onTap: () => this.paperBoatUI.toggle() },
+      { icon: '🌾', iconKey: 'nav-harvest', label: 'Thu hoạch', onTap: () => this.showFeatureComingSoon() },
+      { icon: '☁️', iconKey: 'nav-cloudyshop', label: 'Mây Bông', onTap: () => this.cloudyCosmeticsShopUI.toggle() },
     ]);
   }
 
@@ -623,6 +628,7 @@ export class StationScene extends Phaser.Scene {
 
     const moment = this.systems.photoMomentSystem.getMomentForGuest(state.id);
     if (!moment || this.systems.photoMomentSystem.isCaptured(moment.id)) return;
+    if (!this.systems.journalSystem.canUnlockMemory(moment.memoryId)) return;
 
     const x = GAME_WIDTH * 0.24 + 55;
     const y = GAME_HEIGHT * 0.42 - 55;

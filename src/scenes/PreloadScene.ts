@@ -33,6 +33,30 @@ export class PreloadScene extends Phaser.Scene {
     this.load.json('stickers', 'data/stickers.json');
     this.load.json('stories', 'data/stories.json');
     this.load.json('cloudyCosmetics', 'data/cloudyCosmetics.json');
+
+    this.load.image('ingredient-morning_dew', 'assets/ingredients/morning_dew.png');
+    this.load.image('ingredient-warm_sunbeam', 'assets/ingredients/warm_sunbeam.png');
+    this.load.image('ingredient-cool_breeze', 'assets/ingredients/cool_breeze.png');
+    this.load.image('ingredient-rainbow_fragment', 'assets/ingredients/rainbow_fragment.png');
+    this.load.image('ingredient-star_dust', 'assets/ingredients/star_dust.png');
+
+    this.load.image('nav-journal', 'assets/nav/journal.png');
+    this.load.image('nav-decoration', 'assets/nav/decoration.png');
+    this.load.image('nav-paperboat', 'assets/nav/paperboat.png');
+    this.load.image('nav-harvest', 'assets/nav/harvest.png');
+    this.load.image('nav-station', 'assets/nav/station.png');
+    this.load.image('nav-cloudyshop', 'assets/nav/cloudyshop.png');
+
+    this.load.image('cloudy-default-idle', 'assets/cloudy/default/idle.png');
+    this.load.image('cloudy-default-happy', 'assets/cloudy/default/happy.png');
+    this.load.image('cloudy-default-poke', 'assets/cloudy/default/poke.png');
+    this.load.image('cloudy-default-sleepy', 'assets/cloudy/default/sleepy.png');
+    this.load.image('cloudy-cotton_candy-idle', 'assets/cloudy/cotton_candy/idle.png');
+    this.load.image('cloudy-heart-idle', 'assets/cloudy/heart/idle.png');
+
+    this.load.image('accessory-sunset_hat', 'assets/accessories/sunset_hat.png');
+    this.load.image('accessory-star_clip', 'assets/accessories/star_clip.png');
+    this.load.image('accessory-rainbow_ribbon', 'assets/accessories/rainbow_ribbon.png');
   }
 
   create(): void {

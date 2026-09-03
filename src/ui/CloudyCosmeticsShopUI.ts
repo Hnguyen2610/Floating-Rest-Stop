@@ -58,7 +58,11 @@ export class CloudyCosmeticsShopUI {
     this.refreshAll();
     this.panel.setVisible(false);
 
-    eventBus.on('cloudyCosmetic:unlocked', () => this.refreshAll());
+    const onCosmeticUnlocked = () => this.refreshAll();
+    eventBus.on('cloudyCosmetic:unlocked', onCosmeticUnlocked);
+    this.panel.once(Phaser.GameObjects.Events.DESTROY, () =>
+      eventBus.off('cloudyCosmetic:unlocked', onCosmeticUnlocked),
+    );
   }
 
   toggle(): void {

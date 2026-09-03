@@ -1,45 +1,55 @@
 import Phaser from 'phaser';
-import { SoftBodyMesh, type Point } from '../utils/SoftBodyMesh';
-import { createCloudyShapePoints } from './CloudyShapes';
-import { CLOUDY_CONFIG, SOFT_BODY_CONFIG, PALETTE } from '../core/GameConfig';
+import { CLOUDY_CONFIG } from '../core/GameConfig';
 
-// Unlike Guest/Decoration, Cloudy's silhouette isn't a texture-swap candidate
-// for the Pass 26 asset pipeline: the whole shape is the live SoftBodyMesh
-// output (squish/drag physics reused across shapes per Pass 23), not a
-// static per-state image. `cloudyShapeIdToAssetKey` in AssetRegistry.ts
-// exists for naming consistency (so a future accessory/overlay sprite has a
-// key to register under) but nothing here resolves through it.
+const ICON_TARGET_WIDTH = 160;
+
+type Expression = 'idle' | 'happy' | 'poke' | 'sleepy';
+
+// Where each accessory sits, as a fraction of Cloudy's own current display
+// size — stays sensible across shapes with different proportions (default,
+// cotton_candy, heart) without needing per-shape tuning.
+interface AccessoryPlacement {
+  xFrac: number;
+  yFrac: number;
+  widthFrac: number;
+}
+
+const ACCESSORY_PLACEMENT: Record<string, AccessoryPlacement> = {
+  sunset_hat: { xFrac: 0, yFrac: -0.62, widthFrac: 0.34 },
+  star_clip: { xFrac: 0.38, yFrac: -0.22, widthFrac: 0.26 },
+  rainbow_ribbon: { xFrac: -0.02, yFrac: 0.46, widthFrac: 0.3 },
+};
+
+// Illustrated-sprite Cloudy (art pass after Pass 31). Only the "default"
+// shape has all 4 expression poses today — cotton_candy/heart only have an
+// idle pose so far, and fall back to it for every expression until more art
+// exists (see textureKey()). Replaces the earlier live SoftBodyMesh blob:
+// squish-on-drag is now a simple scale tween rather than true mesh
+// deformation, since a raster illustration can't deform like a vector mesh.
 export class Cloudy extends Phaser.GameObjects.Container {
-  private mesh: SoftBodyMesh;
-  private readonly blobGraphics: Phaser.GameObjects.Graphics;
-  private readonly accessoryGraphics: Phaser.GameObjects.Graphics;
-  private readonly leftEye: Phaser.GameObjects.Ellipse;
-  private readonly rightEye: Phaser.GameObjects.Ellipse;
+  private readonly sprite: Phaser.GameObjects.Image;
+  private accessoryImages: Phaser.GameObjects.Image[] = [];
+  private shapeId: string;
+  private accessories: string[] = [];
   private readonly baseX: number;
   private readonly baseY: number;
   private idleTime = 0;
-  private isDragging = false;
-  private hitRadius = 70;
-  private accessories: string[] = [];
+  private revertTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, shapeId = 'default') {
     super(scene, x, y);
     this.baseX = x;
     this.baseY = y;
+    this.shapeId = shapeId;
     scene.add.existing(this);
 
-    this.mesh = new SoftBodyMesh(createCloudyShapePoints(shapeId), SOFT_BODY_CONFIG);
+    this.sprite = scene.add.image(0, 0, this.textureKey('idle'));
+    this.add(this.sprite);
 
-    this.blobGraphics = scene.add.graphics();
-    this.accessoryGraphics = scene.add.graphics();
-    this.leftEye = scene.add.ellipse(-22, -8, 10, 14, PALETTE.eyeColor);
-    this.rightEye = scene.add.ellipse(22, -8, 10, 14, PALETTE.eyeColor);
-    this.add([this.blobGraphics, this.accessoryGraphics, this.leftEye, this.rightEye]);
-
+    this.applySpriteScale();
     this.updateHitArea();
     this.wireInput();
     this.scheduleNextBlink();
-    this.redraw();
   }
 
   update(_time: number, delta: number): void {
@@ -49,12 +59,10 @@ export class Cloudy extends Phaser.GameObjects.Container {
       this.baseY + Math.sin(this.idleTime * CLOUDY_CONFIG.floatFrequency) * CLOUDY_CONFIG.floatAmplitude;
     this.x =
       this.baseX + Math.sin(this.idleTime * CLOUDY_CONFIG.driftFrequency) * CLOUDY_CONFIG.driftAmplitude;
-
-    this.mesh.update(dt);
-    this.redraw();
   }
 
   playHappyBounce(): void {
+    this.showExpression('happy', 900);
     this.scene.tweens.chain({
       targets: this,
       tweens: [
@@ -65,61 +73,63 @@ export class Cloudy extends Phaser.GameObjects.Container {
     });
   }
 
-  // Cosmetics (Pass 23): swapping shape rebuilds the same SoftBodyMesh with
-  // different home-point geometry — no new physics, no new interaction code.
+  // Cosmetics (Pass 23): swapping shape swaps the sprite's texture — no
+  // physics, no new interaction code, same as the mesh version was designed to be.
   setShape(shapeId: string): void {
-    this.mesh = new SoftBodyMesh(createCloudyShapePoints(shapeId), SOFT_BODY_CONFIG);
+    this.shapeId = shapeId;
+    this.sprite.setTexture(this.textureKey('idle'));
+    this.applySpriteScale();
     this.updateHitArea();
-    this.redraw();
+    this.redrawAccessories();
   }
 
   setAccessories(accessoryIds: string[]): void {
     this.accessories = accessoryIds;
-    this.redraw();
+    this.redrawAccessories();
+  }
+
+  private textureKey(expression: Expression): string {
+    const key = `cloudy-${this.shapeId}-${expression}`;
+    return this.scene.textures.exists(key) ? key : `cloudy-${this.shapeId}-idle`;
+  }
+
+  private applySpriteScale(): void {
+    this.sprite.setScale(ICON_TARGET_WIDTH / this.sprite.frame.width);
   }
 
   private updateHitArea(): void {
-    const points = this.mesh.getPoints();
-    this.hitRadius = Math.max(...points.map((p) => Math.hypot(p.x, p.y)), 40);
-    this.setSize(this.hitRadius * 2, this.hitRadius * 2);
+    const w = this.sprite.displayWidth;
+    const h = this.sprite.displayHeight;
+    this.setSize(w, h);
     // Container hit-test coords are relative to the top-left of setSize(), not the
-    // container's origin, so a centered circle must sit at (width/2, height/2).
-    this.setInteractive(
-      new Phaser.Geom.Circle(this.hitRadius, this.hitRadius, this.hitRadius),
-      Phaser.Geom.Circle.Contains,
-    );
+    // container's origin, so a centered sprite's full-coverage rect starts at (0,0).
+    this.setInteractive(new Phaser.Geom.Rectangle(0, 0, w, h), Phaser.Geom.Rectangle.Contains);
+  }
+
+  private redrawAccessories(): void {
+    this.accessoryImages.forEach((img) => img.destroy());
+    this.accessoryImages = [];
+
+    const w = this.sprite.displayWidth;
+    const h = this.sprite.displayHeight;
+    this.accessories.forEach((id) => {
+      const placement = ACCESSORY_PLACEMENT[id];
+      const key = `accessory-${id}`;
+      if (!placement || !this.scene.textures.exists(key)) return;
+
+      const img = this.scene.add.image(w * placement.xFrac, h * placement.yFrac, key);
+      img.setScale((w * placement.widthFrac) / img.frame.width);
+      this.add(img);
+      this.accessoryImages.push(img);
+    });
   }
 
   private wireInput(): void {
-    this.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      this.isDragging = true;
-      this.playTouchReaction();
-      this.mesh.applyPointerInfluence(this.toLocalPoint(pointer));
-    });
-
-    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isDragging) return;
-      this.mesh.applyPointerInfluence(this.toLocalPoint(pointer));
-    });
-
-    this.scene.input.on('pointerup', () => this.endDrag());
-    this.scene.input.on('pointerupoutside', () => this.endDrag());
-  }
-
-  private endDrag(): void {
-    if (!this.isDragging) return;
-    this.isDragging = false;
-    this.mesh.release();
-  }
-
-  private toLocalPoint(pointer: Phaser.Input.Pointer): Point {
-    return {
-      x: (pointer.worldX - this.x) / this.scaleX,
-      y: (pointer.worldY - this.y) / this.scaleY,
-    };
+    this.on('pointerdown', () => this.playTouchReaction());
   }
 
   private playTouchReaction(): void {
+    this.showExpression('poke', 260);
     this.scene.tweens.add({
       targets: this,
       scaleX: 0.94,
@@ -133,81 +143,22 @@ export class Cloudy extends Phaser.GameObjects.Container {
   private scheduleNextBlink(): void {
     const delay = Phaser.Math.Between(CLOUDY_CONFIG.blinkMinDelay, CLOUDY_CONFIG.blinkMaxDelay);
     this.scene.time.delayedCall(delay, () => {
-      this.playBlink();
+      this.showExpression('sleepy', 200);
       this.scheduleNextBlink();
     });
   }
 
-  private playBlink(): void {
-    this.scene.tweens.add({
-      targets: [this.leftEye, this.rightEye],
-      scaleY: 0.1,
-      duration: 70,
-      yoyo: true,
-      ease: 'Sine.easeInOut',
+  // Swaps to a reactive pose, then reverts to idle after `revertAfterMs` —
+  // a later call always wins (cancels any pending revert), so e.g. a poke
+  // mid-happy-bounce correctly ends up back at idle once the poke settles.
+  private showExpression(expression: Expression, revertAfterMs: number): void {
+    this.sprite.setTexture(this.textureKey(expression));
+    this.applySpriteScale();
+
+    this.revertTimer?.remove();
+    this.revertTimer = this.scene.time.delayedCall(revertAfterMs, () => {
+      this.sprite.setTexture(this.textureKey('idle'));
+      this.applySpriteScale();
     });
-  }
-
-  private redraw(): void {
-    const points = this.mesh.getPoints();
-    this.blobGraphics.clear();
-    this.blobGraphics.fillStyle(PALETTE.cloudWhite, 1);
-    this.blobGraphics.fillPoints(points, true);
-
-    this.accessoryGraphics.clear();
-    this.accessories.forEach((id) => this.drawAccessory(id));
-  }
-
-  private drawAccessory(id: string): void {
-    const g = this.accessoryGraphics;
-    switch (id) {
-      case 'sunset_hat':
-        g.fillStyle(0xf6bd60, 1);
-        g.beginPath();
-        g.moveTo(-20, -68);
-        g.lineTo(20, -68);
-        g.lineTo(0, -100);
-        g.closePath();
-        g.fillPath();
-        g.fillStyle(PALETTE.eyeColor, 0.5);
-        g.fillRect(-22, -68, 44, 6);
-        break;
-      case 'star_clip':
-        g.fillStyle(0xfdf2a4, 1);
-        this.drawStar(g, 34, -30, 5, 10, 5);
-        break;
-      case 'rainbow_ribbon': {
-        const colors = [0xf28b82, 0xf6bd60, 0xbfe3d0, 0xa9d8f0, 0xd9c9ec];
-        colors.forEach((color, i) => {
-          g.fillStyle(color, 0.9);
-          g.fillTriangle(-16 + i * 2, 30, 0, 44, -16 + i * 2 + 10, 30);
-        });
-        g.fillStyle(PALETTE.eyeColor, 0.6);
-        g.fillCircle(-6, 30, 4);
-        break;
-      }
-    }
-  }
-
-  private drawStar(
-    g: Phaser.GameObjects.Graphics,
-    cx: number,
-    cy: number,
-    spikes: number,
-    outerRadius: number,
-    innerRadius: number,
-  ): void {
-    const step = Math.PI / spikes;
-    g.beginPath();
-    for (let i = 0; i < spikes * 2; i += 1) {
-      const radius = i % 2 === 0 ? outerRadius : innerRadius;
-      const angle = i * step - Math.PI / 2;
-      const x = cx + Math.cos(angle) * radius;
-      const y = cy + Math.sin(angle) * radius;
-      if (i === 0) g.moveTo(x, y);
-      else g.lineTo(x, y);
-    }
-    g.closePath();
-    g.fillPath();
   }
 }

@@ -64,9 +64,11 @@ export class StationAreaShopUI {
 
     this.panel.setVisible(false);
 
-    eventBus.on('area:unlocked', ({ id }) => {
+    const onAreaUnlocked = ({ id }: { id: string }) => {
       this.backgrounds.get(id)?.setFillStyle(PALETTE.lavender, 0.9);
-    });
+    };
+    eventBus.on('area:unlocked', onAreaUnlocked);
+    this.panel.once(Phaser.GameObjects.Events.DESTROY, () => eventBus.off('area:unlocked', onAreaUnlocked));
   }
 
   toggle(): void {

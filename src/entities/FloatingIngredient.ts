@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { FONT_FAMILY } from '../core/GameConfig';
 import type { IngredientDefinition } from '../systems/IngredientSystem';
 
+const ICON_TARGET_WIDTH = 46;
+
 export class FloatingIngredient extends Phaser.GameObjects.Container {
   private idleTime = Math.random() * Math.PI * 2;
   private readonly baseX: number;
@@ -20,13 +22,12 @@ export class FloatingIngredient extends Phaser.GameObjects.Container {
     this.baseY = y;
     scene.add.existing(this);
 
-    const color = parseInt(definition.color.replace('#', ''), 16);
-    const graphics = scene.add.graphics();
-    graphics.fillStyle(color, 1);
-    graphics.fillCircle(0, 0, 16);
-    graphics.fillStyle(0xffffff, 0.5);
-    graphics.fillCircle(-5, -5, 5);
-    this.add(graphics);
+    // Illustrated sprite (glossy orb + glyph + shadow are already baked into
+    // the art) — scaled by width so it stays proportional regardless of each
+    // source image's exact crop dimensions.
+    const icon = scene.add.image(0, 0, `ingredient-${definition.id}`);
+    icon.setScale(ICON_TARGET_WIDTH / icon.width);
+    this.add(icon);
 
     const label = scene.add
       .text(0, 24, definition.name, {

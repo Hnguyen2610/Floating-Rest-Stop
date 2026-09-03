@@ -33,7 +33,15 @@ export function decorationIdToAssetKey(decorationId: string): string {
   return `decoration.${decorationId}`;
 }
 
-/** e.g. 'heart' -> 'cloudy.heart' (naming only — see note in Cloudy.ts about why shapes stay procedural) */
+/**
+ * e.g. 'heart' -> 'cloudy.heart' (naming only, dot-separated to match this
+ * registry's other keys). Cloudy.ts now renders real illustrated sprites
+ * (post-Pass-31 art pass), but resolves its own `cloudy-<shape>-<expression>`
+ * texture keys directly rather than through this registry — Cloudy always
+ * has art for every shape it can be (with an idle-only fallback for shapes
+ * missing full expression coverage), so there's no procedural-vs-texture
+ * branch left to decide here the way Guest/Decoration still have.
+ */
 export function cloudyShapeIdToAssetKey(shapeId: string): string {
   return `cloudy.${shapeId}`;
 }

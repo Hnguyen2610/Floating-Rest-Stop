@@ -57,7 +57,8 @@ describe('JournalSystem', () => {
   });
 
   it('unlocks a memory and emits memory:unlocked', () => {
-    const { bus, system } = makeJournalSystem();
+    const { bus, system, guestSystem } = makeJournalSystem();
+    guestSystem.spawn('sun'); // chapter requires visitCount 1 — must be accessible first
     const received: unknown[] = [];
     bus.on('memory:unlocked', (payload) => received.push(payload));
 
@@ -67,9 +68,26 @@ describe('JournalSystem', () => {
   });
 
   it('returns false when unlocking an already-unlocked memory', () => {
-    const { system } = makeJournalSystem();
+    const { system, guestSystem } = makeJournalSystem();
+    guestSystem.spawn('sun');
     system.unlockMemory('sun_memory_1');
     expect(system.unlockMemory('sun_memory_1')).toBe(false);
+  });
+
+  it('returns false (not an error) when unlocking a memory whose chapter is not yet accessible', () => {
+    const { system } = makeJournalSystem();
+    // No guest spawned yet -> progress.visitCount is 0, chapter requires 1.
+    expect(system.unlockMemory('sun_memory_1')).toBe(false);
+    expect(system.isUnlocked('sun_memory_1')).toBe(false);
+  });
+
+  it('canUnlockMemory reflects chapter accessibility without side effects', () => {
+    const { system, guestSystem } = makeJournalSystem();
+    expect(system.canUnlockMemory('sun_memory_1')).toBe(false);
+
+    guestSystem.spawn('sun');
+    expect(system.canUnlockMemory('sun_memory_1')).toBe(true);
+    expect(system.isUnlocked('sun_memory_1')).toBe(false); // checking must not unlock
   });
 
   it('throws when unlocking an unknown memory id', () => {

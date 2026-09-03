@@ -7,10 +7,11 @@ import type { WeatherSystem } from '../systems/WeatherSystem';
 const MIXER_CAPACITY = 2;
 const SLOT_SIZE = 24;
 const SLOT_SPACING = 8;
+const SLOT_ICON_WIDTH = 22;
 
 export class WeatherMixerUI extends Phaser.GameObjects.Container {
   private readonly bowlRadius = 46;
-  private slotIcons: Phaser.GameObjects.Graphics[] = [];
+  private slotIcons: Phaser.GameObjects.Image[] = [];
   private readonly potionLabel: Phaser.GameObjects.Text;
   private craftButton: Phaser.GameObjects.Text;
   private slotBgGraphics: Phaser.GameObjects.Graphics;
@@ -19,7 +20,7 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     scene: Phaser.Scene,
     x: number,
     y: number,
-    private ingredientSystem: IngredientSystem,
+    _ingredientSystem: IngredientSystem,
     private weatherSystem: WeatherSystem,
     private onCraftSuccess: () => void,
     private onCraftFail: () => void,
@@ -66,10 +67,21 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     this.craftButton.on('pointerdown', () => this.handleCraft());
     this.add(this.craftButton);
 
-    // Event listeners
-    eventBus.on('mixer:updated', ({ contents }) => this.updateMixerContents(contents));
-    eventBus.on('weather:created', ({ recipeId }) => this.showPotionReady(recipeId));
-    eventBus.on('weather:used', () => this.potionLabel.setText(''));
+    // Event listeners — unregistered on destroy (see below), otherwise this
+    // container's listeners keep firing on the singleton eventBus after a
+    // scene transition destroys it (e.g. Journal round-trip), crashing on
+    // `this.scene` being null by then.
+    const onMixerUpdated = ({ contents }: { contents: string[] }) => this.updateMixerContents(contents);
+    const onWeatherCreated = ({ recipeId }: { recipeId: string }) => this.showPotionReady(recipeId);
+    const onWeatherUsed = () => this.potionLabel.setText('');
+    eventBus.on('mixer:updated', onMixerUpdated);
+    eventBus.on('weather:created', onWeatherCreated);
+    eventBus.on('weather:used', onWeatherUsed);
+    this.once(Phaser.GameObjects.Events.DESTROY, () => {
+      eventBus.off('mixer:updated', onMixerUpdated);
+      eventBus.off('weather:created', onWeatherCreated);
+      eventBus.off('weather:used', onWeatherUsed);
+    });
 
     // Initial update
     this.updateMixerContents(this.weatherSystem.getMixerContents());
@@ -136,63 +148,10 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     contents.forEach((id, index) => {
       if (index >= MIXER_CAPACITY) return;
 
-      const definition = this.ingredientSystem.getDefinition(id);
-      const color = parseInt(definition.color.replace('#', ''), 16);
       const slotX = (index - MIXER_CAPACITY / 2 + 0.5) * (SLOT_SIZE + SLOT_SPACING);
 
-      const icon = this.scene.add.graphics();
-      icon.fillStyle(color, 0.8);
-
-      // Different shapes for different ingredients
-      switch (id) {
-        case 'morning_dew':
-          // Droplet shape
-          icon.fillCircle(0, -4, 6);
-          icon.fillRect(-2, 2, 4, 8);
-          break;
-        case 'warm_sunbeam':
-          // Sun rays
-          icon.fillCircle(0, 0, 5);
-          for (let angle = 0; angle < 360; angle += 45) {
-            const rad = (angle * Math.PI) / 180;
-            const x1 = Math.cos(rad) * 3;
-            const y1 = Math.sin(rad) * 3;
-            const x2 = Math.cos(rad) * 6;
-            const y2 = Math.sin(rad) * 6;
-            icon.fillRect(x1 - 1, y1 - 1, 2, 2);
-            icon.fillRect(x2 - 1, y2 - 1, 2, 2);
-          }
-          break;
-        case 'cool_breeze':
-          // Swirl
-          icon.fillCircle(-3, -3, 2);
-          icon.fillCircle(3, 3, 2);
-          icon.fillCircle(-3, 3, 2);
-          icon.fillCircle(3, -3, 2);
-          break;
-        case 'rainbow_fragment':
-          // Rainbow arc
-          for (let i = 0; i < 3; i++) {
-            icon.fillStyle(
-              parseInt(['#ff6b6b', '#4ecdc4', '#45b7d1'][i].replace('#', ''), 16),
-              0.8
-            );
-            icon.slice(-4 + i * 4, -4, 8, Phaser.Math.DegToRad(0), Phaser.Math.DegToRad(180), false);
-            icon.fillPath();
-          }
-          break;
-        case 'star_dust':
-          // Sparkles
-          icon.fillCircle(0, 0, 3);
-          icon.fillRect(-5, -1, 10, 2);
-          icon.fillRect(-1, -5, 2, 10);
-          break;
-        default:
-          // Default circle
-          icon.fillCircle(0, 0, 6);
-          break;
-      }
-
+      const icon = this.scene.add.image(0, 0, `ingredient-${id}`);
+      icon.setScale(SLOT_ICON_WIDTH / icon.width);
       icon.x = slotX;
       icon.y = 0;
       icon.setInteractive(new Phaser.Geom.Rectangle(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE), Phaser.Geom.Rectangle.Contains);

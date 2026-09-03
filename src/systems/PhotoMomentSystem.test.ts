@@ -78,4 +78,31 @@ describe('PhotoMomentSystem', () => {
     const { system } = makeSystem();
     expect(system.capture('ghost')).toBeNull();
   });
+
+  it('does not capture (or unlock the memory) when the linked chapter is not yet accessible', () => {
+    // Regression: sun_memory_1's chapter here requires a visit count the
+    // fresh guest hasn't reached, so an early PEACEFUL visit must not be
+    // able to spend the one-shot photo moment on it.
+    const gatedJournalData: JournalData = {
+      chapters: [
+        {
+          id: 'sun_chapter_resolution',
+          guestId: 'sun',
+          guestName: 'Sun',
+          title: '04 Resolution',
+          requiredVisitCount: 6,
+          memories: [{ id: 'sun_memory_1', diaryText: '...', hint: 'soothe the sun' }],
+        },
+      ],
+    };
+    const bus = new TypedEventBus<GameEventMap>();
+    const guestSystem = new GuestSystem(guestsData, new EmotionSystem(emotionsData), bus);
+    const journalSystem = new JournalSystem(gatedJournalData, bus, guestSystem);
+    const system = new PhotoMomentSystem(photoMomentsData, journalSystem, bus);
+    guestSystem.spawn('sun'); // visitCount 1, chapter requires 6
+
+    expect(system.capture('sun')).toBeNull();
+    expect(system.isCaptured('sun_cool_drizzle_01')).toBe(false);
+    expect(journalSystem.isUnlocked('sun_memory_1')).toBe(false);
+  });
 });

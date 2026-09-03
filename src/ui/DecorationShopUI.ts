@@ -55,9 +55,13 @@ export class DecorationShopUI {
 
     this.panel.setVisible(false);
 
-    eventBus.on('decoration:unlocked', ({ id }) => {
+    const onDecorationUnlocked = ({ id }: { id: string }) => {
       this.backgrounds.get(id)?.setAlpha(0.9);
-    });
+    };
+    eventBus.on('decoration:unlocked', onDecorationUnlocked);
+    this.panel.once(Phaser.GameObjects.Events.DESTROY, () =>
+      eventBus.off('decoration:unlocked', onDecorationUnlocked),
+    );
   }
 
   toggle(): void {

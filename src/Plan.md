@@ -8,8 +8,8 @@ PHASE 2 — CORE GAME DEPTH                Pass 15–17  ✅ DONE (hệ thống 
 PHASE 3 — CONTENT & SOCIAL INTERACTION   Pass 18–20  ✅ DONE (xem ghi chú trạng thái trong từng pass)
 PHASE 4 — WORLD PROGRESSION              Pass 21–23  ✅ DONE (xem ghi chú trạng thái trong từng pass)
 PHASE 5 — PRESENTATION & GAME FEEL       Pass 24–26  ✅ DONE (xem ghi chú trạng thái trong từng pass)
-PHASE 6 — BALANCE & PLATFORM             Pass 27–30
-PHASE 7 — RELEASE QA                     Pass 31
+PHASE 6 — BALANCE & PLATFORM             Pass 27–30  ✅ DONE (xem ghi chú trạng thái trong từng pass)
+PHASE 7 — RELEASE QA                     Pass 31     ✅ DONE (2 bug thật tìm thấy + đã sửa, xem ghi chú)
 POST-MVP (sau Release QA)                xem "PRODUCT DIRECTION CHECKPOINT"
                                           + "POST-MVP" gần cuối file —
                                           Cloudy Origin/Rare Weather/Sky Archive
@@ -1462,6 +1462,119 @@ Không phá nhịp khám phá lần đầu — sổ công thức phải chủ đ
 
 ---
 
+# Bổ sung sau Pass 31 — Polish icon nguyên liệu + Mây Bông "thật" hơn
+
+**✅ Đã làm (2026-09-03):** theo yêu cầu trực tiếp sau khi xem screenshot thật — icon nguyên liệu trước đó chỉ là hình tròn phẳng + 1 chấm highlight nhỏ, Mây Bông là khối blob mượt hoàn toàn phẳng.
+
+`src/entities/ingredientGlyph.ts` (mới) — tách logic vẽ icon riêng theo từng loại nguyên liệu (giọt sương, tia nắng, xoáy gió, cầu vồng, lấp lánh sao) vốn trước đây CHỈ tồn tại trong `WeatherMixerUI` (icon nhỏ trong bát trộn) ra thành hàm dùng chung `drawIngredientGlyph(graphics, id, scale)` — `WeatherMixerUI.ts` giờ gọi lại đúng hàm này (không đổi hình dạng/kích thước cũ trong bát trộn), và `FloatingIngredient.ts` dùng CÙNG glyph đó ở scale lớn hơn cho quả cầu nổi ngoài trạm — nghĩa là hình nguyên liệu đang nổi giờ khớp trực quan với hình sẽ hiện trong bát trộn khi thả vào, không chỉ là màu giống nhau.
+
+`FloatingIngredient.ts` — quả cầu giờ có bóng đổ mềm bên dưới, kỹ thuật "sphere shading" (vòng tròn màu đậm hơn full-size vẽ trước, vòng tròn màu chính nhỏ hơn đè lên lệch góc trên-trái, để lộ viền đậm ở dưới-phải) tạo cảm giác khối cầu 3D thay vì hình tròn phẳng, viền mỏng cùng tông đậm hơn, glyph riêng từng loại vẽ trắng ở giữa, và lớp bóng sáng (highlight ellipse + 1 chấm sáng nhỏ) phủ trên cùng cho cảm giác "quả cầu thuỷ tinh" thay vì sơn phẳng.
+
+`Cloudy.ts` (`redraw()`) — thêm 4 lớp vẽ mới, tất cả vẫn bám theo đúng điểm mesh sống của SoftBodyMesh (nên vẫn biến dạng đúng theo vật lý squish/kéo có sẵn từ Pass 23, không đụng vào physics):
+
+```text
+1. Bóng dưới thân — cùng silhouette, dịch xuống + tint tím nhạt → cảm giác khối tròn có trọng lượng
+2. Cụm "phồng" (puff) rải theo viền trên của mesh — silhouette bớt trơn/giống quả trứng, giống mây thật hơn
+3. Viền mỏng, rất nhạt (alpha 0.1) — giữ silhouette rõ trên nền trời sáng
+4. Highlight góc trên-trái — gợi ý ánh sáng chiếu từ trên xuống, thêm chiều sâu
+```
+
+Cả 2 shape khác (`cotton_candy`, `heart`) đều dùng chung `redraw()` nên tự động thừa hưởng — đã verify bằng browser thật cả 3 shape (mặc định, mua Mây Trái Tim) vẫn nhận diện đúng hình dạng, không bị lớp phồng làm biến dạng quá đà.
+
+`tsc`/`vitest` (108/108)/`lint` sạch. Verify browser thật: icon nguyên liệu nổi ngoài trạm rõ ràng có glyph riêng biệt + độ bóng; icon trong bát trộn (đã refactor dùng chung hàm) không đổi hình dạng/kích thước so với trước; Mây Bông có 2 lớp "phồng" rõ ở viền trên + bóng dưới thân, không còn phẳng như khối trứng; không console error.
+
+**⚠️ Đã bị thay thế hoàn toàn bởi mục dưới đây** — sau khi xem thêm 1 ảnh mẫu (screenshot game "vẽ tay") thật sự chi tiết, người dùng xác nhận vẽ-bằng-code (Phaser Graphics) không bao giờ đạt được độ chi tiết đó, dù polish thêm bao nhiêu. Quyết định chuyển sang dùng ảnh minh hoạ thật (do người dùng nhờ Gemini tạo theo prompt mình soạn) — xem mục "Bổ sung — Chuyển sang ảnh minh hoạ thật" ngay sau đây. Phần code `drawIngredientGlyph`/`FloatingIngredient` sphere-shading/`Cloudy.redraw()` phồng-mây ở trên đã bị GỠ BỎ hoàn toàn (không phải giữ song song) — giữ lại mục này chỉ để ghi nhận đã thử hướng "cải thiện trong giới hạn code" trước khi xác nhận giới hạn đó thật sự không đủ.
+
+---
+
+# Bổ sung — Chuyển hẳn sang ảnh minh hoạ thật (thay vẽ-bằng-code)
+
+**✅ Đã làm (2026-09-03):** Không có công cụ tạo ảnh trong bộ công cụ hiện tại (đã kiểm tra, không có), nên đã soạn bộ prompt chi tiết (style neo dùng chung + prompt riêng từng ảnh) để người dùng tự nhờ Gemini tạo, rồi gửi lại 20 ảnh JPG nền trắng. Quy trình xử lý + tích hợp:
+
+**1. Tách nền** — ảnh JPG nền trắng phẳng, nhưng thân Mây Bông cũng gần trắng/kem nên không thể "xoá mọi pixel trắng" (sẽ ăn vào chính nhân vật). Dùng kỹ thuật flood-fill từ 6 điểm mép/góc ảnh (Python + Pillow, `ImageDraw.floodfill` với ngưỡng màu 28) — chỉ xoá vùng trắng THỰC SỰ NỐI LIỀN với viền ngoài, dừng lại đúng tại viền nét đậm (#5b4a63), giữ nguyên mọi vùng trắng/kem bị "khoanh vùng" bên trong (thân mây, viền tròn nav icon dù cũng gần trắng). Verify bằng cách ghép ảnh đã tách nền lên nền xanh da trời thật của game — xác nhận cắt sạch, không viền trắng sót, không ăn vào nhân vật.
+
+**2. Tổ chức file** — `public/assets/{ingredients,nav,cloudy/{default,cotton_candy,heart},accessories}/*.png`. 4 ảnh biểu cảm Mây Bông (idle/happy/poke/sleepy) ban đầu bị Gemini trả về với vùng crop khác nhau mỗi ảnh (do sparkle/hiệu ứng mỗi biểu cảm lan ra khác nhau) — nếu dùng thẳng sẽ làm Mây Bông "nhảy" kích thước/vị trí mỗi lần đổi trạng thái; đã tính chung 1 bounding-box (hợp của cả 4 ảnh) rồi crop cả 4 theo đúng khung đó, đảm bảo cùng kích thước canvas → vị trí neo (origin) nhất quán khi đổi texture.
+
+**2 shape mới** (Mây Kẹo Bông, Mây Trái Tim) hiện chỉ có 1 dáng "idle" (chưa có đủ 4 biểu cảm như shape mặc định) — chấp nhận có chủ đích cho v1, xem cơ chế fallback bên dưới.
+
+**3. Icon nguyên liệu + icon nav** (`FloatingIngredient.ts`, `WeatherMixerUI.ts`, `BottomNavUI.ts`) — thay hẳn phần vẽ-bằng-code (Graphics) bằng `scene.add.image()`, scale theo `frame.width` để không phụ thuộc kích thước gốc từng ảnh. `BottomNavUI`'s `NavItem` thêm field `iconKey?: string` — có ảnh thì dùng ảnh, không có thì fallback về emoji cũ (`icon`) — không ép mọi nav item phải có ảnh (vd. "Thu hoạch" vẫn đang coming-soon).
+
+**4. Mây Bông — viết lại hoàn toàn `Cloudy.ts` từ soft-body mesh sang sprite:**
+
+```text
+Trước: SoftBodyMesh biến dạng sống theo mesh point khi kéo/chạm (Pass 23)
+Sau:   Phaser.GameObjects.Image, đổi texture theo trạng thái + tween co-giãn đơn giản
+```
+
+Đây là quyết định đã hỏi người dùng trước khi làm (ảnh hưởng vật lý/cơ chế kéo-thả đã có) — người dùng chọn: dùng ảnh cho dáng mặc định, đồng thời tạo luôn prompt bổ sung cho 2 shape còn thiếu + 3 phụ kiện để tích hợp trọn vẹn một lần thay vì làm 2 đợt.
+
+Cơ chế texture key: `` `cloudy-${shapeId}-${expression}` `` (expression: idle/happy/poke/sleepy) — có texture thì dùng, không có thì tự fallback về `${shapeId}-idle` (xử lý đúng trường hợp cotton_candy/heart chỉ có 1 dáng). `playHappyBounce()`/`playTouchReaction()`/`scheduleNextBlink()` giữ nguyên TÊN và Ý NGHĨA như code cũ, chỉ đổi bên trong: thay vì méo mesh thật, giờ đổi texture + tween scale ngắn (giống hệt kiểu tween co-giãn container đã có sẵn từ trước, không phải kỹ thuật mới). `showExpression()` dùng 1 timer dùng chung để tự huỷ+thay timer cũ mỗi lần gọi — đảm bảo gọi chồng (vd. bị chạm giữa lúc đang chạy happy-bounce) luôn kết thúc đúng ở idle, không bị kẹt biểu cảm.
+
+Phụ kiện (mũ, kẹp sao, nơ) giờ là `Phaser.GameObjects.Image` riêng, chồng lên theo % kích thước hiện tại của sprite Mây Bông (`ACCESSORY_PLACEMENT`, toạ độ tương đối theo width/height chứ không phải số px cứng) — nên vẫn đặt đúng chỗ dù đổi qua shape khác có tỉ lệ khác. `setShape()` gọi lại `redrawAccessories()` để phụ kiện luôn tính lại theo kích thước sprite mới.
+
+Vì Mây Bông không còn dùng `SoftBodyMesh`/`CloudyShapes.ts` nữa (chỉ `LittleStarGuest.ts` còn dùng `SoftBodyMesh` cho tương tác "vuốt nhẹ"), đã **xoá hẳn `src/entities/CloudyShapes.ts`** (không còn nơi nào gọi tới) thay vì để lại code chết.
+
+Files:
+
+```text
+public/assets/**                          — 20 ảnh PNG đã tách nền (nguyên liệu, nav, Mây Bông × 6 dáng, phụ kiện)
+src/scenes/PreloadScene.ts                — preload toàn bộ texture mới
+src/entities/FloatingIngredient.ts        — Image thay Graphics
+src/ui/WeatherMixerUI.ts                  — Image thay Graphics cho icon trong bát trộn
+src/ui/BottomNavUI.ts                     — NavItem.iconKey, fallback về emoji
+src/scenes/StationScene.ts                — truyền iconKey cho 6 nav item
+src/entities/Cloudy.ts                    — viết lại hoàn toàn: sprite thay soft-body mesh
+src/entities/CloudyShapes.ts              — XOÁ (không còn dùng)
+src/core/AssetRegistry.ts                 — sửa lại comment cũ về Cloudy (đã lỗi thời)
+src/entities/ingredientGlyph.ts           — XOÁ (thay bằng ảnh thật, không cần glyph vẽ tay nữa)
+```
+
+**Verify browser thật (quan trọng nhất cho lần này):** cả 3 trạng thái biểu cảm Mây Bông (idle/chạm-poke/vui-happy, kích hoạt qua tương tác thật: tap Mây Bông, cho Bướm đến) hiện đúng ảnh + tween, tự trở lại idle đúng lúc; mua Mây Trái Tim (💎 8, qua đúng luồng shop thật) → Mây Bông đổi hẳn sang ảnh trái tim; mở khoá Mũ Hoàng Hôn (qua đúng điều kiện thật: trust Mặt Trăng ≥40 rồi rời đi) → trang bị → mũ hiện đúng vị trí, đúng tỉ lệ, không lệch. `tsc`/`vitest` (108/108, không giảm)/`lint`/`build` sạch xuyên suốt. Không console error ở bất kỳ bước nào.
+
+**Chưa làm, có chủ đích:** phụ kiện Kẹp Sao Nhỏ + Nơ Cầu Vồng chưa verify bằng browser thật (điều kiện mở khoá — chụp ảnh Sao Chổi/Cực Quang — phức tạp hơn để dựng lại trong 1 lượt test nhanh), nhưng dùng chung code path với Mũ Hoàng Hôn đã verify nên rủi ro thấp. Mây Kẹo Bông chưa test trực tiếp (điều kiện mở khoá là memory chương 4 của bất kỳ khách nào — sâu, khó dựng nhanh) nhưng cũng dùng chung `setShape()` đã verify qua Mây Trái Tim. Guest (Mặt Trời, Mặt Trăng...) vẫn CHƯA đổi sang ảnh — ngoài phạm vi yêu cầu lần này ("mây và icon"), có thể làm sau nếu người dùng muốn.
+
+## Bổ sung tiếp — Thiết kế lại thanh điều hướng dưới (thẻ mây thay icon tròn nhỏ)
+
+**✅ Đã làm (2026-09-03):** người dùng gửi lại đúng ảnh mẫu ban đầu, chỉ ra riêng phần thanh nav dưới cùng: "không muốn icon nhỏ nhỏ nữa, muốn giống ảnh luôn". Đây là đổi bố cục/kích thước component, không chỉ đổi hình — viết lại `BottomNavUI.ts`:
+
+```text
+Trước: hình tròn 48px, icon 30px, nhãn chữ 10px bên dưới
+Sau:   thẻ hình mây (bo góc lớn + 2 cụm "phồng" nhỏ ở cạnh trên, giống kỹ thuật puff
+       đã dùng cho Mây Bông), 76px, icon 46px, nhãn chữ 11px có wordWrap, có bóng đổ mềm
+```
+
+Không tạo ảnh mới cho khung thẻ — dùng lại 6 icon minh hoạ đã có (đã đẹp sẵn), chỉ thiết kế lại KHUNG chứa bằng Phaser Graphics (bo góc + 2 vòng tròn nhỏ ở mép trên để có silhouette hơi gợi hình mây, giống hệt kỹ thuật puff đã dùng ở `Cloudy.ts`, giữ nhất quán ngôn ngữ hình ảnh giữa 2 nơi) — tránh phải quay lại nhờ Gemini tạo thêm 6 ảnh khung nút mới.
+
+Vì thẻ to hơn (76px so với 48px cũ), đã dịch cả hàng nav lên (`y: GAME_HEIGHT-50` thay vì `-26`) để không tràn khỏi màn hình, và dịch panel Trang Trí lên theo (`GAME_HEIGHT-130` thay vì `-96`) để không bị chồng lên hàng nav mới cao hơn — phát hiện + sửa trong lúc verify, không phải đoán trước.
+
+**Lưu ý kỹ thuật (tự sửa 1 lỗi trước khi verify):** lúc đầu viết hit-area rect lệch (`Rectangle(-half,-half,...)`), suy luận lại đúng quy ước hit-test của Container đã dùng nhất quán trong toàn bộ codebase này (toạ độ hit-test tính từ góc trên-trái của `setSize()`, không phải tâm container) — sửa lại thành `Rectangle(0,0,CARD_SIZE,CARD_SIZE)` trước khi test, và xác nhận cả 6 nút bấm đúng qua browser thật.
+
+`tsc`/`vitest` (108/108)/`lint`/`build` sạch. Verify browser thật: cả 6 thẻ hiện đúng ảnh+nhãn, bấm đúng cả 6 (Nhật ký mở Journal, Trang trí/Gửi lời nhắn mở đúng panel không bị hàng nav mới đè lên), không console error.
+
+**⚠️ Bố cục 1 hàng ở trên đã được điều chỉnh tiếp ngay sau đó** — xem mục "Chia 2 cụm trái/phải" bên dưới.
+
+## Bổ sung tiếp nữa — Chia 2 cụm trái/phải (thay vì 1 hàng dài)
+
+**✅ Đã làm (2026-09-03):** người dùng phản hồi thêm: "chia đều các button đi, không làm giống ảnh hơn được à" — ảnh mẫu chia nav thành 2 cụm riêng (trái + phải quanh khu pha chế), không phải 1 hàng dài dồn về bên trái. Đã hỏi lại bằng 3 phương án cụ thể (preview trực quan) — người dùng chọn đúng phương án chia 2 cụm.
+
+Không cần sửa `BottomNavUI.ts` — component đã nhận `(scene, x, y, items[])` và tự xếp hàng ngang từ đó, nên chỉ cần gọi **2 lần** ở `StationScene.drawBottomNav()` với 2 nhóm item + 2 vị trí khác nhau, thay vì 1 lần với cả 6 item:
+
+```text
+Cụm trái (x=64, y=GAME_HEIGHT-50)  — Nhật ký, Trang trí, Mở rộng trạm
+                                      (nhóm "menu/tuỳ chỉnh trạm", giống tinh thần
+                                      cụm trái của ảnh mẫu — nhật ký/thu hoạch/trang trí)
+Cụm phải (x=900, y=GAME_HEIGHT-50) — Gửi lời nhắn, Thu hoạch, Mây Bông
+                                      (đặt sát bên trái bát trộn — khu vực "hành động
+                                      đang chơi", giống tinh thần cụm phải của ảnh mẫu
+                                      nằm cạnh khu pha chế)
+```
+
+Vị trí cụm phải (x=900) được tính để nút cuối cùng dừng lại trước bát trộn (mép trái bát trộn ≈ x=1144) với khoảng hở ~20px, không chồng lấn.
+
+`tsc`/`vitest` (108/108)/`lint`/`build` sạch. Verify browser thật: 2 cụm hiện tách biệt rõ ràng, không chồng lên bát trộn/nút CHẾ TẠO; test đủ cả 6 nút ở cả 2 cụm (Nhật ký round-trip Journal, Trang trí/Mở rộng trạm/Mây Bông toggle đúng, Gửi lời nhắn mở đúng panel) — không console error.
+
+---
+
 # PHASE 7 — RELEASE QA
 
 # Pass 31 — Full Production QA
@@ -1572,6 +1685,27 @@ platform pass
 =
 release candidate
 ```
+
+**✅ Đã làm (2026-09-03):** chạy đủ `npm test` (108/108, tăng từ 105 do 3 test mới thêm khi sửa bug bên dưới), `npm run lint`, `npm run build` — sạch cả 3. Sau đó chơi thật qua Playwright (không phải chỉ screenshot) đi hết cả 3 vòng lặp:
+
+```text
+Regression MVP:  Start → Cloudy (poke) → Guest (Sun) → Ingredients (kéo-thả thu thập)
+                 → Craft (Cool Drizzle) → Soothe (3 lần) → Crystal → Decoration (Wind Chime)
+                 → Photo → Journal → Save (localStorage) → Reload (state giữ nguyên)
+Expanded loop:   2 lượt ghé Mặt Trời (visitCount 2, trust 8) → Station expansion (Tea Corner)
+                 → Cloudy customization (Mây Trái Tim) → Aurora/Comet render + tương tác được
+Social/cozy loop: Bướm → dỗ 3 lần → Paper Boat nhận lời nhắn đến → xác nhận → gấp → thả
+```
+
+Trong lúc chạy vòng lặp này, phát hiện và sửa **2 bug thật** (không phải feature mới — đúng phạm vi "gate cuối, không thêm feature, chỉ xác nhận đúng"):
+
+**Bug 1 — Chụp ảnh khoảnh khắc bỏ qua điều kiện mở khoá chương:** `PhotoMomentSystem.capture()` gọi thẳng `journalSystem.unlockMemory()` mà không kiểm tra chương chứa memory đó đã "accessible" chưa (yêu cầu `requiredVisitCount`/`requiredTrustLevel`/`requiredSuccessfulTreatments`). Hậu quả thực tế: chỉ cần khách đạt PEACEFUL ở **lượt ghé đầu tiên**, đã có thể chụp ảnh và mở khoá luôn chương cuối (vd. chương 4 của Mặt Trời, vốn yêu cầu 6 lượt ghé + trust 40 + 3 lần trị liệu thành công) — phá hoàn toàn nhịp "Multiple memories" mà Expanded loop yêu cầu, và mâu thuẫn với chính review pacing đã ghi ở Pass 27. Sửa: thêm `JournalSystem.canUnlockMemory()`, dùng nó để chặn từ 2 phía — `StationScene.checkPhotoMoment()` không hiện icon ảnh nếu chương chưa accessible (không lãng phí lượt chụp), và `unlockMemory()` tự nó cũng từ chối unlock nếu chương chưa accessible (phòng vệ kép). Verify: bug tái hiện được bằng browser thật trước khi sửa (screenshot cho thấy chương 4 hiện "Hoàn thành" ngay lượt 1), sau khi sửa chương 4 đúng là vẫn khoá. Thêm 3 test mới (`JournalSystem.test.ts`, `PhotoMomentSystem.test.ts`) khoá lại hành vi đúng.
+
+**Bug 2 — Rò rỉ event listener khi rời/quay lại StationScene (crash thật):** 6 class UI (`WeatherMixerUI`, `CrystalCounter`, `InventoryUI`, `StationAreaShopUI`, `DecorationShopUI`, `CloudyCosmeticsShopUI`) đăng ký listener thẳng vào `eventBus` singleton trong constructor nhưng **không bao giờ gỡ** khi bị destroy. Mỗi lần người chơi vào Journal rồi quay lại Station (một thao tác điều hướng hoàn toàn bình thường, không phải edge case) — StationScene cũ bị Phaser destroy toàn bộ GameObject, nhưng listener cũ trên `eventBus` singleton vẫn còn nguyên, tích luỹ thêm mỗi vòng. Phát hiện thật qua Playwright: sau đúng 1 lần Journal↔Station, nhấn phím debug `B` (nhặt 30 crystal liên tiếp) → crash `Cannot read properties of null (reading 'glTexture')` trong `CrystalCounter`; pha chế tiếp → crash `Cannot read properties of undefined (reading 'add')` trong `WeatherMixerUI`. Cả hai đều vì listener "chết" (thuộc container đã bị destroy, `this.scene` đã null) vẫn bị gọi. Sửa theo đúng pattern đã có sẵn trong `FloatingIngredient.ts` (lắng nghe `Phaser.GameObjects.Events.DESTROY` trên chính GameObject/panel để tự gỡ listener) — áp dụng cho cả 6 file. Verify: lặp lại đúng chuỗi thao tác gây crash trước khi sửa (tái hiện được), sau khi sửa chạy lại nguyên chuỗi + mở rộng thêm rất nhiều thao tác khác — 0 console error.
+
+**Phát hiện, chưa sửa (cần quyết định thiết kế, không phải bug máy móc):** mọi recipe đều có `soothingValue: 30` cố định, nhưng độ rộng dải cảm xúc lại thu hẹp dần khi khách bình tĩnh hơn (`relaxed` rộng 20, `content` rộng 15, `peaceful` rộng 10 theo `emotions.json`). Với khách có trust đã tích luỹ đủ cao (giảm intensity khởi điểm), bước nhảy cố định 30 điểm có thể **nhảy qua** hẳn một dải cảm xúc hẹp mà không bao giờ "đứng" đúng vào đó — nghĩa là memory nào gắn `unlockedAtStage` đúng dải đó có thể **không bao giờ** tự nhiên mở khoá được cho khách đã quen (trust cao). Đã xác nhận bằng browser thật: lượt ghé thứ 2 của Mặt Trời (trust=8) nhảy thẳng CALMING → CONTENT → PEACEFUL, bỏ qua hẳn RELAXED/`SUN_UNEASY`, nên `sun_chapter_2`'s memory vẫn khoá dù chương đã accessible. Đây là vấn đề cân bằng nội dung (số liệu `soothingValue`/độ rộng dải, hoặc chọn cơ chế unlock khác cho các chương giữa), không phải lỗi code — cố tình **không tự sửa** vì đây là quyết định thiết kế, không nằm trong phạm vi "gate cuối, không thêm feature" của Pass 31.
+
+**Chưa test được (giới hạn đã biết):** nhánh YouTube Playables thật (không có môi trường nhúng thật để chạy, đã ghi nhận từ Pass 29). Desktop + mobile (5 viewport, dùng lại phương pháp touch-event thật từ Pass 28) đã test đầy đủ, bao gồm cả Sổ Công Thức mới thêm sau Pass 30 — không lỗi ở viewport nào.
 
 ---
 
@@ -1835,4 +1969,4 @@ Tổng cộng: `AudioSystem` viết lại hoàn toàn theo kiến trúc bus (MAS
 
 93/93 test pass, `tsc`/lint/build sạch, verify browser xác nhận không có console error qua toàn bộ luồng tương tác (âm thanh tự thân không verify được qua screenshot, đã ghi rõ giới hạn này).
 
-Phase 1-6 (Pass 1-30) giờ đã xong toàn bộ — Pass 27 (Economy & Cozy Pacing review + Paper Boat rework), Pass 28 (Mobile & Touch QA trên 5 viewport), Pass 29 (YouTube Playables `PlatformAdapter`), Pass 30 (Save Migration `normalizeSaveData`) đều đã có mục "✅ Đã làm" chi tiết ở phần tương ứng phía trên. Còn lại: Phase 7 (Pass 31: Final QA release gate) — pass cuối, không thêm feature, chỉ chạy full regression + production gameplay test thật. Nên tag baseline mới, ví dụ `v0.6.0-balance`, trước khi qua Phase 7.
+Phase 1-7 (Pass 1-31) giờ đã xong toàn bộ. Pass 27-30 (Balance, Mobile QA, YouTube Playables, Save Migration) và Pass 31 (Final QA release gate — chạy full regression thật qua cả 3 vòng lặp, phát hiện + sửa 2 bug thật: photo-moment bỏ qua điều kiện mở khoá chương, và rò rỉ eventBus listener gây crash sau khi vào/ra Journal) đều đã có mục "✅ Đã làm" chi tiết ở phần tương ứng phía trên. Ngoài ra còn bổ sung Sổ Công Thức (Recipe Book) sau khi phát hiện gap UX thật lúc chơi thử. MVP + toàn bộ Post-MVP core loop giờ đã là release candidate — nên tag baseline mới, ví dụ `v1.0.0`, trước khi cân nhắc bất kỳ Pass Post-MVP nào (32+) theo Product Direction Checkpoint bên dưới.

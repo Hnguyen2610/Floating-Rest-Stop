@@ -76,14 +76,30 @@ export class JournalSystem {
 
   unlockMemory(memoryId: string): boolean {
     if (this.unlocked.has(memoryId)) return false;
-    const exists = this.data.chapters.some((chapter) =>
+    const chapter = this.data.chapters.find((chapter) =>
       chapter.memories.some((memory) => memory.id === memoryId),
     );
-    if (!exists) throw new Error(`Unknown memory: ${memoryId}`);
+    if (!chapter) throw new Error(`Unknown memory: ${memoryId}`);
+    // A memory's chapter gate (visit count / trust / treatments) must hold
+    // regardless of which path is unlocking it — stage-based unlocks already
+    // pre-filter on this in checkStageUnlocks(), but a photo-moment capture
+    // (PhotoMomentSystem.capture) calls this directly, so the check has to
+    // live here too or an early PEACEFUL visit can skip straight to a
+    // resolution memory meant to require many more visits.
+    if (!this.isChapterAccessible(chapter)) return false;
 
     this.unlocked.add(memoryId);
     this.eventBus.emit('memory:unlocked', { memoryId });
     return true;
+  }
+
+  // Lets a caller check accessibility before doing anything irreversible
+  // (e.g. PhotoMomentSystem marking a one-shot photo moment as "used").
+  canUnlockMemory(memoryId: string): boolean {
+    const chapter = this.data.chapters.find((chapter) =>
+      chapter.memories.some((memory) => memory.id === memoryId),
+    );
+    return chapter ? this.isChapterAccessible(chapter) : false;
   }
 
   getUnlockedIds(): string[] {
