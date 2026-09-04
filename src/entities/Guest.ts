@@ -12,6 +12,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
   protected readonly bodyGraphics: Phaser.GameObjects.Graphics;
   private spriteImage: Phaser.GameObjects.Image | null = null;
   private idleTime = Math.random() * Math.PI * 2;
+  private blinkTween: Phaser.Tweens.Tween | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -31,11 +32,32 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     this.renderVisual();
     this.addFace();
     this.wireInteraction();
+
+    // Blinking tween (scaleY briefly)
+    this.blinkTween = this.scene.tweens.add({
+      targets: this,
+      scaleY: 0.9,
+      duration: 200,
+      yoyo: true,
+      repeat: -1,
+      delay: 3000,
+      ease: 'Linear'
+    });
+
+    // Pause/resume tweens when scene is paused/resumed (only for blinkTween)
+    this.scene.events.on('pause', () => {
+      this.blinkTween?.pause();
+    });
+    this.scene.events.on('resume', () => {
+      this.blinkTween?.resume();
+    });
   }
 
   update(_time: number, delta: number): void {
     this.idleTime += delta / 1000;
+    // Bobbing (up and down) using sine wave
     this.y = this.baseY + Math.sin(this.idleTime * GUEST_IDLE_CONFIG.floatFrequency) * GUEST_IDLE_CONFIG.floatAmplitude;
+    // Drift (side to side)
     this.x =
       this.baseX +
       Math.sin(this.idleTime * GUEST_IDLE_CONFIG.driftFrequency) * GUEST_IDLE_CONFIG.driftAmplitude;
@@ -141,4 +163,20 @@ export abstract class Guest extends Phaser.GameObjects.Container {
   }
 
   protected abstract renderBody(graphics: Phaser.GameObjects.Graphics): void;
+
+  /** Override to stop tweens and remove listeners when guest is destroyed */
+  destroy(fromScene?: boolean): void {
+    // Stop tweens
+    if (this.blinkTween) {
+      this.blinkTween.stop();
+    }
+    // Remove scene listeners
+    this.scene.events.off('pause', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-empty-function */
+    });
+    this.scene.events.off('resume', () => {
+      /* eslint-disable-next-line @typescript-eslint/no-empty-function */
+    });
+    super.destroy(fromScene);
+  }
 }
