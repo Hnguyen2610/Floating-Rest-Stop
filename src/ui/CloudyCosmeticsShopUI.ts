@@ -48,7 +48,7 @@ export class CloudyCosmeticsShopUI {
       const bg = this.addRow(
         rowY,
         accessory.name,
-        () => (this.cosmeticsSystem.isAccessoryUnlocked(accessory.id) ? 'Đang có' : 'Chưa có'),
+        () => this.describeAccessoryCost(accessory.id),
         () => this.tryAccessory(accessory.id),
       );
       this.accessoryBackgrounds.set(accessory.id, bg);
@@ -129,10 +129,32 @@ export class CloudyCosmeticsShopUI {
     this.onChanged();
   }
 
+  // Some accessories (sunset_hat, star_clip, rainbow_ribbon) only ever
+  // unlock via their special condition (trust/rare-guest-photo) and have no
+  // `cost` — tapping one before it's unlocked just shakes, same as an
+  // un-affordable shape. Color variants have a `cost` and purchase directly.
+  private describeAccessoryCost(id: string): string {
+    if (this.cosmeticsSystem.getEquippedAccessories().includes(id)) return 'Đang đeo';
+    if (this.cosmeticsSystem.isAccessoryUnlocked(id)) return 'Đã mở';
+    const def = this.cosmeticsSystem.getAccessories().find((accessory) => accessory.id === id);
+    return def?.cost !== undefined ? `💎 ${def.cost}` : 'Chưa có';
+  }
+
   private tryAccessory(id: string): void {
+    if (!this.cosmeticsSystem.isAccessoryUnlocked(id)) {
+      if (!this.cosmeticsSystem.purchaseAccessory(id)) {
+        this.shakeRow(this.accessoryBackgrounds.get(id));
+        return;
+      }
+    }
     this.cosmeticsSystem.toggleAccessory(id);
     this.refreshAll();
     this.onChanged();
+  }
+
+  private shakeRow(bg?: Phaser.GameObjects.Rectangle): void {
+    if (!bg) return;
+    this.scene.tweens.add({ targets: bg, x: bg.x - 4, duration: 60, yoyo: true, repeat: 3 });
   }
 
   private refreshAll(): void {
@@ -144,8 +166,7 @@ export class CloudyCosmeticsShopUI {
     this.accessoryBackgrounds.forEach((bg, id) => {
       const equipped = this.cosmeticsSystem.getEquippedAccessories().includes(id);
       bg.setFillStyle(PALETTE.lavender, equipped ? 0.95 : this.cosmeticsSystem.isAccessoryUnlocked(id) ? 0.55 : 0.35);
-      const label = this.cosmeticsSystem.isAccessoryUnlocked(id) ? (equipped ? 'Đang đeo' : 'Đã mở') : 'Chưa có';
-      this.updateStatusLabel(bg, label);
+      this.updateStatusLabel(bg, this.describeAccessoryCost(id));
     });
   }
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE } from '../core/GameConfig';
+import { ParticleEffect } from '../utils/ParticleEffect';
 
 export class HappinessCrystal extends Phaser.GameObjects.Container {
   constructor(
@@ -35,10 +36,10 @@ export class HappinessCrystal extends Phaser.GameObjects.Container {
     );
     this.add(gem);
 
-    this.setSize(44, 44);
+    this.setSize(48, 48);
     // Container hit-test coords are relative to the top-left of setSize(), not the
     // container's origin, so a centered circle must sit at (width/2, height/2).
-    this.setInteractive(new Phaser.Geom.Circle(22, 22, 22), Phaser.Geom.Circle.Contains);
+    this.setInteractive(new Phaser.Geom.Circle(24, 24, 24), Phaser.Geom.Circle.Contains);
     this.on('pointerdown', () => this.collect());
 
     this.setScale(0);
@@ -64,6 +65,7 @@ export class HappinessCrystal extends Phaser.GameObjects.Container {
 
   private collect(): void {
     this.disableInteractive();
+    ParticleEffect.createGlowEffect(this.scene, this.x, this.y);
     this.scene.tweens.add({
       targets: this,
       x: this.counterPosition.x,

@@ -1575,6 +1575,113 @@ Vị trí cụm phải (x=900) được tính để nút cuối cùng dừng l�
 
 ---
 
+# Bổ sung — Hoàn thiện luồng làm việc song song (kế hoạch 23 task, 2026-09-04)
+
+**Bối cảnh:** phát hiện một phiên làm việc khác (dùng `superpowers:writing-plans`, kế hoạch tại `docs/superpowers/plans/2026-09-04-*`) đã chạy song song trên cùng repo, xây tiếp trên nền các file/asset của phiên này. Người dùng yêu cầu "hoàn thiện luồng kia". Đã đọc toàn bộ 23 task, xác nhận nhiều task dựa trên giả định sai về codebase thật (không có physics engine, `Platform.ts` là singleton function không phải class để inject, atlas/husky/e2e-qua-jsdom không phù hợp quy mô/kiến trúc hiện tại) — đã hỏi lại phạm vi, người dùng chọn "làm thêm task hợp lý, bỏ task sai giả định".
+
+## ✅ Sửa bug thật trong phần đã "xong" trước đó (2026-09-08)
+
+**1. `Guest.ts` — animation nháy mắt sai cả timing lẫn mục tiêu, cộng rò rỉ listener:**
+```text
+Trước: tween scaleY lặp vô hạn (repeat:-1) với delay:3000 nhưng KHÔNG có
+       repeatDelay — Phaser chỉ áp delay cho lần đầu, sau đó lặp lại ngay
+       lập tức không nghỉ → sau 3s đầu, cả THÂN khách co-giãn liên tục mỗi
+       ~400ms mãi mãi, không phải "nháy mắt mỗi 3 giây".
+       destroy() gọi .off('pause', () => {...}) bằng hàm ẩn danh MỚI, không
+       khớp hàm đã .on() ở constructor → không gỡ được gì, rò rỉ 2 listener
+       trên scene.events mỗi lần khách bị destroy (rất thường xuyên — mỗi
+       lượt khách rời đi).
+Sau:   dùng đúng pattern đã có sẵn và đã verify trong Cloudy.ts — tween 1 lần
+       + delayedCall tự lên lịch lại (2.5-4.5s ngẫu nhiên giữa các lần),
+       target CHỈ 2 mắt (đã lưu lại reference leftEye/rightEye, trước đây
+       addFace() chỉ tạo biến local rồi bỏ), named handler cho pause/resume
+       để destroy() gỡ đúng listener đã đăng ký.
+```
+Trong lúc verify bằng browser thật (Journal round-trip khi khách vẫn đang ở giữa lượt ghé — kịch bản người chơi thật hoàn toàn có thể gặp), phát hiện thêm 1 bug MỚI do chính fix này gây ra: StationScene tái dùng lại CÙNG MỘT instance qua các lần `scene.start()` (không tạo instance mới), nên `activeGuestEntity` có thể giữ reference "cũ" trỏ đến 1 entity đã bị Phaser tự destroy khi scene tắt — gọi `.destroy()` lần 2 lên nó trước đây vốn an toàn (Phaser tự bỏ qua), nhưng code MỚI truy cập `this.scene.events` mà không kiểm tra null nên crash thật (`Cannot read properties of undefined`). Đã sửa bằng cách bọc `if (this.scene)` trước khi truy cập — khớp đúng mức độ phòng vệ mà phần còn lại của destroy() (base Phaser) vốn đã có.
+
+**2. `ParticleEffect.ts` — dùng sai API Phaser:**
+```text
+scene.add.particles('sparkle').createEmitter(...) — API Phaser ≤3.55.
+Project dùng Phaser 3.90: add.particles(x, y, texture, config) trả thẳng về
+emitter, không còn .createEmitter(). Code cũ không hề compile được.
+```
+Viết lại đúng API 3.90, thêm `emitting: false` (chỉ nổ 1 lần qua `.explode()`, không tự phun liên tục).
+
+**3. Hiệu ứng sparkle không hiện được (bug thứ 2, phát hiện qua browser thật, không phải chỉ đọc code):** dù đã sửa API, chụp màn hình ngay lúc hiệu ứng nổ cho thấy **không có gì hiển thị** — texture sparkle gốc chỉ là 1 chấm tròn trắng phẳng 8px, kết hợp `blendMode: ADD` trên nền trời pastel sáng gần như trắng → cộng-màu-trắng-lên-nền-sáng gần như vô hình. Đã tạo lại texture (ngôi sao 4 cánh lấp lánh, giống glyph "star_dust" nguyên liệu) và đổi `blendMode` sang `NORMAL` — verify lại bằng browser thật, giờ thấy rõ.
+
+**4. `Game.ts` — dùng sai API hoàn toàn:** `game.add.text(...)` — `Phaser.Game` (đối tượng top-level) không có `.add`, đó là API của `Scene`. Code này không hề compile được. Đã gỡ bỏ hoàn toàn cách tiếp cận "vẽ UI ngay trong Game.ts" — xem mục 5 để biết hướng thay thế.
+
+**5. Gộp lại "Save Status UI" (Task 13) — 2 chỗ trùng lặp, đều sai:** `Game.ts` (lỗi mục 4) và `SaveStatusUI.ts` (lỗi TypeScript: property chưa khởi tạo, gán `number` cho field cần `string`) cùng làm một việc. Đã thiết kế lại theo đúng pattern eventBus đã dùng nhất quán suốt codebase này: `SaveSystem.saveNow()` giờ emit `save:started`/`save:completed`/`save:failed` (3 event mới trong `EventBus.ts`), `SaveStatusUI` (viết lại, sửa hết lỗi TS) lắng nghe và tự quản lý cleanup theo đúng pattern DESTROY-event đã dùng cho 6 UI khác ở Pass 31.
+
+**Quyết định thiết kế khác với kế hoạch gốc:** kế hoạch gốc muốn hiện "Saving.../Saved!" mỗi lần lưu — nhưng game này tự động lưu sau GẦN NHƯ MỌI hành động (nhặt crystal, khách rời đi, mở khoá trang trí...), nên sẽ hiện liên tục mỗi 1-2 giây lúc chơi bình thường — đúng kiểu "làm phiền" mà nguyên tắc "Subtle > Flashy, không gây áp lực" (đã chốt từ đầu dự án) muốn tránh. Đổi thành: **chỉ hiện khi lưu THẤT BẠI** (`save:failed`) — lưu thành công thì im lặng (đúng như game đã hoạt động ổn định từ Pass 30 đến giờ), chỉ báo khi thật sự có vấn đề đáng để người chơi biết.
+
+## ✅ Hoàn thiện phần dở dang (Task 1 — màu phụ kiện)
+
+6 ảnh phụ kiện đổi màu đã được tạo file nhưng **chưa hề nối vào** `cloudyCosmetics.json`/shop UI (chỉ preload, không thể mặc được) — VÀ khi kiểm tra trực tiếp, phát hiện 2 trong 6 ảnh (`sunset_hat_pink.png`, `sunset_hat_mint.png`) **không hề được đổi màu thật** — giống hệt bản gốc, có thể do lần chạy `recolor_asset.py` trước đó bị sai tham số hoặc không hoàn tất. Tự chạy lại `recolor_asset.py` (đã verify script logic đúng) cho cả 6 ảnh, so sánh trước/sau bằng mắt xác nhận đúng màu đích. Nối vào hệ thống thật:
+
+```text
+CloudyCosmeticsSystem.ts — thêm purchaseAccessory(id), mirror purchaseShape()
+                            đã có — phụ kiện gốc (3 cái) vẫn CHỈ mở qua điều
+                            kiện đặc biệt (trust/rare-guest-photo) như cũ,
+                            biến thể màu (6 cái) mua trực tiếp bằng crystal
+                            (5💎/cái) — không cần sở hữu bản gốc trước.
+cloudyCosmetics.json      — thêm 6 entry phụ kiện màu mới, cost:5
+Cloudy.ts                 — ACCESSORY_PLACEMENT thêm 6 id mới, dùng chung vị
+                            trí với phụ kiện gốc (cùng món, chỉ đổi màu)
+CloudyCosmeticsShopUI.ts  — describeAccessoryCost()/tryAccessory() giờ mirror
+                            đúng logic shape (hiện giá, mua khi chưa mở, lắc
+                            khi không đủ tiền)
+```
+
+Verify browser thật: mở shop thấy đủ 9 phụ kiện (3 gốc "Chưa có" + 6 biến thể "💎 5"), mua Mũ Hoàng Hôn (Hồng) → Cloudy đội đúng mũ màu hồng (không phải màu cam gốc).
+
+## ✅ Task hợp lý làm thêm (bỏ task sai giả định — xem lý do ở tin nhắn trả lời người dùng)
+
+```text
+Task 9  — Touch hitbox: HappinessCrystal/PhotoMomentIcon 44px→48px (khớp
+          chuẩn tối thiểu); Guest/Decoration/FloatingIngredient/BottomNavUI
+          đã ≥48px sẵn từ trước, không cần sửa.
+Task 10 — HapticFeedback.ts mới (navigator.vibrate, no-op nếu không hỗ trợ),
+          gắn vào Guest tap + Cloudy poke — 2 tương tác "chạm" rõ nhất,
+          không lạm dụng khắp nơi.
+Task 3  — (bổ sung) glow effect khi nhặt Happiness Crystal, dùng chung
+          ParticleEffect đã sửa.
+Task 8  — PerformanceMonitor.ts mới, CHỈ hiện qua phím debug 'P' (đã có sẵn
+          cơ chế `if (!import.meta.env.DEV) return` cho mọi phím debug —
+          không xuất hiện trong bản production).
+```
+
+Files mới/sửa còn lại: `create_sparkle.py` (viết lại khớp đúng ảnh sparkle mới), xoá 3 file backup thừa (`Guest.ts.backup`, `.bak2`, `StationScene.ts.backup` — bản build trước khi sửa, không còn giá trị).
+
+**Bỏ có giải thích (task sai giả định hoặc mâu thuẫn hướng đi đã chốt):**
+
+```text
+Task 4  Texture atlas       — ~20 ảnh nhỏ, chưa tới ngưỡng cần atlas
+Task 5  Lazy loading        — tải hiện tại đã nhanh (1 JSON nhỏ + vài chục PNG)
+Task 6  Physics timestep    — game KHÔNG dùng Phaser physics engine ở đâu cả
+Task 7  Object pooling      — HappinessCrystal chỉ spawn khi dỗ khách thành
+                               công thật, tần suất quá thấp để cần pooling
+Task 11 Tooltip hệ thống    — trùng GuestHintUI đã có (gợi ý theo ngữ cảnh)
+Task 12 Achievement toast   — mâu thuẫn "Never: Score/HP" đã chốt ở
+                               PRODUCT DIRECTION CHECKPOINT
+Task 14 Scalable UI/font    — phạm vi quá lớn (chạm gần mọi Text trong game)
+Task 15 Extract utilities   — không có logic lặp lại rõ ràng đáng tách ra
+Task 18 ESLint Phaser rules — suy đoán, không có plugin thật phù hợp
+Task 19 Husky pre-commit    — thêm tooling/dependency mới không ai yêu cầu
+Task 20 DI cho Platform.ts  — trái kiến trúc singleton function đã chọn từ
+                               Pass 29, không có lý do thật để đổi
+Task 21 Tách entities/systems/services — không tìm thấy vi phạm cụ thể nào
+Task 22 Test coverage rộng  — đã tăng test cho code mới/sửa (111/111, từ 108)
+                               thay vì ép coverage % không có mục tiêu rõ
+Task 23 E2E qua jsdom       — jsdom không chạy được Phaser/WebGL, không khả
+                               thi kỹ thuật; e2e thật của dự án này vốn đã là
+                               Playwright + browser thật (đã dùng xuyên suốt)
+```
+
+`tsc`/`vitest` (111/111, tăng từ 108)/`lint`/`build` sạch xuyên suốt. Verify browser thật nhiều vòng: nháy mắt khách đúng nhịp + đúng vị trí, sparkle rõ khi dỗ khách thành công, glow rõ khi nhặt crystal, mua/mặc phụ kiện màu đúng, phím debug 'P' hiện FPS, Journal round-trip 3 lần liên tiếp (kể cả khi khách đang giữa lượt ghé) không còn crash, reload giữ đúng state.
+
+---
+
 # PHASE 7 — RELEASE QA
 
 # Pass 31 — Full Production QA
@@ -1970,3 +2077,63 @@ Tổng cộng: `AudioSystem` viết lại hoàn toàn theo kiến trúc bus (MAS
 93/93 test pass, `tsc`/lint/build sạch, verify browser xác nhận không có console error qua toàn bộ luồng tương tác (âm thanh tự thân không verify được qua screenshot, đã ghi rõ giới hạn này).
 
 Phase 1-7 (Pass 1-31) giờ đã xong toàn bộ. Pass 27-30 (Balance, Mobile QA, YouTube Playables, Save Migration) và Pass 31 (Final QA release gate — chạy full regression thật qua cả 3 vòng lặp, phát hiện + sửa 2 bug thật: photo-moment bỏ qua điều kiện mở khoá chương, và rò rỉ eventBus listener gây crash sau khi vào/ra Journal) đều đã có mục "✅ Đã làm" chi tiết ở phần tương ứng phía trên. Ngoài ra còn bổ sung Sổ Công Thức (Recipe Book) sau khi phát hiện gap UX thật lúc chơi thử. MVP + toàn bộ Post-MVP core loop giờ đã là release candidate — nên tag baseline mới, ví dụ `v1.0.0`, trước khi cân nhắc bất kỳ Pass Post-MVP nào (32+) theo Product Direction Checkpoint bên dưới.
+
+---
+
+# Chuẩn bị phát hành (2026-09-17)
+
+Người dùng xác nhận muốn đưa game vào "sẵn sàng phát hành" (`muốn làm sẵn sàng phát hành`). 3 quyết định phạm vi được hỏi trực tiếp qua AskUserQuestion:
+
+- **Nền tảng phát hành:** Cả web lẫn YouTube Playables (kiến trúc `PlatformAdapter` đã có sẵn từ Pass 29 cho cả hai).
+- **Art nhân vật khách (Sun/Moon/Little Star/Butterfly/Aurora/Comet):** Cần nâng cấp lên ảnh minh hoạ thật **trước khi** phát hành — cùng lý do đã áp dụng cho Cloudy/nav/ingredient trước đó (art vẽ-bằng-code không đạt chất lượng phát hành).
+- **Độ phủ cảm xúc:** 5 ảnh/khách × 6 khách = 30 ảnh — phủ đủ toàn bộ 5 giai đoạn cảm xúc dùng chung (DISTRESSED→CALMING→RELAXED→CONTENT→PEACEFUL, đúng thứ tự tệ nhất→bình yên nhất theo `STAGE_EMOTION_BY_GUEST` trong `GuestSystem.ts`) thay vì chỉ làm 1 ảnh đại diện/khách — lựa chọn đầy đủ nhất trong các phương án được đưa ra.
+
+## ✅ Tích hợp 30 ảnh minh hoạ khách vào game
+
+Người dùng tự tạo prompt Gemini và lưu 30 ảnh vào `public/assets/guests/<guest>/` (đặt tên theo nhãn cảm xúc tiếng Việt, vd. `căng thẳng.png`, `ảnh gốc.png`). Xử lý và tích hợp:
+
+**Xử lý ảnh (Python + Pillow, giống kỹ thuật đã dùng cho Cloudy/nav/ingredient trước đó):** flood-fill xoá nền từ 7 điểm neo (4 góc + 3 điểm giữa cạnh) với ngưỡng màu 28 — chỉ xoá pixel nền *liên thông* với các điểm neo đó nên giữ nguyên đúng phần nội dung gần-trắng nằm bên trong viền nét vẽ (quầng sáng mềm của Aurora/Comet ở trạng thái `peaceful`) mà không cần ảnh nguồn có sẵn kênh alpha. Sau đó crop theo bbox, resize còn tối đa 700px cạnh dài (Lanczos), lưu theo tên tiếng Anh đúng quy ước 5 giai đoạn (`distressed/calming/relaxed/content/peaceful.png`), xoá file gốc tên tiếng Việt. Verify: soi trực tiếp vài ảnh (Sun distressed/peaceful, Butterfly distressed, Comet peaceful) + composite thử lên nền xanh da trời để xác nhận không viền trắng sót lại quanh quầng sáng Aurora/Comet.
+
+**`src/core/AssetRegistry.ts`** — `REGISTERED_ASSETS` (trống từ Pass 26, chủ đích chỉ chuẩn bị kiến trúc) giờ được điền tự động từ bảng `GUEST_EMOTION_STAGES` (guest → thư mục + 5 emotion id theo đúng thứ tự DISTRESSED→PEACEFUL) nhân với `STAGE_FILENAMES`. Thêm `getAllRegisteredAssets()` để `PreloadScene` lặp qua thay vì phải hardcode 30 dòng `this.load.image()`.
+
+**`src/scenes/PreloadScene.ts`** — thêm 1 vòng lặp `getAllRegisteredAssets().forEach(...)` gọi `this.load.image(asset.key, asset.texturePath)` cho mọi asset đã đăng ký có `texturePath` — asset mới đăng ký sau này (guest thêm, decoration thật, ...) tự động được preload, không cần sửa file này nữa.
+
+**`src/entities/Guest.ts`** — kiến trúc swap ảnh thật/procedural (`resolveEmotionAsset`/`hasLoadedTexture`, làm từ Pass 26) đã có sẵn nhưng còn 2 khoảng trống khiến ảnh thật sẽ hiển thị sai nếu bật lên nguyên trạng, sửa cả hai:
+- **Thiếu scale ảnh:** `renderVisual()` gán texture thật vào `spriteImage` nhưng chưa từng gọi `.setScale()` — ảnh nguồn tới 700px sẽ hiển thị to gấp nhiều lần kích thước nhân vật đúng. Thêm `GUEST_SPRITE_TARGET_WIDTH = 150` (áng chừng bằng vùng nhân vật procedural cũ, vd. tia nắng Mặt Trời toả tới bán kính ~60) và `setScale(GUEST_SPRITE_TARGET_WIDTH / spriteImage.width)` — cùng pattern width-based đã dùng ở `Cloudy.ts`/`FloatingIngredient.ts`.
+- **Mắt procedural chồng lên ảnh thật:** `addFace()` luôn vẽ 2 ellipse mắt bất kể có ảnh thật hay không — ảnh minh hoạ đã có mắt/biểu cảm riêng nên bị chồng mắt giả lên trên. Đổi thứ tự constructor (`addFace()` trước `renderVisual()` để mắt tồn tại trước khi cần ẩn/hiện), `renderVisual()` giờ tự `setVisible(false)` cho `leftEye`/`rightEye` khi dùng ảnh thật và `setVisible(true)` khi fallback procedural — đổi theo từng lần cảm xúc thay đổi (`updateEmotion()` gọi lại `renderVisual()`), không phải chỉ lúc khởi tạo. `scheduleNextBlink()` cũng được sửa để bỏ qua tween nháy mắt (nhưng vẫn tự lên lịch lại) khi mắt đang ẩn, tránh lãng phí tween chạy trên object vô hình.
+
+**Sửa 1 test cũ sai giả định:** `AssetRegistry.test.ts` có test khẳng định `guest.sun.stressed` (SUN_STRESSED, giai đoạn CALMING của Sun) trả về entry *không có* `texturePath` — đúng khi registry còn trống, nhưng giờ sai vì registry đã có 30 entry thật. Sửa: đổi sang key chưa từng đăng ký thật (`guest.sun.nonexistent_stage`) để test đúng ý ban đầu ("fallback khi chưa đăng ký"), thêm test mới xác nhận 2 entry đã đăng ký (`SUN_STRESSED`, `COMET_BRILLIANT`) trả về đúng `texturePath`.
+
+**Verify:** `tsc --noEmit`/`npx vitest run` (112/112, tăng từ 111 do test mới)/`npm run lint`/`npm run build` sạch cả 4. Playwright thật (chạy `npm run dev`, không chỉ đọc code): dùng phím debug có sẵn (`1`-`6` spawn từng khách, `Q` rời khách) spawn lần lượt cả 6 khách — xác nhận cả 6 hiện đúng ảnh minh hoạ giai đoạn DISTRESSED (soi zoom từng ảnh, đúng nhân vật + đúng biểu cảm buồn/căng thẳng ban đầu, không lệch scale, không mắt giả chồng lên), 0 console error/page error. Riêng Bé Sao Nhỏ (khách duy nhất dùng tương tác `rub` qua kéo-thả chuột thay vì cần pha chế công thức) — mô phỏng nhiều lượt vuốt để đẩy cảm xúc từ DISTRESSED tới PEACEFUL trong 1 lượt ghé, xác nhận ảnh chuyển từ vẻ lo lắng sang vẻ tự tin lấp lánh đúng lúc `currentEmotion` đổi, scale/vị trí giữ ổn định suốt quá trình đổi ảnh nhiều lần liên tiếp. Không test riêng từng ảnh còn lại trong số 30 ảnh (CALMING/RELAXED/CONTENT của các khách khác) qua browser vì cơ chế render dùng chung 1 đường code (`renderVisual()`) cho mọi giai đoạn của mọi khách — đã xác nhận đúng ở 2 đầu (DISTRESSED lúc spawn, PEACEFUL sau khi dỗ xong) là đủ tin cậy cho phần còn lại; toàn bộ 30 file đã xác nhận tồn tại đúng tên/đúng đường dẫn trước đó.
+
+**Chưa làm (nằm ngoài phạm vi khách hàng art, thuộc phần còn lại của "chuẩn bị phát hành"):** chuẩn bị build/deploy cho web (GitHub Pages/itch.io — chưa kiểm tra `index.html` metadata, chưa có config build riêng), và bản build riêng cho YouTube Playables (thêm script SDK — việc **nộp** qua Google để có môi trường thật kiểm thử nhánh `YouTubePlayablesPlatformAdapter` nằm ngoài khả năng tự làm thay, đã ghi nhận từ Pass 29).
+
+---
+
+## ✅ Build config cho 2 nền tảng phát hành (web + YouTube Playables, 2026-09-17)
+
+**Vấn đề phát hiện:** `dist/index.html` build ra trước đó dùng đường dẫn asset tuyệt đối từ gốc domain (`src="/assets/index-xxx.js"`, do Vite mặc định `base: '/'`) — chạy đúng nếu host ở domain gốc, nhưng **vỡ hoàn toàn** nếu host ở 1 thư mục con (GitHub Pages project site dạng `user.github.io/ten-repo/`, hoặc thư mục mà itch.io gán riêng cho từng game) vì trình duyệt sẽ tìm asset ở `domain-gốc/assets/...` thay vì `domain-gốc/ten-repo/assets/...`. Đã grep toàn bộ `src/` xác nhận code game không tự dùng đường dẫn tuyệt đối nào (`load.json`/`load.image` đều dùng đường dẫn tương đối như `'data/guests.json'`) nên sửa an toàn, chỉ cần đổi 1 chỗ cấu hình.
+
+**`vite.config.ts`** — thêm `base: './'` (đường dẫn asset tương đối, áp dụng cho mọi lần build) — portable cho cả GitHub Pages project site, itch.io, lẫn nhúng trong YouTube Playables (không biết trước mount path). Đồng thời thêm plugin `injectPlayablesSdk` dùng `transformIndexHtml` để chèn thẻ `<script src="https://www.youtube.com/game_api/v1">` (URL đã verify từ Pass 29) — nhưng **chỉ khi build ở `--mode playables`**, tránh phải duy trì 2 file `index.html` gần giống hệt nhau (giữ DRY). Thẻ SDK được chèn **ngay trước** thẻ `<script type="module">` của game (không phải cuối `<head>`) — cố ý, vì script thường chạy đồng bộ đúng vị trí lúc parse HTML còn script `type="module"` luôn bị hoãn tới sau khi parse xong toàn trang, nên thứ tự này đảm bảo `window.ytgame` tồn tại trước khi `Game.ts`'s `initPlatformAdapter()` đọc nó, bất kể thứ tự khác trong `<head>` sau này thay đổi thế nào.
+
+**`package.json`** — thêm script `build:playables` (`tsc --noEmit && vite build --mode playables`, output riêng `dist-playables/`) cạnh `build` cũ (`dist/`, không có thẻ SDK). Dùng `--mode` có sẵn của Vite thay vì set biến môi trường thủ công (`VITE_TARGET=...`) — tránh phải thêm dependency `cross-env` chỉ để 1 script chạy được trên cả PowerShell lẫn bash.
+
+**`eslint.config.js`** — thêm `dist-playables` vào danh sách `ignores` (cạnh `dist` cũ) — thiếu bước này khiến `npm run lint` cố lint luôn bundle đã minify, ra hơn 4000 lỗi giả từ 1 dòng code nén.
+
+**`.gitignore`** — thêm `dist-playables`.
+
+**`README.md`** — trước đó chỉ có đúng 1 dòng tiêu đề, không có gì. Viết lại đầy đủ: lệnh dev/test/build, giải thích 2 bản build khác nhau đúng 1 chỗ (thẻ SDK), hướng dẫn deploy GitHub Pages/itch.io, ghi chú việc nộp YouTube Playables cần môi trường thật của Google (không tự làm thay được).
+
+**Verify:** `tsc`/`vitest` (112/112)/`lint`/`npm run build`/`npm run build:playables` sạch cả 5. Xác nhận bằng cách đọc trực tiếp `dist/index.html` (đường dẫn `./assets/...`, không có thẻ SDK) và `dist-playables/index.html` (có đúng 1 thẻ SDK, đúng thứ tự trước script module) — không phải đoán, đọc file build ra thật. Playwright thật qua `vite preview` phục vụ `dist/` — 0 console error, 0 page error, 0 request lỗi, game render đầy đủ (Cloudy, nav, mixer). Quan trọng nhất: **giả lập đúng kịch bản rủi ro thật** — copy `dist/` vào 1 thư mục con (`/subpath-test/repo-name/`), serve bằng static server riêng, mở đúng URL có subpath — game vẫn render đầy đủ, 0 request lỗi, xác nhận `base: './'` thật sự giải quyết đúng vấn đề GitHub Pages project site (không chỉ đọc HTML mà đoán là đúng).
+
+**Chưa làm — cần quyết định của người dùng trước khi làm tiếp (không phải giới hạn kỹ thuật):** chọn host web cụ thể (GitHub Pages hay itch.io hay khác) và có muốn tự động hoá deploy qua GitHub Actions không — 2 câu hỏi này ảnh hưởng tới hạ tầng dùng chung (CI, secrets, domain công khai) nên chủ động hỏi lại thay vì tự quyết.
+
+**→ Người dùng chọn (2026-09-17): GitHub Pages + tự động qua GitHub Actions.**
+
+## ✅ GitHub Actions auto-deploy lên GitHub Pages (2026-09-17)
+
+**`.github/workflows/deploy.yml`** (mới) — trigger khi push lên `main` (+ `workflow_dispatch` để chạy tay từ tab Actions khi cần). Job `build`: checkout → setup-node (`lts/*`, cache npm) → `npm ci` → `npm run lint` → `npm test` → `npm run build` → upload `dist/` làm Pages artifact. Job `deploy` (phụ thuộc `build` qua `needs`): `actions/deploy-pages@v4`. Dùng cách deploy chính thức hiện tại của GitHub (Pages source = "GitHub Actions", quyền `id-token: write`/`pages: write`) thay vì cách cũ push lên nhánh `gh-pages` — không cần Personal Access Token, không cần thêm secret nào, chỉ dùng `GITHUB_TOKEN` mặc định. Lint + test chạy trước build nên 1 PR làm hỏng game sẽ chặn deploy tự động thay vì đẩy bản lỗi lên production — cùng tinh thần "tests pass + build pass" đã áp làm gate ở Pass 31, giờ áp dụng liên tục thay vì chỉ lúc release thủ công.
+
+**`README.md`** — cập nhật mục GitHub Pages: giải thích luồng tự động, và bước bật 1 lần thủ công bắt buộc (repo Settings → Pages → Source → "GitHub Actions") — bước này cần quyền admin trên GitHub, không thể tự làm thay qua Bash/git được, ghi rõ để người dùng tự bật.
+
+**Verify:** `.github/workflows/deploy.yml` parse hợp lệ (test bằng PyYAML — 1 điểm khác biệt vô hại đã xác nhận: PyYAML theo YAML 1.1 đọc key `on:` thành boolean `true` do quirk lịch sử, nhưng GitHub tự xử lý `on:` như 1 keyword riêng nên không ảnh hưởng thực tế, đây là hiện tượng đã biết rộng rãi chứ không phải lỗi file). `tsc`/`vitest` (112/112)/`lint`/`npm run build` chạy lại sạch cả 4 sau khi thêm workflow (không có gì trong code bị ảnh hưởng, thuần thêm file mới). **Chưa/không thể verify:** workflow chạy thật trên GitHub Actions — cần push lên `main` thật + người dùng tự bật Pages source trong Settings (quyền admin, ngoài khả năng tự làm thay); tự làm việc này thay người dùng (push lên `main`, đổi Settings) là hành động ảnh hưởng hạ tầng dùng chung nên không tự ý làm, chỉ chuẩn bị sẵn để người dùng merge khi sẵn sàng.

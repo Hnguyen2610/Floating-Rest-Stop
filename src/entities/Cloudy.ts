@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CLOUDY_CONFIG } from '../core/GameConfig';
+import { HapticFeedback } from '../utils/HapticFeedback';
 
 const ICON_TARGET_WIDTH = 160;
 
@@ -18,6 +19,14 @@ const ACCESSORY_PLACEMENT: Record<string, AccessoryPlacement> = {
   sunset_hat: { xFrac: 0, yFrac: -0.62, widthFrac: 0.34 },
   star_clip: { xFrac: 0.38, yFrac: -0.22, widthFrac: 0.26 },
   rainbow_ribbon: { xFrac: -0.02, yFrac: 0.46, widthFrac: 0.3 },
+  // Color variants sit in the exact same spot as their base accessory —
+  // they're the same item, just recolored.
+  sunset_hat_pink: { xFrac: 0, yFrac: -0.62, widthFrac: 0.34 },
+  sunset_hat_mint: { xFrac: 0, yFrac: -0.62, widthFrac: 0.34 },
+  star_clip_mint: { xFrac: 0.38, yFrac: -0.22, widthFrac: 0.26 },
+  star_clip_yellow: { xFrac: 0.38, yFrac: -0.22, widthFrac: 0.26 },
+  rainbow_ribbon_pink: { xFrac: -0.02, yFrac: 0.46, widthFrac: 0.3 },
+  rainbow_ribbon_lavender: { xFrac: -0.02, yFrac: 0.46, widthFrac: 0.3 },
 };
 
 // Illustrated-sprite Cloudy (art pass after Pass 31). Only the "default"
@@ -129,6 +138,7 @@ export class Cloudy extends Phaser.GameObjects.Container {
   }
 
   private playTouchReaction(): void {
+    HapticFeedback.trigger();
     this.showExpression('poke', 260);
     this.scene.tweens.add({
       targets: this,

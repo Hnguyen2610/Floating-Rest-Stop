@@ -31,12 +31,16 @@ export function createGame(parent: string): Phaser.Game {
   platform.onPause(() => {
     game.loop.sleep();
     // Systems may not exist yet if paused during boot — nothing to save then.
+    // save:failed (SaveStatusUI, listening on the scene's own eventBus) is
+    // what actually surfaces a problem to the player; this catch just keeps
+    // a rejected promise from becoming an unhandled rejection.
     try {
       getGameSystems().saveSystem.saveNow().catch(() => undefined);
     } catch {
       /* not initialized yet */
     }
   });
+
   platform.onResume(() => {
     game.loop.wake();
   });

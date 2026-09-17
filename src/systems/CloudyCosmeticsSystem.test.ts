@@ -15,6 +15,7 @@ const cosmeticsData: CloudyCosmeticsData = {
     { id: 'sunset_hat', name: 'Sunset Hat' },
     { id: 'star_clip', name: 'Star Clip' },
     { id: 'rainbow_ribbon', name: 'Rainbow Ribbon' },
+    { id: 'sunset_hat_pink', name: 'Sunset Hat (Pink)', cost: 5 },
   ],
 };
 
@@ -104,6 +105,34 @@ describe('CloudyCosmeticsSystem', () => {
     expect(system.getEquippedAccessories()).toEqual(['rainbow_ribbon']);
     expect(system.toggleAccessory('rainbow_ribbon')).toBe(true);
     expect(system.getEquippedAccessories()).toEqual([]);
+  });
+
+  it('purchases a color-variant accessory with crystals directly (no prerequisite)', () => {
+    const { happinessSystem, system } = makeSystem();
+    for (let i = 0; i < 5; i += 1) happinessSystem.collectCrystal();
+
+    expect(system.isAccessoryUnlocked('sunset_hat')).toBe(false); // base never unlocked
+    expect(system.purchaseAccessory('sunset_hat_pink')).toBe(true);
+    expect(system.isAccessoryUnlocked('sunset_hat_pink')).toBe(true);
+    expect(happinessSystem.getCount()).toBe(0);
+  });
+
+  it('refuses to purchase an accessory with no cost (must unlock via its real condition)', () => {
+    const { happinessSystem, system } = makeSystem();
+    for (let i = 0; i < 99; i += 1) happinessSystem.collectCrystal();
+
+    expect(system.purchaseAccessory('sunset_hat')).toBe(false);
+    expect(system.isAccessoryUnlocked('sunset_hat')).toBe(false);
+    expect(happinessSystem.getCount()).toBe(99); // nothing spent
+  });
+
+  it('refuses to purchase an accessory twice, and without enough crystals', () => {
+    const { happinessSystem, system } = makeSystem();
+    expect(system.purchaseAccessory('sunset_hat_pink')).toBe(false); // 0 crystals
+
+    for (let i = 0; i < 5; i += 1) happinessSystem.collectCrystal();
+    expect(system.purchaseAccessory('sunset_hat_pink')).toBe(true);
+    expect(system.purchaseAccessory('sunset_hat_pink')).toBe(false); // already owned
   });
 
   it('restores saved state, keeping default-unlocked shapes', () => {

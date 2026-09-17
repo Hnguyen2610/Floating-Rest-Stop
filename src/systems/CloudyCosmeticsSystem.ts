@@ -92,6 +92,20 @@ export class CloudyCosmeticsSystem {
     return [...this.equippedAccessories];
   }
 
+  // Mirrors purchaseShape() — the 3 original accessories only ever unlock via
+  // the special conditions below (trust/rare-guest-photo), but a color
+  // variant is just cosmetic expression, so it's fair to sell directly for
+  // crystals like the heart shape already is.
+  purchaseAccessory(id: string): boolean {
+    if (this.unlockedAccessories.has(id)) return false;
+    const def = this.data.accessories.find((accessory) => accessory.id === id);
+    if (!def || def.cost === undefined) return false;
+    if (!this.happinessSystem.spendCrystals(def.cost)) return false;
+
+    this.unlockAccessory(id);
+    return true;
+  }
+
   toggleAccessory(id: string): boolean {
     if (!this.unlockedAccessories.has(id)) return false;
     if (this.equippedAccessories.has(id)) this.equippedAccessories.delete(id);

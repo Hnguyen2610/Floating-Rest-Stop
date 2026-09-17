@@ -7,6 +7,12 @@
   "accessories": [
     { "id": "sunset_hat", "name": "Mũ Hoàng Hôn" },
     { "id": "star_clip", "name": "Kẹp Sao Nhỏ" },
-    { "id": "rainbow_ribbon", "name": "Nơ Cầu Vồng" }
+    { "id": "rainbow_ribbon", "name": "Nơ Cầu Vồng" },
+    { "id": "sunset_hat_pink", "name": "Mũ Hoàng Hôn (Hồng)", "cost": 5 },
+    { "id": "sunset_hat_mint", "name": "Mũ Hoàng Hôn (Bạc Hà)", "cost": 5 },
+    { "id": "star_clip_mint", "name": "Kẹp Sao Nhỏ (Bạc Hà)", "cost": 5 },
+    { "id": "star_clip_yellow", "name": "Kẹp Sao Nhỏ (Vàng)", "cost": 5 },
+    { "id": "rainbow_ribbon_pink", "name": "Nơ Cầu Vồng (Hồng)", "cost": 5 },
+    { "id": "rainbow_ribbon_lavender", "name": "Nơ Cầu Vồng (Oải Hương)", "cost": 5 }
   ]
 }

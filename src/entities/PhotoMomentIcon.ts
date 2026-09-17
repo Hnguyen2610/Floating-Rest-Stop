@@ -20,10 +20,10 @@ export class PhotoMomentIcon extends Phaser.GameObjects.Container {
     lens.fillCircle(-4, -4, 3);
     this.add(lens);
 
-    this.setSize(44, 44);
+    this.setSize(48, 48);
     // Container hit-test coords are relative to the top-left of setSize(), not the
     // container's origin, so a centered circle must sit at (width/2, height/2).
-    this.setInteractive(new Phaser.Geom.Circle(22, 22, 22), Phaser.Geom.Circle.Contains);
+    this.setInteractive(new Phaser.Geom.Circle(24, 24, 24), Phaser.Geom.Circle.Contains);
     this.on('pointerdown', () => this.playCapture());
 
     scene.tweens.add({
