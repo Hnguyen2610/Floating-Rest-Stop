@@ -70,6 +70,23 @@ export class Cloudy extends Phaser.GameObjects.Container {
       this.baseX + Math.sin(this.idleTime * CLOUDY_CONFIG.driftFrequency) * CLOUDY_CONFIG.driftAmplitude;
   }
 
+  // Ambient "notice the guest" cue — StationScene calls this occasionally
+  // while a guest is present, since standing still the whole visit read as
+  // stiff/disconnected in real playtesting. Only tweens `angle`: `update()`
+  // recomputes `x`/`y` from baseX/baseY every frame, so a tween touching
+  // either of those would just get overwritten on the next frame — the
+  // existing gesture methods below avoid that same trap.
+  playGlanceAtGuest(towardLeft: boolean): void {
+    const leanAngle = towardLeft ? -5 : 5;
+    this.scene.tweens.chain({
+      targets: this,
+      tweens: [
+        { angle: leanAngle, duration: 260, ease: 'Sine.easeOut' },
+        { angle: 0, duration: 380, ease: 'Sine.easeInOut' },
+      ],
+    });
+  }
+
   playHappyBounce(): void {
     this.showExpression('happy', 900);
     this.scene.tweens.chain({

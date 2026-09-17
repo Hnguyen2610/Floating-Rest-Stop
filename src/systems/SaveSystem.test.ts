@@ -11,6 +11,7 @@ import { PhotoMomentSystem, type PhotoMomentsData } from './PhotoMomentSystem';
 import { PaperBoatSystem, type PaperMessagesData } from './PaperBoatSystem';
 import { DayNightSystem } from './DayNightSystem';
 import { CloudyCosmeticsSystem, type CloudyCosmeticsData } from './CloudyCosmeticsSystem';
+import { TutorialSystem } from './TutorialSystem';
 import { TypedEventBus, type GameEventMap } from '../core/EventBus';
 
 class MemorySaveProvider implements SaveProvider {
@@ -81,6 +82,7 @@ function makeSystems() {
   const paperBoatSystem = new PaperBoatSystem(messagesData, happinessSystem, guestSystem, bus);
   const dayNightSystem = new DayNightSystem(bus);
   const cloudyCosmeticsSystem = new CloudyCosmeticsSystem(cosmeticsData, happinessSystem, guestSystem, bus);
+  const tutorialSystem = new TutorialSystem(bus);
   return {
     bus,
     guestSystem,
@@ -92,6 +94,7 @@ function makeSystems() {
     paperBoatSystem,
     dayNightSystem,
     cloudyCosmeticsSystem,
+    tutorialSystem,
   };
 }
 
@@ -103,6 +106,7 @@ describe('SaveSystem', () => {
     systems.guestSystem.spawn('sun');
     systems.guestSystem.soothe(70); // 85 -> 15, CONTENT: leave() should gain trust
     systems.guestSystem.leave();
+    systems.tutorialSystem.markWelcomeSeen();
 
     const provider = new MemorySaveProvider();
     const saveSystem = new SaveSystem(provider, systems, systems.bus);
@@ -129,6 +133,7 @@ describe('SaveSystem', () => {
       equippedShape: 'default',
       equippedAccessories: [],
     });
+    expect(provider.stored?.hasSeenTutorial).toBe(true);
   });
 
   it('restores state from an existing save on construction', async () => {
@@ -152,6 +157,7 @@ describe('SaveSystem', () => {
         equippedShape: 'heart',
         equippedAccessories: ['sunset_hat'],
       },
+      hasSeenTutorial: true,
     };
 
     const systems = makeSystems();
@@ -182,6 +188,7 @@ describe('SaveSystem', () => {
     expect(systems.dayNightSystem.isNight()).toBe(true);
     expect(systems.cloudyCosmeticsSystem.isShapeUnlocked('heart')).toBe(true);
     expect(systems.cloudyCosmeticsSystem.getEquippedShape()).toBe('heart');
+    expect(systems.tutorialSystem.hasSeenWelcome()).toBe(true);
   });
 
   it('does not save before the initial load resolves', async () => {

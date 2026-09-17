@@ -9,6 +9,7 @@ import type { PhotoMomentSystem } from './PhotoMomentSystem';
 import type { PaperBoatSystem } from './PaperBoatSystem';
 import type { DayNightSystem } from './DayNightSystem';
 import type { CloudyCosmeticsSystem } from './CloudyCosmeticsSystem';
+import type { TutorialSystem } from './TutorialSystem';
 
 const SAVE_DATA_VERSION = 1;
 const AUTOSAVE_DEBOUNCE_MS = 1000;
@@ -23,6 +24,7 @@ export interface SaveableSystems {
   paperBoatSystem: PaperBoatSystem;
   dayNightSystem: DayNightSystem;
   cloudyCosmeticsSystem: CloudyCosmeticsSystem;
+  tutorialSystem: TutorialSystem;
 }
 
 export class SaveSystem {
@@ -72,6 +74,7 @@ export class SaveSystem {
     this.eventBus.on('area:unlocked', trigger);
     this.eventBus.on('daynight:changed', trigger);
     this.eventBus.on('cloudyCosmetic:unlocked', trigger);
+    this.eventBus.on('tutorial:seen', trigger);
   }
 
   private scheduleAutosave(): void {
@@ -104,6 +107,7 @@ export class SaveSystem {
       unlockedAreas: this.systems.stationAreaSystem.getUnlockedIds(),
       isNight: this.systems.dayNightSystem.isNight(),
       cloudyCosmetics: this.systems.cloudyCosmeticsSystem.getSaveState(),
+      hasSeenTutorial: this.systems.tutorialSystem.hasSeenWelcome(),
     };
   }
 
@@ -119,6 +123,7 @@ export class SaveSystem {
     );
     this.systems.dayNightSystem.restoreIsNight(data.isNight ?? false);
     if (data.cloudyCosmetics) this.systems.cloudyCosmeticsSystem.restoreState(data.cloudyCosmetics);
+    this.systems.tutorialSystem.restoreHasSeenWelcome(data.hasSeenTutorial ?? false);
     for (const [guestId, progress] of Object.entries(data.guestProgress)) {
       this.systems.guestSystem.restoreProgress(guestId, {
         ...progress,

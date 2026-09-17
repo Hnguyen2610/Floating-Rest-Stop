@@ -22,6 +22,7 @@ import { StationAreaShopUI } from '../ui/StationAreaShopUI';
 import { CloudyCosmeticsShopUI } from '../ui/CloudyCosmeticsShopUI';
 import { AudioSettingsUI } from '../ui/AudioSettingsUI';
 import { RecipeBookUI } from '../ui/RecipeBookUI';
+import { WelcomeGuideUI } from '../ui/WelcomeGuideUI';
 import { SaveStatusUI } from '../ui/SaveStatusUI';
 import { GuestHintUI } from '../ui/GuestHintUI';
 import { BottomNavUI } from '../ui/BottomNavUI';
@@ -49,6 +50,7 @@ export class StationScene extends Phaser.Scene {
   private cloudyCosmeticsShopUI!: CloudyCosmeticsShopUI;
   private audioSettingsUI!: AudioSettingsUI;
   private recipeBookUI!: RecipeBookUI;
+  private welcomeGuideUI!: WelcomeGuideUI;
   private readonly performanceMonitor = new PerformanceMonitor();
   private fpsText: Phaser.GameObjects.Text | null = null;
   private sky!: Phaser.GameObjects.Graphics;
@@ -63,6 +65,12 @@ export class StationScene extends Phaser.Scene {
   private butterflyStoryShown = false;
   private lastPolishSoundAt = 0;
   private readonly crystalCounterPosition = { x: GAME_WIDTH - 32, y: 32 };
+  // Guest's standing spot — moved closer to Cloudy (was 0.24, a 333px gap
+  // from Cloudy at GAME_WIDTH/2) after real playtester feedback that the two
+  // felt disconnected standing that far apart. GuestHintUI/HappinessCrystal/
+  // PhotoMomentIcon all anchor off this same point, not just the guest sprite.
+  private readonly guestAnchorX = GAME_WIDTH * 0.37;
+  private readonly guestAnchorY = GAME_HEIGHT * 0.42;
 
   constructor() {
     super('StationScene');
@@ -127,17 +135,23 @@ export class StationScene extends Phaser.Scene {
       this.systems.ingredientSystem,
       this.systems.guestSystem,
     );
+    this.welcomeGuideUI = new WelcomeGuideUI(this, () => this.systems.tutorialSystem.markWelcomeSeen());
     new SaveStatusUI(this);
     this.drawMuteButton();
     this.drawDayNightToggle();
     this.drawRecipeBookButton();
-    this.guestHintUI = new GuestHintUI(this, GAME_WIDTH * 0.24, GAME_HEIGHT * 0.42 - 100);
+    this.drawHelpButton();
+    this.guestHintUI = new GuestHintUI(this, this.guestAnchorX, this.guestAnchorY - 100);
     this.drawBottomNav();
 
     this.wireEvents();
     this.resumeState();
     this.drawAreaMarkers();
     this.syncAmbience();
+
+    // First-launch onboarding — shown once ever (persisted via SaveSystem,
+    // not a per-session flag), reopenable anytime via the ❓ button.
+    if (!this.systems.tutorialSystem.hasSeenWelcome()) this.welcomeGuideUI.show();
 
     this.time.addEvent({
       delay: 4000,
@@ -161,6 +175,15 @@ export class StationScene extends Phaser.Scene {
       delay: 2000,
       loop: true,
       callback: () => this.refreshRareGuestIndicator(),
+    });
+    this.time.addEvent({
+      delay: 9000,
+      loop: true,
+      callback: () => {
+        if (this.systems.guestSystem.getCurrentGuest()) {
+          this.cloudy.playGlanceAtGuest(this.guestAnchorX < GAME_WIDTH / 2);
+        }
+      },
     });
 
     this.wireDebugKeys();
@@ -188,8 +211,8 @@ export class StationScene extends Phaser.Scene {
     this.activeGuestEntity?.destroy();
     this.butterflyStoryShown = false;
     const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
-    const x = GAME_WIDTH * 0.24;
-    const y = GAME_HEIGHT * 0.42;
+    const x = this.guestAnchorX;
+    const y = this.guestAnchorY;
     this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
     this.activeGuestEntity.playArrive();
     this.updateGuestHint(state, meta);
@@ -381,6 +404,16 @@ export class StationScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
     button.on('pointerdown', () => this.recipeBookUI.toggle());
+  }
+
+  // Reopens the first-launch welcome guide anytime — same utility-icon
+  // cluster as mute/settings/day-night (top-right, left column row 2).
+  private drawHelpButton(): void {
+    const button = this.add
+      .text(GAME_WIDTH - 64, 104, '❓', { fontFamily: FONT_FAMILY, fontSize: '18px' })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    button.on('pointerdown', () => this.welcomeGuideUI.show());
   }
 
   private redrawSky(): void {
@@ -633,8 +666,8 @@ export class StationScene extends Phaser.Scene {
   }
 
   private spawnHappinessCrystal(): void {
-    const x = GAME_WIDTH * 0.24;
-    const y = GAME_HEIGHT * 0.42 - 70;
+    const x = this.guestAnchorX;
+    const y = this.guestAnchorY - 70;
     new HappinessCrystal(this, x, y, this.crystalCounterPosition, () => {
       this.systems.happinessSystem.collectCrystal();
       this.systems.audioSystem.playCollectSound();
@@ -649,8 +682,8 @@ export class StationScene extends Phaser.Scene {
     if (!moment || this.systems.photoMomentSystem.isCaptured(moment.id)) return;
     if (!this.systems.journalSystem.canUnlockMemory(moment.memoryId)) return;
 
-    const x = GAME_WIDTH * 0.24 + 55;
-    const y = GAME_HEIGHT * 0.42 - 55;
+    const x = this.guestAnchorX + 55;
+    const y = this.guestAnchorY - 55;
     this.photoMomentIcon = new PhotoMomentIcon(this, x, y, () => {
       this.systems.photoMomentSystem.capture(state.id);
       this.systems.audioSystem.playCaptureSound();

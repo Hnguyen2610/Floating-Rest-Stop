@@ -39,6 +39,7 @@ export interface SaveData {
   unlockedAreas: string[];
   isNight: boolean;
   cloudyCosmetics: CloudyCosmeticsSaveEntry;
+  hasSeenTutorial: boolean;
 }
 
 export interface SaveProvider {

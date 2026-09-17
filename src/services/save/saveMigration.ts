@@ -89,5 +89,6 @@ export function normalizeSaveData(raw: unknown): SaveData {
     unlockedAreas: asStringArray(data.unlockedAreas),
     isNight: data.isNight === true,
     cloudyCosmetics: normalizeCloudyCosmetics(data.cloudyCosmetics),
+    hasSeenTutorial: data.hasSeenTutorial === true,
   };
 }

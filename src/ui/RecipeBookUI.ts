@@ -5,8 +5,17 @@ import type { IngredientSystem } from '../systems/IngredientSystem';
 import type { GuestSystem } from '../systems/GuestSystem';
 
 const PANEL_WIDTH = 380;
-const PANEL_HEIGHT = 400;
 const ROW_HEIGHT = 62;
+const HEADER_HEIGHT = 56;
+const BOTTOM_MARGIN = 24;
+
+// Guest-agnostic label for each non-recipe treatment id — 'direct' guests
+// (currently only Little Star's 'gentle_polish') have no recipe to list, so
+// without this the Recipe Book silently omits them, leaving players unable
+// to find out what to do for the very guest they opened the book for.
+const DIRECT_TREATMENT_LABELS: Record<string, string> = {
+  gentle_polish: '🤍 Vuốt nhẹ nhàng',
+};
 
 export class RecipeBookUI {
   private readonly panel: Phaser.GameObjects.Container;
@@ -17,16 +26,21 @@ export class RecipeBookUI {
     ingredientSystem: IngredientSystem,
     guestSystem: GuestSystem,
   ) {
+    const recipes = weatherSystem.getAllRecipes();
+    const directGuests = guestSystem.getAllDefinitions().filter((def) => def.treatment.type === 'direct');
+    const totalRows = recipes.length + directGuests.length;
+    const panelHeight = HEADER_HEIGHT + totalRows * ROW_HEIGHT + BOTTOM_MARGIN;
+
     this.panel = scene.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2);
     this.panel.setDepth(900);
 
     const backdrop = scene.add
-      .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, PALETTE.cloudWhite, 0.97)
+      .rectangle(0, 0, PANEL_WIDTH, panelHeight, PALETTE.cloudWhite, 0.97)
       .setStrokeStyle(2, PALETTE.eyeColor, 0.3);
     this.panel.add(backdrop);
 
     const title = scene.add
-      .text(0, -PANEL_HEIGHT / 2 + 26, '📖 Sổ Công Thức', {
+      .text(0, -panelHeight / 2 + 26, '📖 Sổ Công Thức', {
         fontFamily: FONT_FAMILY,
         fontSize: '16px',
         color: '#5b4a63',
@@ -35,7 +49,7 @@ export class RecipeBookUI {
     this.panel.add(title);
 
     const closeButton = scene.add
-      .text(PANEL_WIDTH / 2 - 20, -PANEL_HEIGHT / 2 + 20, '✕', {
+      .text(PANEL_WIDTH / 2 - 20, -panelHeight / 2 + 20, '✕', {
         fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#5b4a63',
@@ -45,8 +59,7 @@ export class RecipeBookUI {
     closeButton.on('pointerdown', () => this.hide());
     this.panel.add(closeButton);
 
-    const recipes = weatherSystem.getAllRecipes();
-    const listTop = -PANEL_HEIGHT / 2 + 56;
+    const listTop = -panelHeight / 2 + HEADER_HEIGHT;
     recipes.forEach((recipe, index) => {
       const rowY = listTop + index * ROW_HEIGHT + ROW_HEIGHT / 2;
       const row = scene.add.container(0, rowY);
@@ -102,6 +115,56 @@ export class RecipeBookUI {
         })
         .setOrigin(1, 0.5);
       row.add(ingredientsLabel);
+
+      this.panel.add(row);
+    });
+
+    directGuests.forEach((guest, index) => {
+      const rowY = listTop + (recipes.length + index) * ROW_HEIGHT + ROW_HEIGHT / 2;
+      const row = scene.add.container(0, rowY);
+
+      const bg = scene.add
+        .rectangle(0, 0, PANEL_WIDTH - 32, ROW_HEIGHT - 10, PALETTE.lavender, 0.25)
+        .setStrokeStyle(1, PALETTE.eyeColor, 0.15);
+      row.add(bg);
+
+      const treatmentLabel =
+        guest.treatment.type === 'direct'
+          ? (DIRECT_TREATMENT_LABELS[guest.treatment.interactionId] ?? guest.treatment.interactionId)
+          : '';
+      const nameLabel = scene.add
+        .text(-PANEL_WIDTH / 2 + 24, -14, treatmentLabel, {
+          fontFamily: FONT_FAMILY,
+          fontSize: '14px',
+          color: '#5b4a63',
+        })
+        .setOrigin(0, 0.5);
+      row.add(nameLabel);
+
+      const guestLabel = scene.add
+        .text(-PANEL_WIDTH / 2 + 24, 14, `Dành cho: ${guest.name}`, {
+          fontFamily: FONT_FAMILY,
+          fontSize: '10px',
+          color: '#8a7a94',
+        })
+        .setOrigin(0, 0.5);
+      row.add(guestLabel);
+
+      // No ingredients for a direct interaction — reuse the guest's own
+      // needHint action clause (after the em dash) instead of ingredient dots.
+      const actionText = guest.needHint.includes(' — ')
+        ? guest.needHint.split(' — ')[1]
+        : guest.needHint;
+      const actionLabel = scene.add
+        .text(PANEL_WIDTH / 2 - 24, 0, actionText, {
+          fontFamily: FONT_FAMILY,
+          fontSize: '10px',
+          color: '#5b4a63',
+          align: 'right',
+          wordWrap: { width: 150 },
+        })
+        .setOrigin(1, 0.5);
+      row.add(actionLabel);
 
       this.panel.add(row);
     });

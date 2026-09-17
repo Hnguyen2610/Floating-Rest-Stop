@@ -98,6 +98,7 @@ export interface GameEventMap {
   'save:started': undefined;
   'save:completed': undefined;
   'save:failed': undefined;
+  'tutorial:seen': undefined;
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

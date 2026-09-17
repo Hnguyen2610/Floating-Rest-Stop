@@ -1460,6 +1460,12 @@ src/scenes/StationScene.ts     — instantiate + nút 📖 phía trên bát tr�
 
 Không phá nhịp khám phá lần đầu — sổ công thức phải chủ động mở ra xem (không tự động hiện), giữ đúng tinh thần "gợi ý khi cần, không nhồi nhét" của Pass 27. `tsc`/`vitest` (105/105)/`lint` sạch, verify browser thật xác nhận mở/đóng panel đúng, hiển thị đủ 5 công thức, không console error.
 
+**🐛 Bug thật phát hiện qua chơi thử (2026-09-17):** người dùng báo "chả thấy bé sao nhút nhát đâu để chế tạo" — mở Sổ Công Thức lúc Bé Sao Nhút Nhát đang là khách hiện tại, nhưng sổ không có dòng nào nhắc đến cô ấy. Nguyên nhân: `RecipeBookUI` chỉ lặp qua `weatherSystem.getAllRecipes()` (5 công thức) — Bé Sao Nhút Nhát dùng `treatment.type === 'direct'` (vuốt nhẹ, không pha chế) nên chưa từng có công thức nào gán cho cô, đúng theo thiết kế dữ liệu (`recipes.json` chỉ có 5 entry cho 5 khách còn lại), nhưng hệ quả là sổ công thức **bỏ sót hoàn toàn** vị khách duy nhất không dùng công thức — người chơi mở đúng chỗ được hướng dẫn "muốn biết làm gì thì mở sổ này ra" mà vẫn không tìm được câu trả lời cho riêng khách này.
+
+Sửa: `RecipeBookUI` giờ lặp thêm qua `guestSystem.getAllDefinitions().filter(treatment.type === 'direct')`, vẽ thêm 1 dòng riêng cho mỗi khách kiểu này — tên hành động (map tĩnh `DIRECT_TREATMENT_LABELS['gentle_polish'] = '🤍 Vuốt nhẹ nhàng'`, ở tầng hiển thị thôi, không đụng vào `GuestTreatment` type), "Dành cho: <tên khách>", và thay vì chấm màu nguyên liệu thì hiện thẳng câu hướng dẫn hành động (lấy từ `definition.needHint`, tách phần sau dấu " — " — data đã có sẵn, không cần thêm field mới). `PANEL_HEIGHT` đổi từ hằng số cố định (400, vừa đúng 5 dòng) sang tính động theo tổng số dòng thật (`HEADER_HEIGHT + totalRows * ROW_HEIGHT + BOTTOM_MARGIN`) — để dễ mở rộng nếu sau này có thêm khách/công thức mà không phải nhớ sửa hằng số tay.
+
+Verify: `tsc`/`vitest` (112/112)/`lint` sạch. Playwright thật: spawn Bé Sao Nhút Nhát (phím debug `3`), mở Sổ Công Thức — xác nhận hiện đủ 6 dòng (5 công thức cũ + 1 dòng mới "🤍 Vuốt nhẹ nhàng — Dành cho: Bé Sao Nhút Nhát — hãy vuốt thật nhẹ nhàng, đừng vội"), panel giãn cao đúng, không tràn/đè lên UI khác, 0 console error.
+
 ---
 
 # Bổ sung sau Pass 31 — Polish icon nguyên liệu + Mây Bông "thật" hơn
@@ -2137,3 +2143,68 @@ Người dùng tự tạo prompt Gemini và lưu 30 ảnh vào `public/assets/gu
 **`README.md`** — cập nhật mục GitHub Pages: giải thích luồng tự động, và bước bật 1 lần thủ công bắt buộc (repo Settings → Pages → Source → "GitHub Actions") — bước này cần quyền admin trên GitHub, không thể tự làm thay qua Bash/git được, ghi rõ để người dùng tự bật.
 
 **Verify:** `.github/workflows/deploy.yml` parse hợp lệ (test bằng PyYAML — 1 điểm khác biệt vô hại đã xác nhận: PyYAML theo YAML 1.1 đọc key `on:` thành boolean `true` do quirk lịch sử, nhưng GitHub tự xử lý `on:` như 1 keyword riêng nên không ảnh hưởng thực tế, đây là hiện tượng đã biết rộng rãi chứ không phải lỗi file). `tsc`/`vitest` (112/112)/`lint`/`npm run build` chạy lại sạch cả 4 sau khi thêm workflow (không có gì trong code bị ảnh hưởng, thuần thêm file mới). **Chưa/không thể verify:** workflow chạy thật trên GitHub Actions — cần push lên `main` thật + người dùng tự bật Pages source trong Settings (quyền admin, ngoài khả năng tự làm thay); tự làm việc này thay người dùng (push lên `main`, đổi Settings) là hành động ảnh hưởng hạ tầng dùng chung nên không tự ý làm, chỉ chuẩn bị sẵn để người dùng merge khi sẵn sàng.
+
+**Cập nhật (2026-09-17):** repo ban đầu private nên GitHub Pages miễn phí bị chặn ("Upgrade or make this repository public to enable Pages") — hỏi lại người dùng, chọn chuyển repo sang Public (tự làm trong Settings, không tự đổi visibility thay). Sau khi người dùng merge PR vào `main`, kiểm tra qua `gh run view --json` xác nhận cả 2 job (`build`: lint+test+build, `deploy`) đều `"conclusion":"success"`. Verify thêm bằng Playwright thật trên URL production (`https://hnguyen2610.github.io/Floating-Rest-Stop/`, lấy qua `gh api repos/.../pages`) — không chỉ tin status "success" của Actions, mà mở đúng URL live: 0 console error, 0 page error, 0 request lỗi, game render đầy đủ. Deploy tự động lên GitHub Pages **hoàn tất, đã chạy thật, đã xác nhận bằng browser thật trên production.**
+
+---
+
+## 🐛 Bug thật phát hiện qua phản hồi người test (2026-09-17)
+
+Người dùng gửi lại 2 nhận xét từ một người test khác (chat screenshot):
+
+1. *"nhân vật đứng xa nhau quá" / "nhân vật hơi cứng kiểu ít tương tác với nhau"* — Mây Bông và khách đứng cách nhau khá xa, cảm giác tĩnh, ít tương tác.
+2. *Chi tiết hơn về lỗi pha chế:* kéo 2 "Mảnh Cầu Vồng" (sai công thức) vào bát trộn, ấn "CHẾ TẠO" → báo sai, nhưng nguyên liệu **không biến mất khỏi bát**, cũng không biết cách gỡ ra để đổi nguyên liệu khác — *"như kiểu ko sửa dc luôn"*.
+
+### ✅ Đã sửa — Bát trộn "kẹt" sau khi chế tạo sai (bug mất nguyên liệu)
+
+**Nguyên nhân thật (đọc code xác nhận, không chỉ theo lời tả):** `WeatherSystem.tryCraft()` khi không khớp công thức nào chỉ `return false`, **không dọn** `mixerContents` — nguyên liệu nằm lì trong bát. Cách gỡ từng cái ra (chạm vào icon nguyên liệu trong bát → `removeFromMixer(index)`) có tồn tại trong code nhưng **không hề trả nguyên liệu về kho** (`IngredientSystem`) — chạm vào coi như mất luôn, chứ không phải "gỡ ra để đổi". Council: `WeatherMixerUI` constructor nhận sẵn tham số `_ingredientSystem` (đặt tên gạch dưới = cố tình đánh dấu không dùng) — có vẻ được truyền vào từ trước để làm đúng việc này nhưng chưa từng nối dây.
+
+Sửa 2 chỗ trong `src/ui/WeatherMixerUI.ts`:
+- Bỏ dấu `_` (nhận thật, lưu làm field `private ingredientSystem`).
+- `handleCraft()`: khi `tryCraft()` trả `false`, trả từng nguyên liệu đang có trong bát về kho (`ingredientSystem.collect(id)`) rồi `weatherSystem.clearMixer()` — bát tự dọn sạch để chơi lại ngay, đúng kỳ vọng của người test ("nó sai" thì nguyên liệu phải biến đi), thay vì bắt người chơi tự biết cách gỡ.
+- Tap-để-gỡ từng ô (dùng khi muốn đổi 1 nguyên liệu trước khi ấn chế tạo) cũng sửa để gọi `ingredientSystem.collect(removed)` — không còn mất nguyên liệu khi gỡ tay nữa.
+
+**Verify:** `tsc`/`vitest` (112/112)/`lint`/`build` sạch. Playwright thật tái hiện đúng kịch bản: phím debug `X` nạp thẳng "Nắng Ấm + Mảnh Cầu Vồng" vào bát (cặp không khớp công thức nào — đảm bảo sai), chụp ảnh trước/sau khi ấn CHẾ TẠO — xác nhận bát trống trở lại **và** kho đồ ở góc trái tăng đúng +1 Nắng Ấm +1 Mảnh Cầu Vồng (không mất, không bug ẩn), 0 console error.
+
+### ✅ Đã sửa — Khoảng cách nhân vật + cử chỉ tương tác (2026-09-17)
+
+Hỏi lại người dùng mức độ muốn sửa — chọn **"Xích lại gần + thêm cử chỉ tương tác nhẹ"** (không chỉ đổi toạ độ).
+
+**Xích lại gần:** 4 chỗ trong `StationScene.ts` từng lặp lại `GAME_WIDTH * 0.24` / `GAME_HEIGHT * 0.42` làm mốc neo khách (vị trí spawn khách trong `handleGuestArrived`, `GuestHintUI`, điểm rơi `HappinessCrystal`, điểm rơi `PhotoMomentIcon`) — gộp thành 2 field dùng chung `guestAnchorX`/`guestAnchorY`, và đổi `guestAnchorX` từ `0.24` lên `0.37` (khoảng cách ngang tới Mây Bông giảm từ 333px xuống ~166px). Gộp thành field chung còn có tác dụng phụ: từ giờ đổi vị trí khách chỉ cần sửa 1 chỗ, không phải nhớ đồng bộ 4 nơi như trước (rủi ro thật nếu chỉ đổi 1-2 chỗ mà quên chỗ còn lại — icon rơi/hint box sẽ lệch khỏi khách).
+
+**Cử chỉ tương tác nhẹ:** `Cloudy.ts` thêm `playGlanceAtGuest(towardLeft: boolean)` — nghiêng nhẹ ±5° rồi về lại 0° (`Sine.easeOut` → `Sine.easeInOut`, tổng ~640ms). Chỉ tween `angle`, **không đụng `x`/`y`** — vì `update()` của Cloudy gán lại `this.x`/`this.y` từ `baseX`/`baseY` mỗi frame (trôi nổi lên xuống/qua lại), tween nhắm vào 2 thuộc tính đó sẽ bị ghi đè ngay frame sau, mất tác dụng ngay lập tức (đã tự phát hiện khi đọc lại `update()` trước khi viết, không phải sau khi test lỗi). Không có ảnh minh hoạ hướng nhìn riêng (chỉ có idle/happy/poke/sleepy) nên dùng nghiêng thân thay cho đổi hướng mắt — đơn giản, không cần thêm ảnh mới. `StationScene.ts` thêm 1 timer lặp mỗi 9s, chỉ kích hoạt khi đang có khách (`guestSystem.getCurrentGuest()`), hướng nghiêng tính từ vị trí khách thật (`guestAnchorX < GAME_WIDTH/2`) — không hardcode, tự đúng nếu sau này đổi layout.
+
+**Verify:** `tsc`/`vitest` (112/112)/`lint`/`build` sạch. Playwright thật: spawn khách, chụp ảnh xác nhận khoảng cách mới gần hơn rõ rệt, hint box không đè lên Mây Bông; đợi qua mốc 9s, chụp ảnh thứ 2 xác nhận Mây Bông đang nghiêng người về phía khách (so sánh trực quan với ảnh đầu) — cử chỉ chạy đúng, không lỗi console.
+
+---
+
+# ✅ Hướng dẫn chơi cho người mới (2026-09-17)
+
+Người dùng yêu cầu thêm hướng dẫn chơi. Hỏi lại kiểu hướng dẫn muốn làm — chọn **"Hiện 1 lần khi mở game lần đầu + nút ❓ mở lại sau"** (không phải gợi ý-theo-từng-bước phức tạp hơn, không phải chỉ-có-nút-bấm-thụ-động).
+
+**Phạm vi nội dung:** cố tình chỉ giải thích **vòng lặp chính** (khách đến → đọc ô chữ cần gì → pha đúng 2 nguyên liệu → CHẾ TẠO → chạm vào khách) + trỏ tới Sổ Công Thức (📖) cho chi tiết công thức/khách dùng vuốt tay — không liệt kê hết mọi hệ thống (trang trí, mở rộng trạm, Mây Bông shop, nhật ký...), vì các nút đó đã tự giải thích qua nhãn chữ + khám phá dần, nhồi hết vào 1 bảng đầu game sẽ vi phạm đúng tinh thần "gợi ý khi cần, không nhồi nhét" mà Sổ Công Thức đã theo.
+
+**Vì sao đi qua SaveProvider thay vì `localStorage` trực tiếp:** cờ "đã xem hướng dẫn chưa" cần đúng-1-lần-duy-nhất trên mỗi người chơi, không phải mỗi phiên — nhưng game này chạy trên cả web (localStorage qua `LocalSaveProvider`) lẫn YouTube Playables (cơ chế lưu hoàn toàn khác qua `YouTubePlayablesSaveProvider`, xem Pass 29) — ghi thẳng `localStorage` sẽ **không hoạt động trên Playables**, đúng loại lỗi ẩn chỉ lộ ra khi nộp thật. Nên cờ này đi qua đúng kiến trúc `SaveData`/`normalizeSaveData()`/`SaveSystem` sẵn có, giống mọi state khác.
+
+Files:
+
+```text
+src/systems/TutorialSystem.ts (mới)      — seen/markWelcomeSeen()/restoreHasSeenWelcome(), model theo DayNightSystem
+                                            (system nhỏ nhất có thể, không viết thêm gì thừa cho đúng 1 boolean)
+src/systems/TutorialSystem.test.ts (mới) — 3 test: mặc định chưa xem, đánh dấu xem + chỉ emit event 1 lần dù gọi 2 lần,
+                                            khôi phục từ save
+src/ui/WelcomeGuideUI.ts (mới)           — panel Container theo đúng pattern RecipeBookUI (backdrop/title/close/toggle),
+                                            nhưng nội dung cố định (không phải danh sách sinh từ data) nên không cần
+                                            vòng lặp render nhiều dòng
+src/core/EventBus.ts                     — thêm 'tutorial:seen': undefined
+src/services/save/SaveProvider.ts        — SaveData thêm hasSeenTutorial: boolean
+src/services/save/saveMigration.ts       — normalizeSaveData() default hasSeenTutorial: false
+src/services/save/saveMigration.test.ts  — cập nhật 2 test toEqual đầy đủ trường (default-save, well-formed-passthrough)
+src/systems/SaveSystem.ts                — thêm tutorialSystem vào SaveableSystems, gather/apply/autosave-trigger
+src/systems/SaveSystem.test.ts           — thêm tutorialSystem vào fixture dùng chung, assert cả 2 chiều save/restore
+src/core/GameSystems.ts                  — khởi tạo + expose tutorialSystem
+src/scenes/StationScene.ts               — instantiate WelcomeGuideUI, nút ❓ mới (drawHelpButton, cạnh cụm
+                                            mute/settings/day-night góc trên phải), tự show() nếu chưa từng xem
+```
+
+**Verify:** `tsc`/`vitest` (115/115, tăng từ 112 — 3 test mới)/`lint`/`build` sạch cả 4. Playwright thật, đủ 4 bước của đúng kịch bản người chơi mới: (1) vào game lần đầu (localStorage trống) → bảng tự hiện đúng nội dung; (2) bấm "Bắt đầu thôi!" → đóng lại, về gameplay bình thường; (3) đợi qua debounce autosave rồi **reload trang thật** → bảng **không** tự hiện lại (xác nhận cờ đã lưu đúng qua SaveProvider, không phải chỉ đóng tạm trong phiên); (4) bấm nút ❓ → mở lại đúng bảng đó bất cứ lúc nào. 0 console error xuyên suốt cả 4 bước.

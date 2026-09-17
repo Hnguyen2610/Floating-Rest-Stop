@@ -20,7 +20,7 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     scene: Phaser.Scene,
     x: number,
     y: number,
-    _ingredientSystem: IngredientSystem,
+    private ingredientSystem: IngredientSystem,
     private weatherSystem: WeatherSystem,
     private onCraftSuccess: () => void,
     private onCraftFail: () => void,
@@ -103,11 +103,18 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
   }
 
   private handleCraft(): void {
+    const contentsBeforeCraft = this.weatherSystem.getMixerContents();
     const success = this.weatherSystem.tryCraft();
     if (success) {
       this.scene.tweens.add({ targets: this, scale: 1.08, duration: 100, yoyo: true });
       this.onCraftSuccess();
     } else {
+      // Wrong combo — give the ingredients back to inventory and empty the
+      // bowl instead of leaving them stuck with no visible way to swap one
+      // out (real player confusion: pressed CHẾ TẠO with a wrong combo,
+      // ingredients stayed in the bowl, no obvious next step).
+      contentsBeforeCraft.forEach((id) => this.ingredientSystem.collect(id));
+      this.weatherSystem.clearMixer();
       this.playCraftFail();
       this.onCraftFail();
     }
@@ -155,7 +162,10 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
       icon.x = slotX;
       icon.y = 0;
       icon.setInteractive(new Phaser.Geom.Rectangle(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE), Phaser.Geom.Rectangle.Contains);
-      icon.on('pointerdown', () => this.weatherSystem.removeFromMixer(index));
+      icon.on('pointerdown', () => {
+        const removed = this.weatherSystem.removeFromMixer(index);
+        if (removed) this.ingredientSystem.collect(removed);
+      });
       this.add(icon);
       this.slotIcons.push(icon);
     });

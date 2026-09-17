@@ -15,6 +15,7 @@ describe('normalizeSaveData', () => {
       unlockedAreas: [],
       isNight: false,
       cloudyCosmetics: { unlockedShapes: [], unlockedAccessories: [], equippedShape: 'default', equippedAccessories: [] },
+      hasSeenTutorial: false,
     });
     expect(normalizeSaveData(undefined)).toEqual(normalizeSaveData(null));
   });
@@ -95,6 +96,7 @@ describe('normalizeSaveData', () => {
       unlockedAreas: ['small_cloud'],
       isNight: true,
       cloudyCosmetics: { unlockedShapes: ['default', 'heart'], unlockedAccessories: [], equippedShape: 'heart', equippedAccessories: [] },
+      hasSeenTutorial: true,
     };
 
     expect(normalizeSaveData(wellFormed)).toEqual(wellFormed);

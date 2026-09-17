@@ -10,6 +10,7 @@ import { PhotoMomentSystem, type PhotoMomentsData } from '../systems/PhotoMoment
 import { PaperBoatSystem, type PaperMessagesData } from '../systems/PaperBoatSystem';
 import { DayNightSystem } from '../systems/DayNightSystem';
 import { CloudyCosmeticsSystem, type CloudyCosmeticsData } from '../systems/CloudyCosmeticsSystem';
+import { TutorialSystem } from '../systems/TutorialSystem';
 import { RareGuestSystem } from '../systems/RareGuestSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { AudioSystem } from '../systems/AudioSystem';
@@ -29,6 +30,7 @@ export interface GameSystems {
   paperBoatSystem: PaperBoatSystem;
   dayNightSystem: DayNightSystem;
   cloudyCosmeticsSystem: CloudyCosmeticsSystem;
+  tutorialSystem: TutorialSystem;
   rareGuestSystem: RareGuestSystem;
   saveSystem: SaveSystem;
   audioSystem: AudioSystem;
@@ -65,6 +67,7 @@ export async function createGameSystems(
   const paperBoatSystem = new PaperBoatSystem(data.messages, happinessSystem, guestSystem, eventBus);
   const dayNightSystem = new DayNightSystem(eventBus);
   const cloudyCosmeticsSystem = new CloudyCosmeticsSystem(data.cloudyCosmetics, happinessSystem, guestSystem, eventBus);
+  const tutorialSystem = new TutorialSystem(eventBus);
   const rareGuestSystem = new RareGuestSystem(
     guestSystem,
     decorationSystem,
@@ -84,6 +87,7 @@ export async function createGameSystems(
       paperBoatSystem,
       dayNightSystem,
       cloudyCosmeticsSystem,
+      tutorialSystem,
     },
     eventBus,
   );
@@ -103,6 +107,7 @@ export async function createGameSystems(
     paperBoatSystem,
     dayNightSystem,
     cloudyCosmeticsSystem,
+    tutorialSystem,
     rareGuestSystem,
     saveSystem,
     audioSystem,
