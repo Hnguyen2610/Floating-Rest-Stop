@@ -95,6 +95,9 @@ export interface GameEventMap {
   'daynight:changed': { isNight: boolean };
   'cloudyCosmetic:unlocked': { kind: 'shape' | 'accessory'; id: string };
   'rareGuest:available': { guestId: string };
+  'save:started': undefined;
+  'save:completed': undefined;
+  'save:failed': undefined;
 }
 
 export const eventBus = new TypedEventBus<GameEventMap>();

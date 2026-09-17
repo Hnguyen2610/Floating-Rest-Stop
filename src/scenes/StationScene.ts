@@ -22,11 +22,14 @@ import { StationAreaShopUI } from '../ui/StationAreaShopUI';
 import { CloudyCosmeticsShopUI } from '../ui/CloudyCosmeticsShopUI';
 import { AudioSettingsUI } from '../ui/AudioSettingsUI';
 import { RecipeBookUI } from '../ui/RecipeBookUI';
+import { SaveStatusUI } from '../ui/SaveStatusUI';
 import { GuestHintUI } from '../ui/GuestHintUI';
 import { BottomNavUI } from '../ui/BottomNavUI';
 import { eventBus } from '../core/EventBus';
 import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
 import type { GuestState } from '../types/guest';
+import { ParticleEffect } from '../utils/ParticleEffect';
+import { PerformanceMonitor } from '../utils/PerformanceMonitor';
 
 const AREA_MARKER_SLOTS: Record<string, { x: number; y: number }> = {
   tea_corner: { x: 0.62, y: 0.52 },
@@ -46,6 +49,8 @@ export class StationScene extends Phaser.Scene {
   private cloudyCosmeticsShopUI!: CloudyCosmeticsShopUI;
   private audioSettingsUI!: AudioSettingsUI;
   private recipeBookUI!: RecipeBookUI;
+  private readonly performanceMonitor = new PerformanceMonitor();
+  private fpsText: Phaser.GameObjects.Text | null = null;
   private sky!: Phaser.GameObjects.Graphics;
   private dayNightButton!: Phaser.GameObjects.Text;
   private rareGuestIndicator: Phaser.GameObjects.Text | null = null;
@@ -122,6 +127,7 @@ export class StationScene extends Phaser.Scene {
       this.systems.ingredientSystem,
       this.systems.guestSystem,
     );
+    new SaveStatusUI(this);
     this.drawMuteButton();
     this.drawDayNightToggle();
     this.drawRecipeBookButton();
@@ -169,6 +175,11 @@ export class StationScene extends Phaser.Scene {
     this.cloudy.update(time, delta);
     this.activeGuestEntity?.update(time, delta);
     this.floatingIngredients.forEach((ingredient) => ingredient.update(time, delta));
+
+    if (this.fpsText) {
+      this.performanceMonitor.update(delta);
+      this.fpsText.setText(`${this.performanceMonitor.getFps()} FPS`);
+    }
   }
 
   private readonly handleGuestArrived = (state: GuestState): void => {
@@ -581,6 +592,10 @@ export class StationScene extends Phaser.Scene {
       }
       if (potionId === treatment.recipeId) {
         this.systems.guestSystem.soothe(this.systems.weatherSystem.getRecipe(potionId).soothingValue);
+        // Add sparkle effect for successful recipe interaction
+        if (this.activeGuestEntity) {
+          ParticleEffect.createSparkleEffect(this, this.activeGuestEntity.x, this.activeGuestEntity.y);
+        }
       }
       return;
     }
@@ -588,6 +603,10 @@ export class StationScene extends Phaser.Scene {
     if (treatment.type === 'direct' && interaction.type === 'rub') {
       this.systems.guestSystem.soothe(Math.min(interaction.distance, 15) * 0.1);
       this.playPolishSoundThrottled();
+      // Add subtle sparkle effect for rub interaction
+      if (this.activeGuestEntity) {
+        ParticleEffect.createSparkleEffect(this, this.activeGuestEntity.x, this.activeGuestEntity.y);
+      }
     }
   }
 
@@ -714,6 +733,25 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-FIVE', () => guestSystem.spawn('aurora'));
     this.input.keyboard?.on('keydown-SIX', () => guestSystem.spawn('comet'));
     this.input.keyboard?.on('keydown-M', () => guestSystem.addTrust('moon', 40));
+    this.input.keyboard?.on('keydown-P', () => this.toggleFpsDisplay());
+  }
+
+  private toggleFpsDisplay(): void {
+    if (this.fpsText) {
+      this.fpsText.destroy();
+      this.fpsText = null;
+      return;
+    }
+    this.fpsText = this.add
+      .text(GAME_WIDTH - 8, GAME_HEIGHT - 8, '', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '11px',
+        color: '#5b4a63',
+        backgroundColor: '#fdfbf7',
+        padding: { x: 6, y: 3 },
+      })
+      .setOrigin(1, 1)
+      .setDepth(1000);
   }
 
   private drawSky(): void {

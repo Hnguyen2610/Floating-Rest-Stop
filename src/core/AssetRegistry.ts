@@ -20,12 +20,53 @@ export interface AssetEntry {
   texturePath?: string;
 }
 
-const REGISTERED_ASSETS: Record<string, AssetEntry> = {};
-
 /** e.g. 'SUN_STRESSED' -> 'guest.sun.stressed', 'MOON_LONELY' -> 'guest.moon.lonely' */
 export function emotionIdToAssetKey(emotionId: string): string {
   const [prefix, ...rest] = emotionId.split('_');
   return `guest.${prefix.toLowerCase()}.${rest.join('_').toLowerCase()}`;
+}
+
+// Illustrated guest art (post-release-prep pass): 5 stage images per guest,
+// covering the full shared DISTRESSED→CALMING→RELAXED→CONTENT→PEACEFUL
+// progression (same order GuestSystem's STAGE_EMOTION_BY_GUEST maps each
+// guest's own emotion ids onto). `emotionIdToAssetKey` derives its key
+// prefix from the emotion id's own text, which for Little Star is "star"
+// (from STAR_*) rather than the guest id "little_star" — that's fine, the
+// folder path below doesn't need to match the key string, only this table
+// and PreloadScene's preload (via getAllRegisteredAssets()) need to agree.
+const GUEST_EMOTION_STAGES: Record<string, { folder: string; emotionIds: readonly [string, string, string, string, string] }> = {
+  sun: { folder: 'sun', emotionIds: ['SUN_OVERHEATED', 'SUN_STRESSED', 'SUN_UNEASY', 'SUN_CALMING', 'SUN_RELAXED'] },
+  moon: { folder: 'moon', emotionIds: ['MOON_LONELY', 'MOON_DISTANT', 'MOON_OPENING', 'MOON_SHARING', 'MOON_PEACEFUL'] },
+  little_star: {
+    folder: 'little_star',
+    emotionIds: ['STAR_INSECURE', 'STAR_HESITANT', 'STAR_TRYING', 'STAR_BELIEVING', 'STAR_CONFIDENT'],
+  },
+  butterfly: {
+    folder: 'butterfly',
+    emotionIds: ['BUTTERFLY_WET', 'BUTTERFLY_RESTING', 'BUTTERFLY_DRYING', 'BUTTERFLY_CHATTING', 'BUTTERFLY_HAPPY'],
+  },
+  aurora: {
+    folder: 'aurora',
+    emotionIds: ['AURORA_DIM', 'AURORA_FLICKERING', 'AURORA_GLOWING', 'AURORA_SHIMMERING', 'AURORA_RADIANT'],
+  },
+  comet: {
+    folder: 'comet',
+    emotionIds: ['COMET_FADING', 'COMET_STIRRING', 'COMET_STREAKING', 'COMET_BLAZING', 'COMET_BRILLIANT'],
+  },
+};
+const STAGE_FILENAMES = ['distressed', 'calming', 'relaxed', 'content', 'peaceful'] as const;
+
+const REGISTERED_ASSETS: Record<string, AssetEntry> = {};
+Object.values(GUEST_EMOTION_STAGES).forEach(({ folder, emotionIds }) => {
+  emotionIds.forEach((emotionId, i) => {
+    const key = emotionIdToAssetKey(emotionId);
+    REGISTERED_ASSETS[key] = { key, texturePath: `assets/guests/${folder}/${STAGE_FILENAMES[i]}.png` };
+  });
+});
+
+/** Every registered asset with a real texture — PreloadScene iterates this instead of a second hardcoded list. */
+export function getAllRegisteredAssets(): AssetEntry[] {
+  return Object.values(REGISTERED_ASSETS);
 }
 
 /** e.g. 'wind_chime' -> 'decoration.wind_chime' */

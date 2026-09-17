@@ -49,7 +49,14 @@ export class SaveSystem {
 
   async saveNow(): Promise<void> {
     await this.ready;
-    await this.provider.save(this.gatherFromSystems());
+    this.eventBus.emit('save:started', undefined);
+    try {
+      await this.provider.save(this.gatherFromSystems());
+      this.eventBus.emit('save:completed', undefined);
+    } catch (error) {
+      this.eventBus.emit('save:failed', undefined);
+      throw error;
+    }
   }
 
   private wireAutosave(): void {

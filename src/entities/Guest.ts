@@ -1,10 +1,16 @@
 import Phaser from 'phaser';
 import { PALETTE, GUEST_IDLE_CONFIG } from '../core/GameConfig';
 import { resolveEmotionAsset, hasLoadedTexture } from '../core/AssetRegistry';
+import { HapticFeedback } from '../utils/HapticFeedback';
 import type { EmotionMeta } from '../systems/EmotionSystem';
 import type { GuestState } from '../types/guest';
 
 export type GuestInteraction = { type: 'tap' } | { type: 'rub'; distance: number };
+
+// Illustrated guest art occupies roughly the same visual footprint as the
+// procedural bodies it replaces (Sun's rays reach ~radius 60, others are
+// similar) — same width-based scaling pattern as Cloudy.ts / FloatingIngredient.ts.
+const GUEST_SPRITE_TARGET_WIDTH = 150;
 
 export abstract class Guest extends Phaser.GameObjects.Container {
   protected readonly baseX: number;
@@ -12,7 +18,15 @@ export abstract class Guest extends Phaser.GameObjects.Container {
   protected readonly bodyGraphics: Phaser.GameObjects.Graphics;
   private spriteImage: Phaser.GameObjects.Image | null = null;
   private idleTime = Math.random() * Math.PI * 2;
-  private blinkTween: Phaser.Tweens.Tween | null = null;
+  private leftEye: Phaser.GameObjects.Ellipse | null = null;
+  private rightEye: Phaser.GameObjects.Ellipse | null = null;
+  private blinkTimer: Phaser.Time.TimerEvent | null = null;
+  private readonly handleScenePause = (): void => {
+    this.scene.tweens.pauseAll();
+  };
+  private readonly handleSceneResume = (): void => {
+    this.scene.tweens.resumeAll();
+  };
 
   constructor(
     scene: Phaser.Scene,
@@ -29,27 +43,37 @@ export abstract class Guest extends Phaser.GameObjects.Container {
 
     this.bodyGraphics = scene.add.graphics();
     this.add(this.bodyGraphics);
-    this.renderVisual();
     this.addFace();
+    this.renderVisual();
     this.wireInteraction();
+    this.scheduleNextBlink();
 
-    // Blinking tween (scaleY briefly)
-    this.blinkTween = this.scene.tweens.add({
-      targets: this,
-      scaleY: 0.9,
-      duration: 200,
-      yoyo: true,
-      repeat: -1,
-      delay: 3000,
-      ease: 'Linear'
-    });
+    // Pause/resume every tween on this guest (blink included) when the scene
+    // pauses — named handlers so destroy() can actually remove them again;
+    // scene.events is a shared emitter, not this object's own, so a leaked
+    // listener here would outlive the guest that registered it.
+    this.scene.events.on('pause', this.handleScenePause);
+    this.scene.events.on('resume', this.handleSceneResume);
+  }
 
-    // Pause/resume tweens when scene is paused/resumed (only for blinkTween)
-    this.scene.events.on('pause', () => {
-      this.blinkTween?.pause();
-    });
-    this.scene.events.on('resume', () => {
-      this.blinkTween?.resume();
+  // Blinks only the eyes (not the whole body) and reschedules itself after a
+  // real gap — a single-shot tween + delayedCall loop, same pattern already
+  // proven in Cloudy.ts, rather than a repeat:-1 tween (which has no gap
+  // between repeats without an explicit repeatDelay).
+  private scheduleNextBlink(): void {
+    this.blinkTimer = this.scene.time.delayedCall(Phaser.Math.Between(2500, 4500), () => {
+      if (!this.leftEye || !this.rightEye || !this.leftEye.visible) {
+        this.scheduleNextBlink();
+        return;
+      }
+      this.scene.tweens.add({
+        targets: [this.leftEye, this.rightEye],
+        scaleY: 0.1,
+        duration: 90,
+        yoyo: true,
+        ease: 'Sine.easeInOut',
+      });
+      this.scheduleNextBlink();
     });
   }
 
@@ -84,6 +108,11 @@ export abstract class Guest extends Phaser.GameObjects.Container {
       } else {
         this.spriteImage.setTexture(asset.key);
       }
+      this.spriteImage.setVisible(true);
+      this.spriteImage.setScale(GUEST_SPRITE_TARGET_WIDTH / this.spriteImage.width);
+      // Illustrated art already has a face baked in — hide the procedural eyes.
+      this.leftEye?.setVisible(false);
+      this.rightEye?.setVisible(false);
       return;
     }
 
@@ -91,6 +120,8 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     this.bodyGraphics.setVisible(true);
     this.bodyGraphics.clear();
     this.renderBody(this.bodyGraphics);
+    this.leftEye?.setVisible(true);
+    this.rightEye?.setVisible(true);
   }
 
   playArrive(): void {
@@ -132,9 +163,9 @@ export abstract class Guest extends Phaser.GameObjects.Container {
   }
 
   protected addFace(): void {
-    const leftEye = this.scene.add.ellipse(-10, -4, 6, 8, PALETTE.eyeColor);
-    const rightEye = this.scene.add.ellipse(10, -4, 6, 8, PALETTE.eyeColor);
-    this.add([leftEye, rightEye]);
+    this.leftEye = this.scene.add.ellipse(-10, -4, 6, 8, PALETTE.eyeColor);
+    this.rightEye = this.scene.add.ellipse(10, -4, 6, 8, PALETTE.eyeColor);
+    this.add([this.leftEye, this.rightEye]);
   }
 
   protected wireInteraction(): void {
@@ -152,6 +183,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
   // it actually did anything — INPUT should never go unanswered while the
   // game decides what the RESULT is.
   private playTapAcknowledge(): void {
+    HapticFeedback.trigger();
     this.scene.tweens.add({
       targets: this,
       scaleX: 0.92,
@@ -164,19 +196,21 @@ export abstract class Guest extends Phaser.GameObjects.Container {
 
   protected abstract renderBody(graphics: Phaser.GameObjects.Graphics): void;
 
-  /** Override to stop tweens and remove listeners when guest is destroyed */
   destroy(fromScene?: boolean): void {
-    // Stop tweens
-    if (this.blinkTween) {
-      this.blinkTween.stop();
+    // Phaser's own GameObject.destroy() is safe to call twice (it no-ops on
+    // the second call) and nulls `this.scene` as part of the first pass — a
+    // stale activeGuestEntity reference surviving a scene restart (Station
+    // reuses one instance across Journal round-trips) can reach here after
+    // that already happened, so this must tolerate `this.scene` being gone
+    // rather than assume the constructor's setup still holds.
+    if (this.scene) {
+      this.scene.events.off('pause', this.handleScenePause);
+      this.scene.events.off('resume', this.handleSceneResume);
     }
-    // Remove scene listeners
-    this.scene.events.off('pause', () => {
-      /* eslint-disable-next-line @typescript-eslint/no-empty-function */
-    });
-    this.scene.events.off('resume', () => {
-      /* eslint-disable-next-line @typescript-eslint/no-empty-function */
-    });
+    // Guests (unlike Cloudy) are routinely destroyed while the scene stays
+    // alive (every visit ends this way) — cancel the pending blink so it
+    // doesn't fire against a destroyed container later.
+    this.blinkTimer?.remove();
     super.destroy(fromScene);
   }
 }
