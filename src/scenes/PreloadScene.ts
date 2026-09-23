@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { GAME_WIDTH, GAME_HEIGHT, FONT_FAMILY } from '../core/GameConfig';
 import { createGameSystems } from '../core/GameSystems';
 import { getPlatformAdapter } from '../core/Platform';
 import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
@@ -22,6 +23,36 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   preload(): void {
+    const barWidth = 320;
+    const barHeight = 14;
+    const barX = (GAME_WIDTH - barWidth) / 2;
+    const barY = GAME_HEIGHT * 0.65;
+
+    const bgBar = this.add.graphics();
+    bgBar.fillStyle(0xe5dfef, 0.8);
+    bgBar.fillRoundedRect(barX, barY, barWidth, barHeight, 7);
+
+    const progressBar = this.add.graphics();
+    const loadingText = this.add
+      .text(GAME_WIDTH / 2, barY - 30, '☁️ Đang chuẩn bị Trạm Dừng Chân...', {
+        fontFamily: FONT_FAMILY,
+        fontSize: '14px',
+        color: '#5b4a63',
+      })
+      .setOrigin(0.5);
+
+    this.load.on('progress', (value: number) => {
+      progressBar.clear();
+      progressBar.fillStyle(0xa6d8c0, 1);
+      progressBar.fillRoundedRect(barX + 2, barY + 2, Math.max(0, (barWidth - 4) * value), barHeight - 4, 5);
+    });
+
+    this.load.on('complete', () => {
+      bgBar.destroy();
+      progressBar.destroy();
+      loadingText.destroy();
+    });
+
     this.load.json('guests', 'data/guests.json');
     this.load.json('emotions', 'data/emotions.json');
     this.load.json('ingredients', 'data/ingredients.json');
@@ -68,6 +99,34 @@ export class PreloadScene extends Phaser.Scene {
 
     // Particle effects
     this.load.image('sparkle', 'assets/particles/sparkle.png');
+
+    // Station platform (day/night — resolved directly in StationScene, not
+    // via AssetRegistry, since there's only ever one platform, not several
+    // variants keyed by id like guests/decorations).
+    this.load.image('platform', 'assets/platform/day.png');
+    this.load.image('platform-night', 'assets/platform/night.png');
+
+    // Collectibles — same direct-key pattern as the platform (single fixed
+    // visual each, no id-keyed variants, so no AssetRegistry entry needed).
+    this.load.image('collectible-happiness-crystal', 'assets/collectibles/happiness_crystal.png');
+    this.load.image('collectible-photo-moment-icon', 'assets/collectibles/photo_moment_icon.png');
+
+    // Ground shadow (src/entities/FloatingShadow.ts) — one shared texture for
+    // both Cloudy and every Guest, same direct-key pattern as the platform.
+    this.load.image('fx-shadow', 'assets/fx/shadow.png');
+
+    // Background cloud drift (src/entities/DriftingCloud.ts) — shared texture
+    // for background clouds across the sky.
+    this.load.image('bg-cloud', 'assets/bg/cloud.png');
+
+
+    // Shared 9-slice panel background (src/ui/PanelBackground.ts) — every
+    // shop/dialog panel's backdrop.
+    this.load.image('panel-frame', 'assets/ui/panel_frame.png');
+
+    // Shared 9-slice button/chip background (src/ui/Button.ts) — every
+    // button, shop row, and Journal card.
+    this.load.image('button-frame', 'assets/ui/button_frame.png');
 
     // Illustrated art registered in AssetRegistry (guest emotion stages, etc.)
     getAllRegisteredAssets().forEach((asset) => {

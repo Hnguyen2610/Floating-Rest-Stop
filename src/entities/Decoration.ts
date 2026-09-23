@@ -9,6 +9,17 @@ export type DecorationVisual =
   | 'tea_table'
   | 'wind_pinwheel';
 
+// Illustrated art target widths, roughly matching each item's old procedural
+// footprint (a bit more generous for visual weight, same reasoning as every
+// other procedural->illustrated swap this project has done).
+const TARGET_WIDTH: Record<DecorationVisual, number> = {
+  wind_chime: 70,
+  rainbow_hammock: 110,
+  firefly_lantern: 55,
+  tea_table: 90,
+  wind_pinwheel: 70,
+};
+
 export class Decoration extends Phaser.GameObjects.Container {
   constructor(
     scene: Phaser.Scene,
@@ -17,6 +28,12 @@ export class Decoration extends Phaser.GameObjects.Container {
     private visual: DecorationVisual,
     interactive: boolean,
     private onChime?: () => void,
+    // Only affects firefly_lantern today (see AssetRegistry.resolveDecorationAsset) —
+    // decided once at placement time, not live-updated if day/night flips
+    // while this decoration is already on screen (decorations are placed
+    // once and rarely re-rendered, unlike the sky/platform which redraw on
+    // every daynight:changed).
+    private isNight = false,
   ) {
     super(scene, x, y);
     scene.add.existing(this);
@@ -32,9 +49,11 @@ export class Decoration extends Phaser.GameObjects.Container {
   // draw a real texture if one's registered and preloaded, otherwise fall
   // back to the procedural placeholder below.
   private render(): void {
-    const asset = resolveDecorationAsset(this.visual);
+    const asset = resolveDecorationAsset(this.visual, this.isNight);
     if (hasLoadedTexture(this.scene, asset)) {
-      this.add(this.scene.add.image(0, 0, asset.key));
+      const image = this.scene.add.image(0, 0, asset.key);
+      image.setScale(TARGET_WIDTH[this.visual] / image.frame.width);
+      this.add(image);
       return;
     }
 
@@ -123,11 +142,14 @@ export class Decoration extends Phaser.GameObjects.Container {
     this.scene.tweens.add({
       targets: this,
       angle: 12,
+      scaleX: 1.08,
+      scaleY: 1.08,
       duration: 100,
       yoyo: true,
       repeat: 2,
       ease: 'Sine.easeInOut',
     });
+
     for (let i = 0; i < 3; i += 1) {
       const dot = this.scene.add.circle(this.x, this.y - 10, 3, 0xffffff, 0.9);
       this.scene.tweens.add({

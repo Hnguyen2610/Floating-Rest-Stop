@@ -13,8 +13,8 @@ describe('normalizeSaveData', () => {
       journalLayout: [],
       paperBoat: { sentCount: 0, incomingMessageId: null, canSend: false },
       unlockedAreas: [],
-      isNight: false,
       cloudyCosmetics: { unlockedShapes: [], unlockedAccessories: [], equippedShape: 'default', equippedAccessories: [] },
+      hasSeenTutorial: false,
     });
     expect(normalizeSaveData(undefined)).toEqual(normalizeSaveData(null));
   });
@@ -40,14 +40,12 @@ describe('normalizeSaveData', () => {
     const invalid = {
       happinessCrystals: 'twelve',
       unlockedDecorations: 'wind_chime', // should be an array
-      isNight: 'yes', // should be a boolean
       paperBoat: { sentCount: 'four', canSend: 'true' },
     };
     const result = normalizeSaveData(invalid);
 
     expect(result.happinessCrystals).toBe(0);
     expect(result.unlockedDecorations).toEqual([]);
-    expect(result.isNight).toBe(false);
     expect(result.paperBoat).toEqual({ sentCount: 0, incomingMessageId: null, canSend: false });
   });
 
@@ -93,8 +91,8 @@ describe('normalizeSaveData', () => {
       journalLayout: [['sticker1', { stickerType: 'cloud', x: 1, y: 2, rotation: 0, scale: 1 }]],
       paperBoat: { sentCount: 2, incomingMessageId: 'did_well', canSend: false },
       unlockedAreas: ['small_cloud'],
-      isNight: true,
       cloudyCosmetics: { unlockedShapes: ['default', 'heart'], unlockedAccessories: [], equippedShape: 'heart', equippedAccessories: [] },
+      hasSeenTutorial: true,
     };
 
     expect(normalizeSaveData(wellFormed)).toEqual(wellFormed);

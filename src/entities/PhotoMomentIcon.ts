@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
 import { PALETTE } from '../core/GameConfig';
 
+// Single fixed visual (no variant selection needed), same direct
+// texture-check pattern as StationScene's platform/Cloudy.
+const TEXTURE_KEY = 'collectible-photo-moment-icon';
+const TARGET_WIDTH = 44;
+
 export class PhotoMomentIcon extends Phaser.GameObjects.Container {
   constructor(
     scene: Phaser.Scene,
@@ -11,14 +16,20 @@ export class PhotoMomentIcon extends Phaser.GameObjects.Container {
     super(scene, x, y);
     scene.add.existing(this);
 
-    const lens = scene.add.graphics();
-    lens.fillStyle(PALETTE.cloudWhite, 0.95);
-    lens.fillCircle(0, 0, 16);
-    lens.fillStyle(PALETTE.skyTop, 1);
-    lens.fillCircle(0, 0, 10);
-    lens.fillStyle(0xffffff, 0.8);
-    lens.fillCircle(-4, -4, 3);
-    this.add(lens);
+    if (scene.textures.exists(TEXTURE_KEY)) {
+      const image = scene.add.image(0, 0, TEXTURE_KEY);
+      image.setScale(TARGET_WIDTH / image.frame.width);
+      this.add(image);
+    } else {
+      const lens = scene.add.graphics();
+      lens.fillStyle(PALETTE.cloudWhite, 0.95);
+      lens.fillCircle(0, 0, 16);
+      lens.fillStyle(PALETTE.skyTop, 1);
+      lens.fillCircle(0, 0, 10);
+      lens.fillStyle(0xffffff, 0.8);
+      lens.fillCircle(-4, -4, 3);
+      this.add(lens);
+    }
 
     this.setSize(48, 48);
     // Container hit-test coords are relative to the top-left of setSize(), not the

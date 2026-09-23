@@ -87,7 +87,7 @@ export function normalizeSaveData(raw: unknown): SaveData {
     journalLayout: normalizeJournalLayout(data.journalLayout),
     paperBoat: normalizePaperBoat(data.paperBoat),
     unlockedAreas: asStringArray(data.unlockedAreas),
-    isNight: data.isNight === true,
     cloudyCosmetics: normalizeCloudyCosmetics(data.cloudyCosmetics),
+    hasSeenTutorial: data.hasSeenTutorial === true,
   };
 }

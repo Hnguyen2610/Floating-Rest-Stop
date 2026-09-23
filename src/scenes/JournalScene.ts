@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY } from '../core/GameConfig';
+import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY, SAFE_ZONE_MARGIN } from '../core/GameConfig';
 import { getGameSystems } from '../core/GameSystems';
 import { JournalSystem, type JournalChapter, type JournalItemLayout, type MemoryDefinition } from '../systems/JournalSystem';
+import { createButtonBackground } from '../ui/Button';
 import type { GuestSystem } from '../systems/GuestSystem';
 import type { AudioSystem } from '../systems/AudioSystem';
 
@@ -43,6 +44,14 @@ export class JournalScene extends Phaser.Scene {
     this.drawStickerPalette();
     this.drawDecorationToggle();
     this.drawStickers();
+
+    this.cameras.main.fadeIn(300, 255, 255, 255);
+    this.input.keyboard?.on('keydown-ESC', () => this.goBackToStation());
+  }
+
+  private goBackToStation(): void {
+    this.cameras.main.fadeOut(300, 255, 255, 255);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('StationScene'));
   }
 
   private drawBackground(): void {
@@ -53,7 +62,7 @@ export class JournalScene extends Phaser.Scene {
 
   private drawTitle(): void {
     this.add
-      .text(GAME_WIDTH / 2, 48, 'Sky Journal', {
+      .text(GAME_WIDTH / 2, SAFE_ZONE_MARGIN + 16, 'Sky Journal', {
         fontFamily: FONT_FAMILY,
         fontSize: '32px',
         color: '#5b4a63',
@@ -63,14 +72,14 @@ export class JournalScene extends Phaser.Scene {
 
   private drawBackButton(): void {
     const button = this.add
-      .text(90, 40, '← Quay lại', {
+      .text(150, SAFE_ZONE_MARGIN + 10, '← Quay lại', {
         fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#5b4a63',
       })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
-    button.on('pointerdown', () => this.scene.start('StationScene'));
+    button.on('pointerdown', () => this.goBackToStation());
   }
 
   private drawChapters(): void {
@@ -89,8 +98,19 @@ export class JournalScene extends Phaser.Scene {
     // Each guest gets its own horizontal row (stacked vertically) so a guest
     // with several chapters has the full canvas width to lay them out across,
     // instead of every guest's chapters competing for one shared narrow column.
-    const leftMargin = GAME_WIDTH * 0.1;
-    const rowStartY = GAME_HEIGHT * 0.16;
+    // Memory cards for the first chapter sit 50px left of this anchor (their
+    // own half-width, see createCard()'s `memX` for memCol 0) and are 100px
+    // wide, so the true leftmost pixel is `leftMargin - 100`, not `leftMargin`
+    // itself — this needs the full card width added to the safe-zone margin,
+    // not just the margin alone (a plain `GAME_WIDTH * 0.1` landed at 128,
+    // just inside the danger zone — confirmed by an actual crop-off first
+    // card in Playwright testing, not just by re-deriving the math on paper).
+    const leftMargin = SAFE_ZONE_MARGIN + 100;
+    // Each guest's name header sits 55px *above* its own row anchor (see
+    // `guestNameText` below) — rowStartY needs enough clearance for that
+    // header to clear both the safe-zone margin and the back/title/decorate
+    // buttons already occupying roughly y=80–110 near the top edge.
+    const rowStartY = SAFE_ZONE_MARGIN + 120;
     const rowHeight = 230;
     const chapterSpacing = 150;
 
@@ -219,7 +239,7 @@ export class JournalScene extends Phaser.Scene {
 
     const front = this.add.container(0, 0);
     const frontColor = unlocked ? PALETTE.mint : 0xd8d8d8;
-    const frontBg = this.add.rectangle(0, 0, 100, 130, frontColor, 1).setStrokeStyle(2, 0x5b4a63, 0.3);
+    const frontBg = createButtonBackground(this, 100, 130, frontColor);
     const frontLabel = this.add
       .text(0, 0, unlocked ? '📖' : '🔒', {
         fontFamily: FONT_FAMILY,
@@ -231,7 +251,7 @@ export class JournalScene extends Phaser.Scene {
     front.add([frontBg, frontLabel]);
 
     const back = this.add.container(0, 0);
-    const backBg = this.add.rectangle(0, 0, 100, 130, 0xfffaf0, 1).setStrokeStyle(2, 0x5b4a63, 0.3);
+    const backBg = createButtonBackground(this, 100, 130, 0xfffaf0);
     const backText = this.add
       .text(0, 0, memory.diaryText, {
         fontFamily: FONT_FAMILY,
@@ -306,7 +326,7 @@ export class JournalScene extends Phaser.Scene {
 
   private drawDecorationToggle(): void {
     const button = this.add
-      .text(GAME_WIDTH - 60, 40, '🎀 Trang trí', {
+      .text(GAME_WIDTH - 140, SAFE_ZONE_MARGIN + 11, '🎀 Trang trí', {
         fontFamily: FONT_FAMILY,
         fontSize: '14px',
         color: '#5b4a63',
@@ -329,7 +349,7 @@ export class JournalScene extends Phaser.Scene {
   }
 
   private drawStickerPalette(): void {
-    this.stickerPalette = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 30);
+    this.stickerPalette = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT - 110);
     this.stickerPalette.setDepth(700);
 
     const panelWidth = this.stickers.length * 56 + 16;

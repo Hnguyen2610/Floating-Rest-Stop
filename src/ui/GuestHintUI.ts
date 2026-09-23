@@ -1,19 +1,18 @@
 import Phaser from 'phaser';
-import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
+import { FONT_FAMILY } from '../core/GameConfig';
+import { createPanelBackground } from './PanelBackground';
 
 export class GuestHintUI extends Phaser.GameObjects.Container {
   private readonly nameLabel: Phaser.GameObjects.Text;
   private readonly emotionLabel: Phaser.GameObjects.Text;
   private readonly hintLabel: Phaser.GameObjects.Text;
-  private readonly panelBg: Phaser.GameObjects.Rectangle;
+  private readonly panelBg: Phaser.GameObjects.GameObject;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y);
     scene.add.existing(this);
 
-    this.panelBg = scene.add
-      .rectangle(0, 0, 340, 64, PALETTE.cloudWhite, 0.9)
-      .setStrokeStyle(1, PALETTE.eyeColor, 0.25);
+    this.panelBg = createPanelBackground(scene, 340, 64);
 
     this.nameLabel = scene.add
       .text(0, -19, '', { fontFamily: FONT_FAMILY, fontSize: '14px', color: '#5b4a63' })

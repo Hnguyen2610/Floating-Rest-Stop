@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
+import { createPanelBackground } from './PanelBackground';
+import { createButtonBackground, type ButtonBackground } from './Button';
 import type { StationAreaSystem } from '../systems/StationAreaSystem';
 
 export class StationAreaShopUI {
   private readonly panel: Phaser.GameObjects.Container;
-  private backgrounds = new Map<string, Phaser.GameObjects.Rectangle>();
+  private backgrounds = new Map<string, ButtonBackground>();
 
   constructor(
     private scene: Phaser.Scene,
@@ -17,10 +19,7 @@ export class StationAreaShopUI {
 
     const definitions = stationAreaSystem.getAllDefinitions();
     const rowWidth = 200;
-    const backdrop = scene.add
-      .rectangle(0, 0, rowWidth + 16, definitions.length * 30 + 40, PALETTE.cloudWhite, 0.95)
-      .setStrokeStyle(1, PALETTE.eyeColor, 0.25);
-    this.panel.add(backdrop);
+    this.panel.add(createPanelBackground(scene, rowWidth + 16, definitions.length * 30 + 40));
 
     const title = scene.add
       .text(0, -(definitions.length * 30) / 2 - 8, '🗺️ Mở Rộng Trạm', {
@@ -35,9 +34,8 @@ export class StationAreaShopUI {
       const rowY = -(definitions.length - 1) * 15 + index * 30 + 14;
       const row = scene.add.container(0, rowY);
 
-      const bg = scene.add
-        .rectangle(0, 0, rowWidth, 24, PALETTE.lavender, stationAreaSystem.isUnlocked(def.id) ? 0.9 : 0.35)
-        .setStrokeStyle(1, PALETTE.eyeColor, 0.2);
+      const bg = createButtonBackground(scene, rowWidth, 24, PALETTE.lavender);
+      bg.setAlpha(stationAreaSystem.isUnlocked(def.id) ? 0.9 : 0.35);
       const label = scene.add
         .text(-rowWidth / 2 + 8, 0, def.name, {
           fontFamily: FONT_FAMILY,
@@ -65,7 +63,7 @@ export class StationAreaShopUI {
     this.panel.setVisible(false);
 
     const onAreaUnlocked = ({ id }: { id: string }) => {
-      this.backgrounds.get(id)?.setFillStyle(PALETTE.lavender, 0.9);
+      this.backgrounds.get(id)?.setAlpha(0.9);
     };
     eventBus.on('area:unlocked', onAreaUnlocked);
     this.panel.once(Phaser.GameObjects.Events.DESTROY, () => eventBus.off('area:unlocked', onAreaUnlocked));
@@ -79,7 +77,11 @@ export class StationAreaShopUI {
     this.panel.setVisible(false);
   }
 
-  private tryUnlock(id: string, bg: Phaser.GameObjects.Rectangle): void {
+  isOpen(): boolean {
+    return this.panel.visible;
+  }
+
+  private tryUnlock(id: string, bg: ButtonBackground): void {
     if (this.stationAreaSystem.isUnlocked(id)) return;
     if (!this.stationAreaSystem.unlock(id)) {
       this.scene.tweens.add({ targets: bg, x: bg.x - 4, duration: 60, yoyo: true, repeat: 3 });

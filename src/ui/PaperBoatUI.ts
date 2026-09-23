@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT } from '../core/GameConfig';
+import { createPanelBackground } from './PanelBackground';
+import { createButton, createButtonBackground, createCloseButton } from './Button';
 import type { PaperBoatSystem } from '../systems/PaperBoatSystem';
 import type { AudioSystem } from '../systems/AudioSystem';
 
@@ -10,7 +12,8 @@ export class PaperBoatUI {
   private readonly panel: Phaser.GameObjects.Container;
   private readonly messageBackgrounds = new Map<string, Phaser.GameObjects.Rectangle>();
   private readonly boatIcon: Phaser.GameObjects.Text;
-  private readonly foldButton: Phaser.GameObjects.Text;
+  private readonly foldButton: Phaser.GameObjects.Container;
+  private readonly foldButtonText: Phaser.GameObjects.Text;
   private readonly sendView: Phaser.GameObjects.Container;
   private readonly incomingView: Phaser.GameObjects.Container;
   private readonly incomingText: Phaser.GameObjects.Text;
@@ -25,10 +28,7 @@ export class PaperBoatUI {
   ) {
     this.panel = scene.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2);
 
-    const backdrop = scene.add
-      .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, PALETTE.cloudWhite, 0.97)
-      .setStrokeStyle(2, PALETTE.eyeColor, 0.3);
-    this.panel.add(backdrop);
+    this.panel.add(createPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT));
 
     const title = scene.add
       .text(0, -PANEL_HEIGHT / 2 + 26, '🎐 Gửi Lời Nhắn Theo Gió', {
@@ -39,16 +39,7 @@ export class PaperBoatUI {
       .setOrigin(0.5);
     this.panel.add(title);
 
-    const closeButton = scene.add
-      .text(PANEL_WIDTH / 2 - 20, -PANEL_HEIGHT / 2 + 20, '✕', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '18px',
-        color: '#5b4a63',
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    closeButton.on('pointerdown', () => this.hide());
-    this.panel.add(closeButton);
+    this.panel.add(createCloseButton(scene, PANEL_WIDTH / 2 - 20, -PANEL_HEIGHT / 2 + 20, () => this.hide()));
 
     // --- "Waiting" view: nothing has arrived yet ---------------------------
     this.waitingView = scene.add.container(0, 0);
@@ -78,19 +69,14 @@ export class PaperBoatUI {
         wordWrap: { width: PANEL_WIDTH - 60 },
       })
       .setOrigin(0.5);
-    const acknowledgeButton = scene.add
-      .text(0, 70, 'Cảm ơn — giờ mình sẽ gửi một lời nhắn khác đi', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '12px',
-        color: '#ffffff',
-        backgroundColor: '#8b7355',
-        padding: { x: 12, y: 8 },
-        align: 'center',
-        wordWrap: { width: PANEL_WIDTH - 80 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    acknowledgeButton.on('pointerdown', () => this.acknowledgeIncoming());
+    const acknowledgeButton = createButton(
+      scene,
+      0,
+      70,
+      'Cảm ơn — giờ mình sẽ gửi một lời nhắn khác đi',
+      () => this.acknowledgeIncoming(),
+      { wordWrapWidth: PANEL_WIDTH - 80 },
+    );
     this.incomingView.add([incomingLabel, this.incomingText, acknowledgeButton]);
     this.panel.add(this.incomingView);
 
@@ -129,16 +115,25 @@ export class PaperBoatUI {
     this.boatIcon = scene.add.text(0, 60, '📄', { fontSize: '40px' }).setOrigin(0.5);
     this.sendView.add(this.boatIcon);
 
-    this.foldButton = scene.add
-      .text(0, PANEL_HEIGHT / 2 - 40, 'Chọn một lời nhắn', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '13px',
-        color: '#ffffff',
-        backgroundColor: '#8b7355',
-        padding: { x: 12, y: 6 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+    // Label changes 4 times as folding progresses (see advanceFold()/reset
+    // below) — createButton()'s fixed-size-from-initial-label shortcut
+    // doesn't fit here, so this is built manually with its own text
+    // reference kept for later .setText() calls, sized to the longest of
+    // the 4 labels ("Chọn một lời nhắn") up front.
+    this.foldButtonText = scene.add
+      .text(0, 0, 'Chọn một lời nhắn', { fontFamily: FONT_FAMILY, fontSize: '13px', color: '#ffffff' })
+      .setOrigin(0.5);
+    const foldButtonWidth = this.foldButtonText.width + 24;
+    const foldButtonHeight = this.foldButtonText.height + 12;
+    const foldButtonBg = createButtonBackground(scene, foldButtonWidth, foldButtonHeight);
+    this.foldButton = scene.add.container(0, PANEL_HEIGHT / 2 - 40, [foldButtonBg, this.foldButtonText]);
+    this.foldButton.setSize(foldButtonWidth, foldButtonHeight);
+    // Container hit-test coords are relative to the top-left of setSize(), not the
+    // container's origin, so a full-coverage rect matching setSize() starts at (0,0).
+    this.foldButton.setInteractive(
+      new Phaser.Geom.Rectangle(0, 0, foldButtonWidth, foldButtonHeight),
+      Phaser.Geom.Rectangle.Contains,
+    );
     this.foldButton.on('pointerdown', () => this.advanceFold());
     this.sendView.add(this.foldButton);
     this.panel.add(this.sendView);
@@ -176,7 +171,7 @@ export class PaperBoatUI {
     this.selectedMessageId = messageId;
     this.foldStep = 0;
     this.boatIcon.setText('📄');
-    this.foldButton.setText('Gấp góc thứ nhất');
+    this.foldButtonText.setText('Gấp góc thứ nhất');
     this.messageBackgrounds.forEach((bg, id) => bg.setFillStyle(PALETTE.lavender, id === messageId ? 0.9 : 0.4));
   }
 
@@ -187,11 +182,11 @@ export class PaperBoatUI {
     this.foldStep += 1;
     if (this.foldStep === 1) {
       this.boatIcon.setText('📃');
-      this.foldButton.setText('Gấp góc thứ hai');
+      this.foldButtonText.setText('Gấp góc thứ hai');
       this.playFoldPop();
     } else if (this.foldStep === 2) {
       this.boatIcon.setText('⛵');
-      this.foldButton.setText('Thả vào gió 🌬️');
+      this.foldButtonText.setText('Thả vào gió 🌬️');
       this.playFoldPop();
     } else {
       this.release();
@@ -253,7 +248,7 @@ export class PaperBoatUI {
     this.selectedMessageId = null;
     this.foldStep = 0;
     this.boatIcon.setText('📄').setPosition(0, 60).setAlpha(1);
-    this.foldButton.setText('Chọn một lời nhắn');
+    this.foldButtonText.setText('Chọn một lời nhắn');
     this.messageBackgrounds.forEach((bg) => bg.setFillStyle(PALETTE.lavender, 0.4));
   }
 }

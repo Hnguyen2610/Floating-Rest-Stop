@@ -4,7 +4,7 @@
       "id": "wind_chime",
       "name": "Crystal Wind Chime",
       "cost": 1,
-      "slotX": 0.08,
+      "slotX": 0.16,
       "slotY": 0.3,
       "interactive": true
     },

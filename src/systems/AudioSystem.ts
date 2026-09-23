@@ -9,6 +9,8 @@
  * control and a bus ready to receive a track later, but no track plays yet —
  * there's no music asset to hook up, and composing one is out of scope here.
  */
+import type { AudioSettingsSave } from '../services/save/SaveProvider';
+
 export type AudioBus = 'music' | 'ambience' | 'sfx';
 
 export interface AmbienceContext {
@@ -43,6 +45,25 @@ export class AudioSystem {
 
   isMuted(): boolean {
     return this.muted;
+  }
+
+  getSettingsSave(): AudioSettingsSave {
+    return {
+      muted: this.muted,
+      masterVolume: this.masterVolume,
+      busVolumes: { ...this.busVolumes },
+    };
+  }
+
+  restoreSettings(settings: Partial<AudioSettingsSave> | undefined): void {
+    if (!settings) return;
+    if (typeof settings.muted === 'boolean') this.setMuted(settings.muted);
+    if (typeof settings.masterVolume === 'number') this.setMasterVolume(settings.masterVolume);
+    if (settings.busVolumes) {
+      for (const [bus, vol] of Object.entries(settings.busVolumes)) {
+        this.setBusVolume(bus as AudioBus, vol);
+      }
+    }
   }
 
   setMasterVolume(volume: number): void {
@@ -108,12 +129,110 @@ export class AudioSystem {
     this.playSweep(600, 1100, 0.5, 0.2, 'sfx');
   }
 
-  // --- Ambience ------------------------------------------------------------
+  /** Soft ambient audio flourish when a weather recipe is successfully delivered. */
+  playWeatherAmbient(visualEffect: string): void {
+    switch (visualEffect) {
+      case 'drizzle':
+        this.playSweep(800, 400, 0.4, 0.18, 'ambience');
+        this.playTone(520, 0.3, 0.15, 'ambience', 0.1);
+        break;
+      case 'starlight':
+        this.playTone(988, 0.4, 0.15, 'ambience');
+        this.playTone(1318, 0.5, 0.12, 'ambience', 0.15);
+        break;
+      case 'breeze':
+        this.playSweep(300, 700, 0.5, 0.18, 'ambience');
+        break;
+      case 'aurora':
+        this.playTone(440, 0.6, 0.15, 'ambience');
+        this.playTone(659, 0.6, 0.15, 'ambience', 0.2);
+        break;
+      case 'comet':
+        this.playSweep(1000, 2000, 0.35, 0.22, 'sfx');
+        this.playTone(880, 0.3, 0.2, 'sfx', 0.1);
+        break;
+      default:
+        this.playCraftSuccessSound();
+    }
+  }
+
+  // --- Ambience & BGM --------------------------------------------------------
+
+  private bgmPlaying = false;
+  private bgmTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private bgmIsNight = false;
+
+  startBGM(): void {
+    if (this.bgmPlaying) return;
+    this.bgmPlaying = true;
+    this.scheduleNextBgmNote();
+  }
+
+  stopBGM(): void {
+    this.bgmPlaying = false;
+    if (this.bgmTimeoutId) {
+      clearTimeout(this.bgmTimeoutId);
+      this.bgmTimeoutId = null;
+    }
+  }
+
+  private scheduleNextBgmNote(): void {
+    if (!this.bgmPlaying) return;
+
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    // Day pentatonic scale (C4, E4, G4, A4, C5, E5) vs Night scale (A3, C4, E4, G4, A4, C5)
+    const dayNotes = [261.63, 329.63, 392.0, 440.0, 523.25, 659.25];
+    const nightNotes = [220.0, 261.63, 329.63, 392.0, 440.0, 523.25];
+    const scale = this.bgmIsNight ? nightNotes : dayNotes;
+
+    const freq = scale[Math.floor(Math.random() * scale.length)];
+    // Play a soft kalimba / chime-like note with smooth envelope
+    this.playSoftBgmTone(ctx, freq, 2.2, 0.12);
+
+    // Also occasionally play a subtle bass drone / harmony note
+    if (Math.random() < 0.4) {
+      const rootFreq = this.bgmIsNight ? 110.0 : 130.81; // A2 or C3
+      this.playSoftBgmTone(ctx, rootFreq, 3.0, 0.06);
+    }
+
+    // Schedule next note every 1.4 to 2.8 seconds
+    const delayMs = 1400 + Math.random() * 1400;
+    this.bgmTimeoutId = setTimeout(() => this.scheduleNextBgmNote(), delayMs);
+  }
+
+  private playSoftBgmTone(ctx: AudioContext, frequency: number, duration: number, volume: number): void {
+    const startAt = ctx.currentTime;
+    const oscillator = ctx.createOscillator();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+
+    oscillator.type = 'triangle';
+    oscillator.frequency.value = frequency;
+
+    filter.type = 'lowpass';
+    filter.frequency.value = 750; // Cut off sharp highs for a soft cozy tone
+
+    gain.gain.setValueAtTime(0, startAt);
+    gain.gain.linearRampToValueAtTime(volume, startAt + 0.15); // soft attack
+    gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration); // smooth decay
+
+    oscillator.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.getBusGain('music', ctx));
+
+    oscillator.start(startAt);
+    oscillator.stop(startAt + duration);
+  }
 
   // Called whenever station context changes (area unlocked, day/night toggled,
   // scene created) — each layer is synced against whether it's already
   // playing, so only the layers that actually changed start or stop.
   setAmbienceContext(context: AmbienceContext): void {
+    this.bgmIsNight = context.isNight;
+    this.startBGM();
+
     const ctx = this.getContext();
     if (!ctx) return;
 
@@ -298,6 +417,9 @@ export class AudioSystem {
         .webkitAudioContext;
       if (!Ctor) return null;
       this.context = new Ctor();
+    }
+    if (this.context.state === 'suspended') {
+      this.context.resume().catch(() => undefined);
     }
     return this.context;
   }

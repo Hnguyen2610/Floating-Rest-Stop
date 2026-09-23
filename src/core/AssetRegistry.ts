@@ -74,6 +74,28 @@ export function decorationIdToAssetKey(decorationId: string): string {
   return `decoration.${decorationId}`;
 }
 
+// Illustrated decoration art (visual-upgrade pass after guest/Cloudy/platform
+// art). Filenames differ from decoration ids only for firefly_lantern, which
+// has separate day/night art — every other decoration has one image shared
+// across day and night, matching the user's explicit scope choice (only the
+// lantern got a night variant, not all 5 decorations).
+const DECORATION_FILES: Record<string, string> = {
+  wind_chime: 'wind_chime',
+  rainbow_hammock: 'rainbow_hammock',
+  tea_table: 'tea_table',
+  wind_pinwheel: 'wind_pinwheel',
+  firefly_lantern: 'firefly_lantern_day',
+};
+Object.entries(DECORATION_FILES).forEach(([id, filename]) => {
+  const key = decorationIdToAssetKey(id);
+  REGISTERED_ASSETS[key] = { key, texturePath: `assets/decorations/${filename}.png` };
+});
+const FIREFLY_LANTERN_NIGHT_KEY = `${decorationIdToAssetKey('firefly_lantern')}.night`;
+REGISTERED_ASSETS[FIREFLY_LANTERN_NIGHT_KEY] = {
+  key: FIREFLY_LANTERN_NIGHT_KEY,
+  texturePath: 'assets/decorations/firefly_lantern_night.png',
+};
+
 /**
  * e.g. 'heart' -> 'cloudy.heart' (naming only, dot-separated to match this
  * registry's other keys). Cloudy.ts now renders real illustrated sprites
@@ -95,8 +117,16 @@ export function resolveEmotionAsset(emotionId: string): AssetEntry {
   return resolveAsset(emotionIdToAssetKey(emotionId));
 }
 
-export function resolveDecorationAsset(decorationId: string): AssetEntry {
-  return resolveAsset(decorationIdToAssetKey(decorationId));
+// isNight tries "<id>.night" first (only firefly_lantern has one today) and
+// falls back to the regular day/shared key — same fallback shape as
+// hasLoadedTexture's "no art yet -> procedural" branch one level up.
+export function resolveDecorationAsset(decorationId: string, isNight = false): AssetEntry {
+  const dayKey = decorationIdToAssetKey(decorationId);
+  if (isNight) {
+    const nightKey = `${dayKey}.night`;
+    if (REGISTERED_ASSETS[nightKey]) return REGISTERED_ASSETS[nightKey];
+  }
+  return resolveAsset(dayKey);
 }
 
 /** True once a real texture is both registered here and actually preloaded into the scene. */

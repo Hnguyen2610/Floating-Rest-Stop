@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY } from '../core/GameConfig';
+import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY, SAFE_ZONE_MARGIN, PARALLAX_CONFIG, POST_FX_CONFIG } from '../core/GameConfig';
 import { getGameSystems, type GameSystems } from '../core/GameSystems';
 import { Cloudy } from '../entities/Cloudy';
 import { Guest, type GuestInteraction } from '../entities/Guest';
@@ -12,6 +12,8 @@ import { CometGuest } from '../guests/CometGuest';
 import { FloatingIngredient } from '../entities/FloatingIngredient';
 import { HappinessCrystal } from '../entities/HappinessCrystal';
 import { Decoration, type DecorationVisual } from '../entities/Decoration';
+import { DriftingCloud } from '../entities/DriftingCloud';
+import { AmbientFireflies } from '../entities/AmbientFireflies';
 import { PhotoMomentIcon } from '../entities/PhotoMomentIcon';
 import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
@@ -22,6 +24,7 @@ import { StationAreaShopUI } from '../ui/StationAreaShopUI';
 import { CloudyCosmeticsShopUI } from '../ui/CloudyCosmeticsShopUI';
 import { AudioSettingsUI } from '../ui/AudioSettingsUI';
 import { RecipeBookUI } from '../ui/RecipeBookUI';
+import { WelcomeGuideUI } from '../ui/WelcomeGuideUI';
 import { SaveStatusUI } from '../ui/SaveStatusUI';
 import { GuestHintUI } from '../ui/GuestHintUI';
 import { BottomNavUI } from '../ui/BottomNavUI';
@@ -38,6 +41,11 @@ const AREA_MARKER_SLOTS: Record<string, { x: number; y: number }> = {
   rain_garden: { x: 0.85, y: 0.52 },
 };
 
+// ~1.5x the old procedural platform's 420px width — "bigger, more of the
+// screen" per explicit user request when moving to illustrated platform art.
+const PLATFORM_TARGET_WIDTH = 640;
+const DAY_NIGHT_CHECK_INTERVAL_MS = 60000;
+
 export class StationScene extends Phaser.Scene {
   private systems!: GameSystems;
   private cloudy!: Cloudy;
@@ -49,20 +57,29 @@ export class StationScene extends Phaser.Scene {
   private cloudyCosmeticsShopUI!: CloudyCosmeticsShopUI;
   private audioSettingsUI!: AudioSettingsUI;
   private recipeBookUI!: RecipeBookUI;
+  private welcomeGuideUI!: WelcomeGuideUI;
   private readonly performanceMonitor = new PerformanceMonitor();
   private fpsText: Phaser.GameObjects.Text | null = null;
   private sky!: Phaser.GameObjects.Graphics;
-  private dayNightButton!: Phaser.GameObjects.Text;
+  private platformImage: Phaser.GameObjects.Image | null = null;
   private rareGuestIndicator: Phaser.GameObjects.Text | null = null;
   private rareGuestIndicatorFor: string | null = null;
   private drawnAreaMarkers = new Set<string>();
   private activeGuestEntity: Guest | null = null;
   private photoMomentIcon: PhotoMomentIcon | null = null;
   private floatingIngredients: FloatingIngredient[] = [];
+  private backgroundClouds: DriftingCloud[] = [];
+  private fireflies: AmbientFireflies | null = null;
   private departureTimer: Phaser.Time.TimerEvent | null = null;
   private butterflyStoryShown = false;
   private lastPolishSoundAt = 0;
-  private readonly crystalCounterPosition = { x: GAME_WIDTH - 32, y: 32 };
+  private readonly crystalCounterPosition = { x: GAME_WIDTH - 230, y: SAFE_ZONE_MARGIN + 25 };
+  // Guest's standing spot — moved closer to Cloudy (was 0.24, a 333px gap
+  // from Cloudy at GAME_WIDTH/2) after real playtester feedback that the two
+  // felt disconnected standing that far apart. GuestHintUI/HappinessCrystal/
+  // PhotoMomentIcon all anchor off this same point, not just the guest sprite.
+  private readonly guestAnchorX = GAME_WIDTH * 0.37;
+  private readonly guestAnchorY = GAME_HEIGHT * 0.42;
 
   constructor() {
     super('StationScene');
@@ -70,8 +87,10 @@ export class StationScene extends Phaser.Scene {
 
   create(): void {
     this.systems = getGameSystems();
+    this.applyPostFx();
 
     this.drawSky();
+    this.spawnBackgroundClouds();
     this.drawPlatform();
     this.drawTitle();
     this.cloudy = new Cloudy(
@@ -82,13 +101,18 @@ export class StationScene extends Phaser.Scene {
     );
     this.cloudy.setAccessories(this.systems.cloudyCosmeticsSystem.getEquippedAccessories());
 
-    new InventoryUI(this, 24, 76, this.systems.ingredientSystem, this.systems.weatherSystem, (id) =>
-      this.handleInventoryTap(id),
+    new InventoryUI(
+      this,
+      SAFE_ZONE_MARGIN,
+      SAFE_ZONE_MARGIN + 20,
+      this.systems.ingredientSystem,
+      this.systems.weatherSystem,
+      (id) => this.handleInventoryTap(id),
     );
     this.mixerUI = new WeatherMixerUI(
       this,
-      GAME_WIDTH - 90,
-      GAME_HEIGHT - 112,
+      GAME_WIDTH - 140,
+      GAME_HEIGHT - 190,
       this.systems.ingredientSystem,
       this.systems.weatherSystem,
       () => this.systems.audioSystem.playCraftSuccessSound(),
@@ -127,17 +151,24 @@ export class StationScene extends Phaser.Scene {
       this.systems.ingredientSystem,
       this.systems.guestSystem,
     );
+    this.welcomeGuideUI = new WelcomeGuideUI(this, () => this.systems.tutorialSystem.markWelcomeSeen());
     new SaveStatusUI(this);
     this.drawMuteButton();
-    this.drawDayNightToggle();
     this.drawRecipeBookButton();
-    this.guestHintUI = new GuestHintUI(this, GAME_WIDTH * 0.24, GAME_HEIGHT * 0.42 - 100);
+    this.drawHelpButton();
+    this.guestHintUI = new GuestHintUI(this, this.guestAnchorX, this.guestAnchorY - 100);
     this.drawBottomNav();
 
     this.wireEvents();
     this.resumeState();
     this.drawAreaMarkers();
     this.syncAmbience();
+    this.wireKeyboardShortcuts();
+    this.cameras.main.fadeIn(300, 255, 255, 255);
+
+    // First-launch onboarding — shown once ever (persisted via SaveSystem,
+    // not a per-session flag), reopenable anytime via the ❓ button.
+    if (!this.systems.tutorialSystem.hasSeenWelcome()) this.welcomeGuideUI.show();
 
     this.time.addEvent({
       delay: 4000,
@@ -162,6 +193,20 @@ export class StationScene extends Phaser.Scene {
       loop: true,
       callback: () => this.refreshRareGuestIndicator(),
     });
+    this.time.addEvent({
+      delay: 9000,
+      loop: true,
+      callback: () => {
+        if (this.systems.guestSystem.getCurrentGuest()) {
+          this.cloudy.playGlanceAtGuest(this.guestAnchorX < GAME_WIDTH / 2);
+        }
+      },
+    });
+    this.time.addEvent({
+      delay: DAY_NIGHT_CHECK_INTERVAL_MS,
+      loop: true,
+      callback: () => this.systems.dayNightSystem.refresh(),
+    });
 
     this.wireDebugKeys();
   }
@@ -175,6 +220,7 @@ export class StationScene extends Phaser.Scene {
     this.cloudy.update(time, delta);
     this.activeGuestEntity?.update(time, delta);
     this.floatingIngredients.forEach((ingredient) => ingredient.update(time, delta));
+    this.backgroundClouds.forEach((cloud) => cloud.update(time, delta));
 
     if (this.fpsText) {
       this.performanceMonitor.update(delta);
@@ -188,8 +234,8 @@ export class StationScene extends Phaser.Scene {
     this.activeGuestEntity?.destroy();
     this.butterflyStoryShown = false;
     const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
-    const x = GAME_WIDTH * 0.24;
-    const y = GAME_HEIGHT * 0.42;
+    const x = this.guestAnchorX;
+    const y = this.guestAnchorY;
     this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
     this.activeGuestEntity.playArrive();
     this.updateGuestHint(state, meta);
@@ -242,11 +288,59 @@ export class StationScene extends Phaser.Scene {
     const definition = this.systems.guestSystem.getAllDefinitions().find((def) => def.id === trustGuestId);
     if (!definition) return;
     this.showToast(`💌 Lời nhắn của bạn đã sưởi ấm lòng ${definition.name}`);
+    this.playPaperBoatLaunch();
   };
+
+  // First-time-only celebration when a recipe is crafted for the first time
+  // this session (WeatherSystem.isRecipeDiscovered tracks it) — every other
+  // successful craft still gets WeatherMixerUI's own "Sẵn sàng: ..." label,
+  // this is additive, not a replacement.
+  private readonly handleWeatherCreated = ({
+    recipeId,
+    isNewDiscovery,
+  }: {
+    recipeId: string;
+    isNewDiscovery: boolean;
+  }): void => {
+    if (!isNewDiscovery) return;
+    const recipe = this.systems.weatherSystem.getRecipe(recipeId);
+    this.showToast(`🎉 Công thức mới: ${recipe.name}!`);
+    ParticleEffect.createSparkleEffect(this, GAME_WIDTH / 2, GAME_HEIGHT * 0.5);
+  };
+
+  // Sailing paper-boat flourish for a sent message — reuses the existing
+  // 'nav-paperboat' nav-icon texture rather than new art, matching this
+  // project's reuse-over-new-asset default (see ParticleEffect.ts's weather
+  // effects, which do the same with 'sparkle.png').
+  private playPaperBoatLaunch(): void {
+    const startX = GAME_WIDTH * 0.3;
+    const startY = GAME_HEIGHT * 0.7;
+    const boat = this.add.image(startX, startY, 'nav-paperboat');
+    boat.setScale(36 / boat.width);
+    boat.setDepth(300);
+
+    const trailTimer = this.time.addEvent({
+      delay: 300,
+      loop: true,
+      callback: () => ParticleEffect.createSparkleEffect(this, boat.x, boat.y),
+    });
+
+    this.tweens.add({
+      targets: boat,
+      x: startX + 140,
+      y: -60,
+      angle: -12,
+      duration: 2400,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        trailTimer.remove();
+        boat.destroy();
+      },
+    });
+  }
 
   private readonly handleAreaUnlocked = ({ id }: { id: string }): void => {
     this.drawAreaMarker(id);
-    if (id === 'stargazing_corner') this.dayNightButton.setVisible(true);
     this.syncAmbience();
   };
 
@@ -267,6 +361,8 @@ export class StationScene extends Phaser.Scene {
     eventBus.on('paperboat:sent', this.handlePaperBoatSent);
     eventBus.on('area:unlocked', this.handleAreaUnlocked);
     eventBus.on('cloudyCosmetic:unlocked', this.handleCloudyCosmeticUnlocked);
+    eventBus.on('daynight:changed', this.handleDayNightChanged);
+    eventBus.on('weather:created', this.handleWeatherCreated);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       eventBus.off('guest:arrived', this.handleGuestArrived);
@@ -277,6 +373,10 @@ export class StationScene extends Phaser.Scene {
       eventBus.off('paperboat:sent', this.handlePaperBoatSent);
       eventBus.off('area:unlocked', this.handleAreaUnlocked);
       eventBus.off('cloudyCosmetic:unlocked', this.handleCloudyCosmeticUnlocked);
+      eventBus.off('daynight:changed', this.handleDayNightChanged);
+      eventBus.off('weather:created', this.handleWeatherCreated);
+      this.fireflies?.destroy();
+      this.fireflies = null;
     });
   }
 
@@ -293,12 +393,15 @@ export class StationScene extends Phaser.Scene {
   // right near the mixer) rather than one long row — matches the reference
   // layout's split rather than a single row spanning the whole width.
   private drawBottomNav(): void {
-    new BottomNavUI(this, 64, GAME_HEIGHT - 50, [
-      { icon: '📓', iconKey: 'nav-journal', label: 'Nhật ký', onTap: () => this.scene.start('JournalScene') },
+    new BottomNavUI(this, 120, GAME_HEIGHT - 120, [
+      { icon: '📓', iconKey: 'nav-journal', label: 'Nhật ký', onTap: () => {
+        this.cameras.main.fadeOut(300, 255, 255, 255);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('JournalScene'));
+      } },
       { icon: '🎨', iconKey: 'nav-decoration', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
       { icon: '🗺️', iconKey: 'nav-station', label: 'Mở rộng trạm', onTap: () => this.stationAreaShopUI.toggle() },
     ]);
-    new BottomNavUI(this, 900, GAME_HEIGHT - 50, [
+    new BottomNavUI(this, 840, GAME_HEIGHT - 120, [
       { icon: '🎐', iconKey: 'nav-paperboat', label: 'Gửi lời nhắn', onTap: () => this.paperBoatUI.toggle() },
       { icon: '🌾', iconKey: 'nav-harvest', label: 'Thu hoạch', onTap: () => this.showFeatureComingSoon() },
       { icon: '☁️', iconKey: 'nav-cloudyshop', label: 'Mây Bông', onTap: () => this.cloudyCosmeticsShopUI.toggle() },
@@ -335,7 +438,7 @@ export class StationScene extends Phaser.Scene {
   private drawMuteButton(): void {
     const audioSystem = this.systems.audioSystem;
     const label = this.add
-      .text(GAME_WIDTH - 32, 70, audioSystem.isMuted() ? '🔇' : '🔊', {
+      .text(GAME_WIDTH - 110, 105, audioSystem.isMuted() ? '🔇' : '🔊', {
         fontFamily: FONT_FAMILY,
         fontSize: '22px',
       })
@@ -347,7 +450,7 @@ export class StationScene extends Phaser.Scene {
     });
 
     const settingsButton = this.add
-      .text(GAME_WIDTH - 64, 70, '⚙️', { fontFamily: FONT_FAMILY, fontSize: '18px' })
+      .text(GAME_WIDTH - 142, 105, '⚙️', { fontFamily: FONT_FAMILY, fontSize: '18px' })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
     settingsButton.on('pointerdown', () => {
@@ -356,31 +459,28 @@ export class StationScene extends Phaser.Scene {
     });
   }
 
-  // Manual day/night toggle (Pass 21) — only revealed once Stargazing Corner
-  // is unlocked, since that's what gives the sky somewhere to point at night.
-  private drawDayNightToggle(): void {
-    const isNightIcon = () => (this.systems.dayNightSystem.isNight() ? '🌙' : '☀️');
-    this.dayNightButton = this.add
-      .text(GAME_WIDTH - 32, 104, isNightIcon(), { fontFamily: FONT_FAMILY, fontSize: '22px' })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    this.dayNightButton.on('pointerdown', () => {
-      this.systems.dayNightSystem.toggle();
-      this.dayNightButton.setText(isNightIcon());
-      this.redrawSky();
-      this.syncAmbience();
-    });
-    this.dayNightButton.setVisible(this.systems.stationAreaSystem.isUnlocked('stargazing_corner'));
-  }
 
   // Sits right above the mixer bowl — exactly where a player wondering
-  // "which ingredients make what?" is already looking.
+  // "which ingredients make what?" is already looking. Offset kept relative
+  // to the mixer's own position (GAME_HEIGHT - 190) rather than a separate
+  // magic number, so the two stay visually attached if the mixer ever moves.
   private drawRecipeBookButton(): void {
     const button = this.add
-      .text(GAME_WIDTH - 90, GAME_HEIGHT - 112 - 66, '📖', { fontFamily: FONT_FAMILY, fontSize: '20px' })
+      .text(GAME_WIDTH - 140, GAME_HEIGHT - 190 - 66, '📖', { fontFamily: FONT_FAMILY, fontSize: '20px' })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true });
     button.on('pointerdown', () => this.recipeBookUI.toggle());
+  }
+
+  // Reopens the first-launch welcome guide anytime — same utility-icon
+  // cluster as mute/settings (top-right). Centered under that row now that
+  // day/night no longer has a manual toggle button sharing this row.
+  private drawHelpButton(): void {
+    const button = this.add
+      .text(GAME_WIDTH - 126, 139, '❓', { fontFamily: FONT_FAMILY, fontSize: '18px' })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    button.on('pointerdown', () => this.welcomeGuideUI.show());
   }
 
   private redrawSky(): void {
@@ -400,6 +500,34 @@ export class StationScene extends Phaser.Scene {
       hasWindGarden: this.systems.stationAreaSystem.isUnlocked('wind_garden'),
       hasRainGarden: this.systems.stationAreaSystem.isUnlocked('rain_garden'),
     });
+    this.syncFireflies();
+  }
+
+  private syncFireflies(): void {
+    const isNight = this.systems.dayNightSystem.isNight();
+    if (isNight && !this.fireflies) {
+      this.fireflies = new AmbientFireflies(this);
+    } else if (!isNight && this.fireflies) {
+      this.fireflies.destroy();
+      this.fireflies = null;
+    }
+  }
+
+  // Fires when DayNightSystem's periodic refresh() detects the real-world
+  // hour crossed the day/night boundary (or a dev-only debug override
+  // changed it) — redraws everything that depends on isNight() so a session
+  // left open across sunset/sunrise updates live, not just on next reload.
+  private readonly handleDayNightChanged = (): void => {
+    this.redrawSky();
+    this.updatePlatformForDayNight();
+    this.syncAmbience();
+  };
+
+  // No-op until real platform art exists (this.platformImage is only set
+  // once drawPlatform() finds a 'platform' texture to swap in) — the
+  // procedural fallback has no separate night look, see drawPlatform().
+  private updatePlatformForDayNight(): void {
+    this.platformImage?.setTexture(this.platformTextureKey());
   }
 
   private drawAreaMarkers(): void {
@@ -591,11 +719,27 @@ export class StationScene extends Phaser.Scene {
         return;
       }
       if (potionId === treatment.recipeId) {
-        this.systems.guestSystem.soothe(this.systems.weatherSystem.getRecipe(potionId).soothingValue);
-        // Add sparkle effect for successful recipe interaction
+        const recipe = this.systems.weatherSystem.getRecipe(potionId);
+        this.systems.guestSystem.soothe(recipe.soothingValue);
+        // Each recipe gets its own flourish (RecipeDefinition.visualEffect —
+        // previously unused, every recipe played the same generic sparkle).
         if (this.activeGuestEntity) {
-          ParticleEffect.createSparkleEffect(this, this.activeGuestEntity.x, this.activeGuestEntity.y);
+          ParticleEffect.createWeatherEffect(
+            this,
+            this.activeGuestEntity.x,
+            this.activeGuestEntity.y,
+            recipe.visualEffect,
+          );
         }
+        ParticleEffect.createScreenWash(this, recipe.visualEffect);
+        this.systems.audioSystem.playWeatherAmbient(recipe.visualEffect);
+        // Cloudy celebrates every correct delivery, not just Butterfly's
+        // arrival (the only existing playHappyBounce() call site before this).
+        this.cloudy.playHappyBounce();
+      } else {
+        // Wrong potion for this guest — previously silent (no feedback at
+        // all beyond the generic tap acknowledgment every tap already gets).
+        this.activeGuestEntity?.playRejectShake();
       }
       return;
     }
@@ -609,6 +753,7 @@ export class StationScene extends Phaser.Scene {
       }
     }
   }
+
 
   // A rub interaction fires on every pointermove while dragging — throttle so
   // the polish sound stays a light texture instead of a spammy rattle.
@@ -633,8 +778,8 @@ export class StationScene extends Phaser.Scene {
   }
 
   private spawnHappinessCrystal(): void {
-    const x = GAME_WIDTH * 0.24;
-    const y = GAME_HEIGHT * 0.42 - 70;
+    const x = this.guestAnchorX;
+    const y = this.guestAnchorY - 70;
     new HappinessCrystal(this, x, y, this.crystalCounterPosition, () => {
       this.systems.happinessSystem.collectCrystal();
       this.systems.audioSystem.playCollectSound();
@@ -649,8 +794,8 @@ export class StationScene extends Phaser.Scene {
     if (!moment || this.systems.photoMomentSystem.isCaptured(moment.id)) return;
     if (!this.systems.journalSystem.canUnlockMemory(moment.memoryId)) return;
 
-    const x = GAME_WIDTH * 0.24 + 55;
-    const y = GAME_HEIGHT * 0.42 - 55;
+    const x = this.guestAnchorX + 55;
+    const y = this.guestAnchorY - 55;
     this.photoMomentIcon = new PhotoMomentIcon(this, x, y, () => {
       this.systems.photoMomentSystem.capture(state.id);
       this.systems.audioSystem.playCaptureSound();
@@ -688,6 +833,7 @@ export class StationScene extends Phaser.Scene {
       id as DecorationVisual,
       def.interactive,
       () => this.systems.audioSystem.playChimeSound(),
+      this.systems.dayNightSystem.isNight(),
     );
   }
 
@@ -722,10 +868,8 @@ export class StationScene extends Phaser.Scene {
       new LocalSaveProvider().clear().then(() => window.location.reload());
     });
     this.input.keyboard?.on('keydown-N', () => {
-      this.systems.dayNightSystem.toggle();
-      this.dayNightButton.setText(this.systems.dayNightSystem.isNight() ? '🌙' : '☀️');
-      this.redrawSky();
-      this.syncAmbience();
+      this.systems.dayNightSystem.debugCycleOverride();
+      this.handleDayNightChanged();
     });
     this.input.keyboard?.on('keydown-B', () => {
       for (let i = 0; i < 30; i += 1) this.systems.happinessSystem.collectCrystal();
@@ -734,6 +878,26 @@ export class StationScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SIX', () => guestSystem.spawn('comet'));
     this.input.keyboard?.on('keydown-M', () => guestSystem.addTrust('moon', 40));
     this.input.keyboard?.on('keydown-P', () => this.toggleFpsDisplay());
+  }
+
+  private wireKeyboardShortcuts(): void {
+    const kb = this.input.keyboard;
+    if (!kb) return;
+
+    // ESC: close open panels in priority order
+    kb.on('keydown-ESC', () => {
+      if (this.welcomeGuideUI.isOpen()) { this.welcomeGuideUI.hide(); return; }
+      if (this.audioSettingsUI.isOpen()) { this.audioSettingsUI.hide(); return; }
+      if (this.recipeBookUI.isOpen()) { this.recipeBookUI.hide(); return; }
+      if (this.cloudyCosmeticsShopUI.isOpen()) { this.cloudyCosmeticsShopUI.hide(); return; }
+      if (this.stationAreaShopUI.isOpen()) { this.stationAreaShopUI.hide(); return; }
+      if (this.decorationShopUI.isOpen()) { this.decorationShopUI.hide(); return; }
+    });
+
+    // SPACE: tap the active guest (same as a finger tap)
+    kb.on('keydown-SPACE', () => {
+      if (this.activeGuestEntity) this.handleGuestInteraction({ type: 'tap' });
+    });
   }
 
   private toggleFpsDisplay(): void {
@@ -754,16 +918,57 @@ export class StationScene extends Phaser.Scene {
       .setDepth(1000);
   }
 
+  // Phaser 3.90's postFX pipeline needs WebGL — this game uses Phaser.AUTO
+  // (src/core/Game.ts), which falls back to Canvas2D on devices/WebViews
+  // that can't do WebGL. Skip entirely rather than let an unsupported call
+  // throw or silently misbehave.
+  private applyPostFx(): void {
+    if (this.game.renderer.type !== Phaser.WEBGL) return;
+    const { x, y, radius, strength } = POST_FX_CONFIG.vignette;
+    this.cameras.main.postFX.addVignette(x, y, radius, strength);
+  }
+
+  // "Parallax" without a camera pan (this game's camera is fixed all
+  // session) — two layers of puffs drifting at different speeds/sizes/
+  // alphas stand in for depth instead. See DriftingCloud.ts.
+  private spawnBackgroundClouds(): void {
+    const layers = [PARALLAX_CONFIG.farCloud, PARALLAX_CONFIG.nearCloud];
+    layers.forEach((layer) => {
+      for (let i = 0; i < layer.count; i += 1) {
+        const x = Phaser.Math.Between(0, GAME_WIDTH);
+        const y = Phaser.Math.Between(layer.yRange[0], layer.yRange[1]);
+        const scale = Phaser.Math.FloatBetween(layer.scaleRange[0], layer.scaleRange[1]);
+        const alpha = Phaser.Math.FloatBetween(layer.alphaRange[0], layer.alphaRange[1]);
+        this.backgroundClouds.push(new DriftingCloud(this, x, { y, scale, alpha, speed: layer.speed }));
+      }
+    });
+  }
+
   private drawSky(): void {
     this.sky = this.add.graphics();
     this.redrawSky();
   }
 
+  // Presentation-layer asset swap (same pattern as Guest/Decoration/Cloudy).
+  // Today REGISTERED has no 'platform'/'platform-night' texture yet, so this
+  // always falls back to the procedural ellipses — swapping in real art
+  // later means dropping the file in public/assets, preloading it under
+  // those keys, no change needed here beyond that.
   private drawPlatform(): void {
-    const platform = this.add.graphics();
     const centerX = GAME_WIDTH / 2;
     const centerY = GAME_HEIGHT * 0.72;
 
+    if (this.textures.exists('platform')) {
+      const image = this.add.image(centerX, centerY, this.platformTextureKey());
+      image.setScale(PLATFORM_TARGET_WIDTH / image.frame.width);
+      this.platformImage = image;
+      return;
+    }
+
+    // Procedural fallback has no separate night look (matches every other
+    // not-yet-illustrated placeholder in the game) — stays static until real
+    // art exists to swap in via the branch above.
+    const platform = this.add.graphics();
     platform.fillStyle(PALETTE.cloudWhite, 1);
     platform.fillEllipse(centerX, centerY, 420, 140);
     platform.fillStyle(PALETTE.mint, 0.5);
@@ -772,8 +977,13 @@ export class StationScene extends Phaser.Scene {
     platform.fillEllipse(centerX + 110, centerY - 10, 140, 60);
   }
 
+  private platformTextureKey(): string {
+    const night = this.systems.dayNightSystem.isNight();
+    return night && this.textures.exists('platform-night') ? 'platform-night' : 'platform';
+  }
+
   private drawTitle(): void {
-    this.add.text(16, 12, 'Trạm Dừng Chân Lơ Lửng', {
+    this.add.text(SAFE_ZONE_MARGIN, SAFE_ZONE_MARGIN, 'Trạm Dừng Chân Lơ Lửng', {
       fontFamily: FONT_FAMILY,
       fontSize: '20px',
       color: '#5b4a63',
