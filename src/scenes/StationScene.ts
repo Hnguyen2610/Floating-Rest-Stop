@@ -1,5 +1,15 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, PALETTE, FONT_FAMILY, SAFE_ZONE_MARGIN, PARALLAX_CONFIG, POST_FX_CONFIG } from '../core/GameConfig';
+import {
+  GAME_WIDTH,
+  GAME_HEIGHT,
+  PALETTE,
+  FONT_FAMILY,
+  SAFE_ZONE_MARGIN,
+  PARALLAX_CONFIG,
+  POST_FX_CONFIG,
+  SKY_GRADIENT_CONFIG,
+  DISTANT_SCENERY_CONFIG,
+} from '../core/GameConfig';
 import { getGameSystems, type GameSystems } from '../core/GameSystems';
 import { Cloudy } from '../entities/Cloudy';
 import { Guest, type GuestInteraction } from '../entities/Guest';
@@ -14,6 +24,7 @@ import { HappinessCrystal } from '../entities/HappinessCrystal';
 import { Decoration, type DecorationVisual } from '../entities/Decoration';
 import { DriftingCloud } from '../entities/DriftingCloud';
 import { AmbientFireflies } from '../entities/AmbientFireflies';
+import { AmbientBirds } from '../entities/AmbientBirds';
 import { PhotoMomentIcon } from '../entities/PhotoMomentIcon';
 import { InventoryUI } from '../ui/InventoryUI';
 import { WeatherMixerUI } from '../ui/WeatherMixerUI';
@@ -70,6 +81,7 @@ export class StationScene extends Phaser.Scene {
   private floatingIngredients: FloatingIngredient[] = [];
   private backgroundClouds: DriftingCloud[] = [];
   private fireflies: AmbientFireflies | null = null;
+  private birds: AmbientBirds | null = null;
   private departureTimer: Phaser.Time.TimerEvent | null = null;
   private butterflyStoryShown = false;
   private lastPolishSoundAt = 0;
@@ -90,6 +102,7 @@ export class StationScene extends Phaser.Scene {
     this.applyPostFx();
 
     this.drawSky();
+    this.spawnDistantScenery();
     this.spawnBackgroundClouds();
     this.drawPlatform();
     this.drawTitle();
@@ -377,6 +390,8 @@ export class StationScene extends Phaser.Scene {
       eventBus.off('weather:created', this.handleWeatherCreated);
       this.fireflies?.destroy();
       this.fireflies = null;
+      this.birds?.destroy();
+      this.birds = null;
     });
   }
 
@@ -485,13 +500,13 @@ export class StationScene extends Phaser.Scene {
 
   private redrawSky(): void {
     const night = this.systems.dayNightSystem.isNight();
+    const { top, mid, bottom } = night ? SKY_GRADIENT_CONFIG.night : SKY_GRADIENT_CONFIG.day;
     this.sky.clear();
-    if (night) {
-      this.sky.fillGradientStyle(0x1c2340, 0x1c2340, 0x3a3564, 0x3a3564, 1);
-    } else {
-      this.sky.fillGradientStyle(PALETTE.skyTop, PALETTE.skyTop, PALETTE.skyBottom, PALETTE.skyBottom, 1);
-    }
-    this.sky.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    const midY = GAME_HEIGHT / 2;
+    this.sky.fillGradientStyle(top, top, mid, mid, 1);
+    this.sky.fillRect(0, 0, GAME_WIDTH, midY);
+    this.sky.fillGradientStyle(mid, mid, bottom, bottom, 1);
+    this.sky.fillRect(0, midY, GAME_WIDTH, GAME_HEIGHT - midY);
   }
 
   private syncAmbience(): void {
@@ -501,6 +516,7 @@ export class StationScene extends Phaser.Scene {
       hasRainGarden: this.systems.stationAreaSystem.isUnlocked('rain_garden'),
     });
     this.syncFireflies();
+    this.syncBirds();
   }
 
   private syncFireflies(): void {
@@ -510,6 +526,16 @@ export class StationScene extends Phaser.Scene {
     } else if (!isNight && this.fireflies) {
       this.fireflies.destroy();
       this.fireflies = null;
+    }
+  }
+
+  private syncBirds(): void {
+    const isNight = this.systems.dayNightSystem.isNight();
+    if (!isNight && !this.birds) {
+      this.birds = new AmbientBirds(this);
+    } else if (isNight && this.birds) {
+      this.birds.destroy();
+      this.birds = null;
     }
   }
 
@@ -926,6 +952,33 @@ export class StationScene extends Phaser.Scene {
     if (this.game.renderer.type !== Phaser.WEBGL) return;
     const { x, y, radius, strength } = POST_FX_CONFIG.vignette;
     this.cameras.main.postFX.addVignette(x, y, radius, strength);
+  }
+
+  // Static hazy landmarks near the horizon — no drift, no update() loop,
+  // for depth only. Falls back to a simple mushroom-cap silhouette if the
+  // bg-scenery texture is not yet loaded.
+  private spawnDistantScenery(): void {
+    const config = DISTANT_SCENERY_CONFIG;
+    config.xFractions.forEach((xFrac, index) => {
+      const x = GAME_WIDTH * xFrac;
+      const y = Phaser.Math.Between(config.yRange[0], config.yRange[1]);
+      const scale = Phaser.Math.FloatBetween(config.scaleRange[0], config.scaleRange[1]);
+
+      let obj: Phaser.GameObjects.Image | Phaser.GameObjects.Graphics;
+      if (this.textures.exists('bg-scenery')) {
+        const image = this.add.image(x, y, 'bg-scenery');
+        image.setScale(scale);
+        if (index % 2 === 1) image.setFlipX(true);
+        obj = image;
+      } else {
+        const g = this.add.graphics();
+        g.fillStyle(PALETTE.lavender, 1);
+        g.fillEllipse(x, y, 70, 30);
+        g.fillRect(x - 8, y, 16, 20);
+        obj = g;
+      }
+      obj.setAlpha(config.alpha);
+    });
   }
 
   // "Parallax" without a camera pan (this game's camera is fixed all
