@@ -38,6 +38,32 @@ export const PALETTE = {
   eyeColor: 0x5b4a63,
 } as const;
 
+export const SKY_GRADIENT_CONFIG = {
+  day: { top: PALETTE.skyTop, mid: PALETTE.pastelPink, bottom: PALETTE.skyBottom },
+  night: { top: 0x1c2340, mid: 0x4a3a6b, bottom: 0x3a3564 },
+} as const;
+
+export const DISTANT_SCENERY_CONFIG = {
+  xFractions: [0.12, 0.5, 0.85] as const,
+  yRange: [260, 300] as const,
+  scaleRange: [0.3, 0.45] as const,
+  alpha: 0.45,
+} as const;
+
+export const BIRDS_CONFIG = {
+  count: 2,
+  yRange: [150, 260] as const,
+  scaleRange: [0.4, 0.55] as const,
+  crossDurationMsRange: [7000, 11000] as const,
+  bobAmplitude: 10,
+  // Wing-flap illusion from a single static image (no sprite sheet): a fast
+  // vertical squash-and-release on top of the slower up/down bob — the
+  // classic cheap flap trick for 2D art that isn't frame-animated.
+  flapDurationMs: 160,
+  flapScaleYRatio: 0.55,
+  depth: 150,
+} as const;
+
 export const SOFT_BODY_CONFIG: SoftBodyConfig = {
   stiffness: 55,
   damping: 9,
