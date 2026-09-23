@@ -56,6 +56,7 @@ const AREA_MARKER_SLOTS: Record<string, { x: number; y: number }> = {
 // screen" per explicit user request when moving to illustrated platform art.
 const PLATFORM_TARGET_WIDTH = 640;
 const DAY_NIGHT_CHECK_INTERVAL_MS = 60000;
+const GUEST_SPAWN_COOLDOWN_MS = 12000;
 
 export class StationScene extends Phaser.Scene {
   private systems!: GameSystems;
@@ -83,6 +84,8 @@ export class StationScene extends Phaser.Scene {
   private fireflies: AmbientFireflies | null = null;
   private birds: AmbientBirds | null = null;
   private departureTimer: Phaser.Time.TimerEvent | null = null;
+  private lastGuestSpawnId: string | null = null;
+  private lastGuestSpawnAt = 0;
   private butterflyStoryShown = false;
   private lastPolishSoundAt = 0;
   private readonly crystalCounterPosition = { x: GAME_WIDTH - 230, y: SAFE_ZONE_MARGIN + 25 };
@@ -251,6 +254,8 @@ export class StationScene extends Phaser.Scene {
     const y = this.guestAnchorY;
     this.activeGuestEntity = this.createGuestEntity(state, meta, x, y);
     this.activeGuestEntity.playArrive();
+    this.lastGuestSpawnId = state.id;
+    this.lastGuestSpawnAt = this.time.now;
     this.updateGuestHint(state, meta);
 
     // "Cloudy → chỗ nằm mềm": Cloudy visibly welcomes the tired flock in.
@@ -260,6 +265,7 @@ export class StationScene extends Phaser.Scene {
   private readonly handleGuestLeft = (): void => {
     this.departureTimer?.remove();
     this.departureTimer = null;
+    this.lastGuestSpawnAt = this.time.now;
     const entity = this.activeGuestEntity;
     this.activeGuestEntity = null;
     entity?.playLeave(() => entity.destroy());
@@ -283,12 +289,22 @@ export class StationScene extends Phaser.Scene {
       .find((def) => def.id === state.id);
     if (!definition) return;
 
+    const stage = this.systems.emotionSystem.getStage(state.emotionalIntensity);
+    const stageHintMap: Record<string, string> = {
+      DISTRESSED: 'Bước 1: họ đang rất khó chịu, cần phục hồi ngay',
+      CALMING: 'Bước 2: bắt đầu dịu xuống, hãy giữ cho không khí êm',
+      RELAXED: 'Bước 3: đã thả lỏng rồi, tiếp tục mang sự bình yên',
+      CONTENT: 'Bước 4: tâm trạng đang ổn, chỉ còn chạm thêm chút nữa',
+      PEACEFUL: 'Bước 5: họ đã thấy vui và sẵn sàng rời đi',
+    };
+
     const line =
       meta.dialogue && meta.dialogue.length > 0
         ? Phaser.Utils.Array.GetRandom(meta.dialogue)
         : definition.needHint;
 
-    this.guestHintUI.show(definition.name, meta.label, line);
+    const detail = `${stageHintMap[stage] ?? 'Bước hiện tại: đang ổn dần'} — ${line}`;
+    this.guestHintUI.show(definition.name, meta.label, detail);
   }
 
   private readonly handleGuestRelaxed = (): void => this.spawnHappinessCrystal();
@@ -669,9 +685,9 @@ export class StationScene extends Phaser.Scene {
   }
 
   private spawnIngredient(): void {
-    const definition = Phaser.Utils.Array.GetRandom(this.systems.ingredientSystem.getAllDefinitions());
-    const x = Phaser.Math.Between(GAME_WIDTH * 0.55, GAME_WIDTH * 0.88);
-    const y = Phaser.Math.Between(GAME_HEIGHT * 0.28, GAME_HEIGHT * 0.55);
+    const definition = this.systems.ingredientSystem.pickForSpawn();
+    const x = Phaser.Math.Between(GAME_WIDTH * 0.2, GAME_WIDTH * 0.9);
+    const y = Phaser.Math.Between(GAME_HEIGHT * 0.22, GAME_HEIGHT * 0.58);
     const ingredient = new FloatingIngredient(this, x, y, definition, (ing, sx, sy) =>
       this.handleIngredientDropped(ing, sx, sy),
     );
@@ -830,11 +846,15 @@ export class StationScene extends Phaser.Scene {
   }
 
   private spawnRandomGuest(): void {
+    const now = this.time.now;
+    if (now - this.lastGuestSpawnAt < GUEST_SPAWN_COOLDOWN_MS) return;
+
     // Rare guests (Aurora, Comet) never join the regular random pool — they
     // only arrive through the earned invite in refreshRareGuestIndicator().
-    const definitions = this.systems.guestSystem.getAllDefinitions().filter((def) => !def.rare);
-    const definition = Phaser.Utils.Array.GetRandom(definitions);
-    this.systems.guestSystem.spawn(definition.id);
+    const guestId = this.systems.guestSystem.pickRandomSpawnId(
+      this.lastGuestSpawnId ? [this.lastGuestSpawnId] : [],
+    );
+    this.systems.guestSystem.spawn(guestId);
   }
 
   private scheduleDepartureIfHappy(state: GuestState): void {
