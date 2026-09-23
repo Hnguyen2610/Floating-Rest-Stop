@@ -56,4 +56,10 @@ describe('AudioSystem', () => {
       system.setAmbienceContext({ isNight: false, hasWindGarden: false, hasRainGarden: false }),
     ).not.toThrow();
   });
+
+  it('supports starting and stopping BGM without errors', () => {
+    const system = new AudioSystem();
+    expect(() => system.startBGM()).not.toThrow();
+    expect(() => system.stopBGM()).not.toThrow();
+  });
 });

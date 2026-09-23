@@ -26,6 +26,10 @@ function sameIngredients(a: string[], b: string[]): boolean {
 export class WeatherSystem {
   private mixerContents: string[] = [];
   private currentPotion: string | null = null;
+  // Session-scoped, not persisted — the celebration is a "nice to notice"
+  // moment for this play session, not a permanent recipe-book unlock (the
+  // recipe book UI already lists every recipe regardless of discovery).
+  private readonly discoveredRecipeIds = new Set<string>();
 
   constructor(
     private recipesData: RecipesData,
@@ -80,11 +84,18 @@ export class WeatherSystem {
     );
     if (!match) return false;
 
+    const isNewDiscovery = !this.discoveredRecipeIds.has(match.id);
+    this.discoveredRecipeIds.add(match.id);
+
     this.currentPotion = match.id;
     this.mixerContents = [];
     this.eventBus.emit('mixer:updated', { contents: [] });
-    this.eventBus.emit('weather:created', { recipeId: match.id });
+    this.eventBus.emit('weather:created', { recipeId: match.id, isNewDiscovery });
     return true;
+  }
+
+  isRecipeDiscovered(id: string): boolean {
+    return this.discoveredRecipeIds.has(id);
   }
 
   getCurrentPotion(): string | null {

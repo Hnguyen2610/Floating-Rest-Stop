@@ -4,6 +4,8 @@ import { resolveEmotionAsset, hasLoadedTexture } from '../core/AssetRegistry';
 import { HapticFeedback } from '../utils/HapticFeedback';
 import type { EmotionMeta } from '../systems/EmotionSystem';
 import type { GuestState } from '../types/guest';
+import { FloatingShadow } from './FloatingShadow';
+import { ParticleEffect } from '../utils/ParticleEffect';
 
 export type GuestInteraction = { type: 'tap' } | { type: 'rub'; distance: number };
 
@@ -16,6 +18,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
   protected readonly baseX: number;
   protected readonly baseY: number;
   protected readonly bodyGraphics: Phaser.GameObjects.Graphics;
+  private readonly shadow: FloatingShadow;
   private spriteImage: Phaser.GameObjects.Image | null = null;
   private idleTime = Math.random() * Math.PI * 2;
   private leftEye: Phaser.GameObjects.Ellipse | null = null;
@@ -39,6 +42,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     super(scene, x, y);
     this.baseX = x;
     this.baseY = y;
+    this.shadow = new FloatingShadow(scene, x);
     scene.add.existing(this);
 
     this.bodyGraphics = scene.add.graphics();
@@ -79,12 +83,14 @@ export abstract class Guest extends Phaser.GameObjects.Container {
 
   update(_time: number, delta: number): void {
     this.idleTime += delta / 1000;
+    const floatSin = Math.sin(this.idleTime * GUEST_IDLE_CONFIG.floatFrequency);
     // Bobbing (up and down) using sine wave
-    this.y = this.baseY + Math.sin(this.idleTime * GUEST_IDLE_CONFIG.floatFrequency) * GUEST_IDLE_CONFIG.floatAmplitude;
+    this.y = this.baseY + floatSin * GUEST_IDLE_CONFIG.floatAmplitude;
     // Drift (side to side)
     this.x =
       this.baseX +
       Math.sin(this.idleTime * GUEST_IDLE_CONFIG.driftFrequency) * GUEST_IDLE_CONFIG.driftAmplitude;
+    this.shadow.sync(this.x, floatSin);
   }
 
   updateEmotion(meta: EmotionMeta): void {
@@ -131,18 +137,20 @@ export abstract class Guest extends Phaser.GameObjects.Container {
       targets: this,
       alpha: 1,
       scale: 1,
-      duration: 400,
+      duration: 500,
       ease: 'Back.easeOut',
     });
+    ParticleEffect.createSparkleEffect(this.scene, this.x, this.y);
   }
 
   playLeave(onComplete: () => void): void {
+    ParticleEffect.createGlowEffect(this.scene, this.x, this.y);
     this.scene.tweens.add({
       targets: this,
       alpha: 0,
       scale: 0.6,
       y: this.y - 40,
-      duration: 350,
+      duration: 500,
       ease: 'Sine.easeIn',
       onComplete,
     });
@@ -157,6 +165,24 @@ export abstract class Guest extends Phaser.GameObjects.Container {
       ease: 'Sine.easeOut',
     });
   }
+
+  // "No, not that one" cue for a wrong-potion tap — angle-only, same reason
+  // as Cloudy.playGlanceAtGuest(): update() rewrites x/y from baseX/baseY
+  // every frame, so tweening either here would just get overwritten on the
+  // next frame. A quick head-shake reads clearly at guest scale without
+  // needing a new sprite or texture.
+  playRejectShake(): void {
+    this.scene.tweens.chain({
+      targets: this,
+      tweens: [
+        { angle: -8, duration: 60, ease: 'Sine.easeOut' },
+        { angle: 8, duration: 100, ease: 'Sine.easeInOut' },
+        { angle: -5, duration: 90, ease: 'Sine.easeInOut' },
+        { angle: 0, duration: 80, ease: 'Sine.easeOut' },
+      ],
+    });
+  }
+
 
   protected hexToColor(hex: string): number {
     return parseInt(hex.replace('#', ''), 16);
@@ -211,6 +237,7 @@ export abstract class Guest extends Phaser.GameObjects.Container {
     // alive (every visit ends this way) — cancel the pending blink so it
     // doesn't fire against a destroyed container later.
     this.blinkTimer?.remove();
+    this.shadow.destroy();
     super.destroy(fromScene);
   }
 }

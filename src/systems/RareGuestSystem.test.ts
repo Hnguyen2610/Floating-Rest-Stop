@@ -80,7 +80,7 @@ describe('RareGuestSystem', () => {
     guestSystem.addTrust('moon', 40);
     expect(rareGuestSystem.isAuroraAvailable()).toBe(false);
 
-    dayNightSystem.toggle();
+    dayNightSystem.debugCycleOverride(); // -> night
     expect(rareGuestSystem.isAuroraAvailable()).toBe(false);
 
     happinessSystem.collectCrystal();

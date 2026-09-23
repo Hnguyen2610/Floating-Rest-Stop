@@ -86,7 +86,7 @@ export interface GameEventMap {
   'ingredient:collected': { id: string; count: number };
   'ingredient:spent': { id: string; count: number };
   'mixer:updated': { contents: string[] };
-  'weather:created': { recipeId: string };
+  'weather:created': { recipeId: string; isNewDiscovery: boolean };
   'weather:used': { recipeId: string };
   'journal:layout-updated': { itemId: string; x: number; y: number; rotation: number; scale: number };
   'journal:item-removed': { itemId: string };

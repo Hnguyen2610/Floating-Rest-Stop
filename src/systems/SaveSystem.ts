@@ -7,9 +7,9 @@ import type { GuestSystem } from './GuestSystem';
 import type { JournalSystem } from './JournalSystem';
 import type { PhotoMomentSystem } from './PhotoMomentSystem';
 import type { PaperBoatSystem } from './PaperBoatSystem';
-import type { DayNightSystem } from './DayNightSystem';
 import type { CloudyCosmeticsSystem } from './CloudyCosmeticsSystem';
 import type { TutorialSystem } from './TutorialSystem';
+import type { AudioSystem } from './AudioSystem';
 
 const SAVE_DATA_VERSION = 1;
 const AUTOSAVE_DEBOUNCE_MS = 1000;
@@ -22,9 +22,9 @@ export interface SaveableSystems {
   journalSystem: JournalSystem;
   photoMomentSystem: PhotoMomentSystem;
   paperBoatSystem: PaperBoatSystem;
-  dayNightSystem: DayNightSystem;
   cloudyCosmeticsSystem: CloudyCosmeticsSystem;
   tutorialSystem: TutorialSystem;
+  audioSystem: AudioSystem;
 }
 
 export class SaveSystem {
@@ -72,7 +72,6 @@ export class SaveSystem {
     this.eventBus.on('journal:item-removed', trigger);
     this.eventBus.on('paperboat:sent', trigger);
     this.eventBus.on('area:unlocked', trigger);
-    this.eventBus.on('daynight:changed', trigger);
     this.eventBus.on('cloudyCosmetic:unlocked', trigger);
     this.eventBus.on('tutorial:seen', trigger);
   }
@@ -105,9 +104,9 @@ export class SaveSystem {
       journalLayout: [...this.systems.journalSystem.getAllJournalLayouts().entries()],
       paperBoat: this.systems.paperBoatSystem.getSaveState(),
       unlockedAreas: this.systems.stationAreaSystem.getUnlockedIds(),
-      isNight: this.systems.dayNightSystem.isNight(),
       cloudyCosmetics: this.systems.cloudyCosmeticsSystem.getSaveState(),
       hasSeenTutorial: this.systems.tutorialSystem.hasSeenWelcome(),
+      audioSettings: this.systems.audioSystem.getSettingsSave(),
     };
   }
 
@@ -121,9 +120,9 @@ export class SaveSystem {
     this.systems.paperBoatSystem.restoreState(
       data.paperBoat ?? { sentCount: 0, incomingMessageId: null, canSend: false },
     );
-    this.systems.dayNightSystem.restoreIsNight(data.isNight ?? false);
     if (data.cloudyCosmetics) this.systems.cloudyCosmeticsSystem.restoreState(data.cloudyCosmetics);
     this.systems.tutorialSystem.restoreHasSeenWelcome(data.hasSeenTutorial ?? false);
+    this.systems.audioSystem.restoreSettings(data.audioSettings);
     for (const [guestId, progress] of Object.entries(data.guestProgress)) {
       this.systems.guestSystem.restoreProgress(guestId, {
         ...progress,

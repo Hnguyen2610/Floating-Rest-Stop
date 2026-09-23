@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
+import { createButton } from './Button';
+import { blendHexColors } from './liquidBlend';
 import type { IngredientSystem } from '../systems/IngredientSystem';
 import type { WeatherSystem } from '../systems/WeatherSystem';
 
@@ -13,8 +15,9 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
   private readonly bowlRadius = 46;
   private slotIcons: Phaser.GameObjects.Image[] = [];
   private readonly potionLabel: Phaser.GameObjects.Text;
-  private craftButton: Phaser.GameObjects.Text;
+  private craftButton: Phaser.GameObjects.Container;
   private slotBgGraphics: Phaser.GameObjects.Graphics;
+  private readonly liquidGraphics: Phaser.GameObjects.Graphics;
 
   constructor(
     scene: Phaser.Scene,
@@ -36,6 +39,11 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     bowl.strokeCircle(0, 0, this.bowlRadius);
     this.add(bowl);
 
+    // Liquid fill — grows and re-blends color as ingredients are added,
+    // drawn over the bowl and under the slot backgrounds/icons.
+    this.liquidGraphics = scene.add.graphics();
+    this.add(this.liquidGraphics);
+
     // Slot backgrounds
     this.slotBgGraphics = scene.add.graphics();
     this.add(this.slotBgGraphics);
@@ -54,17 +62,7 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     this.add(this.potionLabel);
 
     // Craft button
-    this.craftButton = scene.add
-      .text(0, this.bowlRadius + 50, 'CHẾ TẠO', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '12px',
-        color: '#ffffff',
-        backgroundColor: '#8b7355',
-        padding: { x: 8, y: 4 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    this.craftButton.on('pointerdown', () => this.handleCraft());
+    this.craftButton = createButton(scene, 0, this.bowlRadius + 50, 'CHẾ TẠO', () => this.handleCraft());
     this.add(this.craftButton);
 
     // Event listeners — unregistered on destroy (see below), otherwise this
@@ -126,7 +124,37 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     this.scene.tweens.add({ targets: this, scale: 1.12, duration: 120, yoyo: true });
   }
 
+  // Grows from an empty bowl to a full pool as ingredients are added,
+  // re-blending its color from every ingredient currently in the mixer
+  // (see liquidBlend.ts) — a visible, colorful cue for what's being mixed
+  // instead of relying on the small ingredient icons alone.
+  private updateLiquidFill(contents: string[]): void {
+    this.liquidGraphics.clear();
+    if (contents.length === 0) return;
+
+    const colors = contents.map((id) => this.ingredientSystem.getDefinition(id).color);
+    const blended = blendHexColors(colors);
+    const fillRatio = contents.length / MIXER_CAPACITY;
+    const radius = this.bowlRadius * (0.35 + 0.35 * fillRatio);
+
+    this.liquidGraphics.fillStyle(blended, 0.55);
+    this.liquidGraphics.fillCircle(0, this.bowlRadius * 0.15, radius);
+
+    // Gentle "plop" wobble each time the fill changes — one-shot, not a
+    // looping animation, matching this project's "Subtle > Flashy" VFX rule.
+    this.scene.tweens.add({
+      targets: this.liquidGraphics,
+      scaleX: 1.08,
+      scaleY: 0.92,
+      duration: 180,
+      yoyo: true,
+      ease: 'Sine.easeOut',
+    });
+  }
+
   private updateMixerContents(contents: string[]): void {
+    this.updateLiquidFill(contents);
+
     // Update slot backgrounds
     this.slotBgGraphics.clear();
     this.slotBgGraphics.fillStyle(0x000000, 0.2);

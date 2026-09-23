@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { CLOUDY_CONFIG } from '../core/GameConfig';
+import { CLOUDY_CONFIG, POST_FX_CONFIG } from '../core/GameConfig';
 import { HapticFeedback } from '../utils/HapticFeedback';
+import { FloatingShadow } from './FloatingShadow';
 
 const ICON_TARGET_WIDTH = 160;
 
@@ -37,6 +38,7 @@ const ACCESSORY_PLACEMENT: Record<string, AccessoryPlacement> = {
 // deformation, since a raster illustration can't deform like a vector mesh.
 export class Cloudy extends Phaser.GameObjects.Container {
   private readonly sprite: Phaser.GameObjects.Image;
+  private readonly shadow: FloatingShadow;
   private accessoryImages: Phaser.GameObjects.Image[] = [];
   private shapeId: string;
   private accessories: string[] = [];
@@ -50,10 +52,12 @@ export class Cloudy extends Phaser.GameObjects.Container {
     this.baseX = x;
     this.baseY = y;
     this.shapeId = shapeId;
+    this.shadow = new FloatingShadow(scene, x);
     scene.add.existing(this);
 
     this.sprite = scene.add.image(0, 0, this.textureKey('idle'));
     this.add(this.sprite);
+    this.applyBloom();
 
     this.applySpriteScale();
     this.updateHitArea();
@@ -64,11 +68,26 @@ export class Cloudy extends Phaser.GameObjects.Container {
   update(_time: number, delta: number): void {
     const dt = delta / 1000;
     this.idleTime += dt;
-    this.y =
-      this.baseY + Math.sin(this.idleTime * CLOUDY_CONFIG.floatFrequency) * CLOUDY_CONFIG.floatAmplitude;
+    const floatSin = Math.sin(this.idleTime * CLOUDY_CONFIG.floatFrequency);
+    this.y = this.baseY + floatSin * CLOUDY_CONFIG.floatAmplitude;
     this.x =
       this.baseX + Math.sin(this.idleTime * CLOUDY_CONFIG.driftFrequency) * CLOUDY_CONFIG.driftAmplitude;
+    this.shadow.sync(this.x, floatSin);
   }
+
+  destroy(fromScene?: boolean): void {
+    this.shadow.destroy();
+    super.destroy(fromScene);
+  }
+
+  // Same WebGL guard as StationScene.applyPostFx() — postFX requires WebGL,
+  // this game falls back to Canvas2D on devices that can't do it.
+  private applyBloom(): void {
+    if (this.scene.game.renderer.type !== Phaser.WEBGL) return;
+    const { color, offsetX, offsetY, blurStrength, strength, steps } = POST_FX_CONFIG.cloudyBloom;
+    this.sprite.postFX.addBloom(color, offsetX, offsetY, blurStrength, strength, steps);
+  }
+
 
   // Ambient "notice the guest" cue — StationScene calls this occasionally
   // while a guest is present, since standing still the whole visit read as

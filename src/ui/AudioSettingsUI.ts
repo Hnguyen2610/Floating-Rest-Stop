@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
+import { createPanelBackground } from './PanelBackground';
 import type { AudioSystem, AudioBus } from '../systems/AudioSystem';
 
 const PANEL_WIDTH = 260;
@@ -34,10 +35,7 @@ export class AudioSettingsUI {
     ];
     const panelHeight = rows.length * 34 + 60;
 
-    const backdrop = scene.add
-      .rectangle(0, 0, PANEL_WIDTH, panelHeight, PALETTE.cloudWhite, 0.97)
-      .setStrokeStyle(1, PALETTE.eyeColor, 0.25);
-    this.panel.add(backdrop);
+    this.panel.add(createPanelBackground(scene, PANEL_WIDTH, panelHeight));
 
     const title = scene.add
       .text(0, -panelHeight / 2 + 18, '🔊 Âm Thanh', { fontFamily: FONT_FAMILY, fontSize: '13px', color: '#5b4a63' })
@@ -72,6 +70,10 @@ export class AudioSettingsUI {
 
   hide(): void {
     this.panel.setVisible(false);
+  }
+
+  isOpen(): boolean {
+    return this.panel.visible;
   }
 
   private addSlider(

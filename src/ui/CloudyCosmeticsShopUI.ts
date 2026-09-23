@@ -1,14 +1,16 @@
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
+import { createPanelBackground } from './PanelBackground';
+import { createButtonBackground, type ButtonBackground } from './Button';
 import type { CloudyCosmeticsSystem } from '../systems/CloudyCosmeticsSystem';
 
 const ROW_WIDTH = 220;
 
 export class CloudyCosmeticsShopUI {
   private readonly panel: Phaser.GameObjects.Container;
-  private shapeBackgrounds = new Map<string, Phaser.GameObjects.Rectangle>();
-  private accessoryBackgrounds = new Map<string, Phaser.GameObjects.Rectangle>();
+  private shapeBackgrounds = new Map<string, ButtonBackground>();
+  private accessoryBackgrounds = new Map<string, ButtonBackground>();
 
   constructor(
     private scene: Phaser.Scene,
@@ -24,10 +26,7 @@ export class CloudyCosmeticsShopUI {
     const rowCount = shapes.length + accessories.length + 2; // +2 for the two section titles
     const panelHeight = rowCount * 26 + 16;
 
-    const backdrop = scene.add
-      .rectangle(0, 0, ROW_WIDTH + 16, panelHeight, PALETTE.cloudWhite, 0.96)
-      .setStrokeStyle(1, PALETTE.eyeColor, 0.25);
-    this.panel.add(backdrop);
+    this.panel.add(createPanelBackground(scene, ROW_WIDTH + 16, panelHeight));
 
     let rowY = -panelHeight / 2 + 16;
 
@@ -73,6 +72,10 @@ export class CloudyCosmeticsShopUI {
     this.panel.setVisible(false);
   }
 
+  isOpen(): boolean {
+    return this.panel.visible;
+  }
+
   private addSectionTitle(text: string, rowY: number): number {
     const title = this.scene.add
       .text(0, rowY, text, { fontFamily: FONT_FAMILY, fontSize: '12px', color: '#5b4a63' })
@@ -86,11 +89,10 @@ export class CloudyCosmeticsShopUI {
     name: string,
     describeStatus: () => string,
     onTap: () => void,
-  ): Phaser.GameObjects.Rectangle {
+  ): ButtonBackground {
     const row = this.scene.add.container(0, rowY);
-    const bg = this.scene.add
-      .rectangle(0, 0, ROW_WIDTH, 22, PALETTE.lavender, 0.4)
-      .setStrokeStyle(1, PALETTE.eyeColor, 0.2);
+    const bg = createButtonBackground(this.scene, ROW_WIDTH, 22, PALETTE.lavender);
+    bg.setAlpha(0.4);
     const label = this.scene.add
       .text(-ROW_WIDTH / 2 + 8, 0, name, { fontFamily: FONT_FAMILY, fontSize: '11px', color: '#5b4a63' })
       .setOrigin(0, 0.5);
@@ -152,7 +154,7 @@ export class CloudyCosmeticsShopUI {
     this.onChanged();
   }
 
-  private shakeRow(bg?: Phaser.GameObjects.Rectangle): void {
+  private shakeRow(bg?: ButtonBackground): void {
     if (!bg) return;
     this.scene.tweens.add({ targets: bg, x: bg.x - 4, duration: 60, yoyo: true, repeat: 3 });
   }
@@ -160,17 +162,17 @@ export class CloudyCosmeticsShopUI {
   private refreshAll(): void {
     this.shapeBackgrounds.forEach((bg, id) => {
       const equipped = this.cosmeticsSystem.getEquippedShape() === id;
-      bg.setFillStyle(PALETTE.lavender, equipped ? 0.95 : this.cosmeticsSystem.isShapeUnlocked(id) ? 0.55 : 0.35);
+      bg.setAlpha(equipped ? 0.95 : this.cosmeticsSystem.isShapeUnlocked(id) ? 0.55 : 0.35);
       this.updateStatusLabel(bg, this.describeShapeCost(id));
     });
     this.accessoryBackgrounds.forEach((bg, id) => {
       const equipped = this.cosmeticsSystem.getEquippedAccessories().includes(id);
-      bg.setFillStyle(PALETTE.lavender, equipped ? 0.95 : this.cosmeticsSystem.isAccessoryUnlocked(id) ? 0.55 : 0.35);
+      bg.setAlpha(equipped ? 0.95 : this.cosmeticsSystem.isAccessoryUnlocked(id) ? 0.55 : 0.35);
       this.updateStatusLabel(bg, this.describeAccessoryCost(id));
     });
   }
 
-  private updateStatusLabel(bg: Phaser.GameObjects.Rectangle, text: string): void {
+  private updateStatusLabel(bg: ButtonBackground, text: string): void {
     const row = bg.parentContainer;
     const status = row?.getByName('status') as Phaser.GameObjects.Text | null;
     status?.setText(text);

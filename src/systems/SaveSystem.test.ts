@@ -9,9 +9,9 @@ import { EmotionSystem, type EmotionsData } from './EmotionSystem';
 import { JournalSystem, type JournalData } from './JournalSystem';
 import { PhotoMomentSystem, type PhotoMomentsData } from './PhotoMomentSystem';
 import { PaperBoatSystem, type PaperMessagesData } from './PaperBoatSystem';
-import { DayNightSystem } from './DayNightSystem';
 import { CloudyCosmeticsSystem, type CloudyCosmeticsData } from './CloudyCosmeticsSystem';
 import { TutorialSystem } from './TutorialSystem';
+import { AudioSystem } from './AudioSystem';
 import { TypedEventBus, type GameEventMap } from '../core/EventBus';
 
 class MemorySaveProvider implements SaveProvider {
@@ -80,9 +80,9 @@ function makeSystems() {
   const journalSystem = new JournalSystem(journalData, bus, guestSystem);
   const photoMomentSystem = new PhotoMomentSystem(photoMomentsData, journalSystem, bus);
   const paperBoatSystem = new PaperBoatSystem(messagesData, happinessSystem, guestSystem, bus);
-  const dayNightSystem = new DayNightSystem(bus);
   const cloudyCosmeticsSystem = new CloudyCosmeticsSystem(cosmeticsData, happinessSystem, guestSystem, bus);
   const tutorialSystem = new TutorialSystem(bus);
+  const audioSystem = new AudioSystem();
   return {
     bus,
     guestSystem,
@@ -92,9 +92,9 @@ function makeSystems() {
     journalSystem,
     photoMomentSystem,
     paperBoatSystem,
-    dayNightSystem,
     cloudyCosmeticsSystem,
     tutorialSystem,
+    audioSystem,
   };
 }
 
@@ -126,7 +126,6 @@ describe('SaveSystem', () => {
     // PaperBoatSystem listens for that too, so a message is already waiting.
     expect(provider.stored?.paperBoat).toEqual({ sentCount: 0, incomingMessageId: 'did_well', canSend: false });
     expect(provider.stored?.unlockedAreas).toEqual(['small_cloud']);
-    expect(provider.stored?.isNight).toBe(false);
     expect(provider.stored?.cloudyCosmetics).toEqual({
       unlockedShapes: ['default'],
       unlockedAccessories: [],
@@ -150,7 +149,6 @@ describe('SaveSystem', () => {
       journalLayout: [['sticker1', { stickerType: 'cloud', x: 10, y: 20, rotation: 0, scale: 1 }]],
       paperBoat: { sentCount: 4, incomingMessageId: null, canSend: true },
       unlockedAreas: ['tea_corner'],
-      isNight: true,
       cloudyCosmetics: {
         unlockedShapes: ['heart'],
         unlockedAccessories: ['sunset_hat'],
@@ -185,7 +183,6 @@ describe('SaveSystem', () => {
     expect(systems.paperBoatSystem.getSentCount()).toBe(4);
     expect(systems.paperBoatSystem.canSendNow()).toBe(true);
     expect(systems.stationAreaSystem.isUnlocked('tea_corner')).toBe(true);
-    expect(systems.dayNightSystem.isNight()).toBe(true);
     expect(systems.cloudyCosmeticsSystem.isShapeUnlocked('heart')).toBe(true);
     expect(systems.cloudyCosmeticsSystem.getEquippedShape()).toBe('heart');
     expect(systems.tutorialSystem.hasSeenWelcome()).toBe(true);

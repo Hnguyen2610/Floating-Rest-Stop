@@ -42,7 +42,30 @@ describe('WeatherSystem', () => {
     expect(success).toBe(true);
     expect(system.getCurrentPotion()).toBe('cool_drizzle');
     expect(system.getMixerContents()).toEqual([]);
-    expect(created).toEqual([{ recipeId: 'cool_drizzle' }]);
+    expect(created).toEqual([{ recipeId: 'cool_drizzle', isNewDiscovery: true }]);
+  });
+
+  it('marks isNewDiscovery true only on the first craft of a given recipe', () => {
+    const { bus, system } = makeSystem();
+    const created: unknown[] = [];
+    bus.on('weather:created', (payload) => created.push(payload));
+
+    expect(system.isRecipeDiscovered('cool_drizzle')).toBe(false);
+
+    system.addToMixer('cool_breeze');
+    system.addToMixer('morning_dew');
+    system.tryCraft();
+    expect(system.isRecipeDiscovered('cool_drizzle')).toBe(true);
+
+    system.usePotion();
+    system.addToMixer('morning_dew');
+    system.addToMixer('cool_breeze');
+    system.tryCraft();
+
+    expect(created).toEqual([
+      { recipeId: 'cool_drizzle', isNewDiscovery: true },
+      { recipeId: 'cool_drizzle', isNewDiscovery: false },
+    ]);
   });
 
   it('fails to craft when the mixer does not match any recipe', () => {

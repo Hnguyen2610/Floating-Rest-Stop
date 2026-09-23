@@ -75,6 +75,7 @@ export async function createGameSystems(
     journalSystem,
     dayNightSystem,
   );
+  const audioSystem = new AudioSystem();
   const saveSystem = new SaveSystem(
     saveProvider,
     {
@@ -85,14 +86,13 @@ export async function createGameSystems(
       journalSystem,
       photoMomentSystem,
       paperBoatSystem,
-      dayNightSystem,
       cloudyCosmeticsSystem,
       tutorialSystem,
+      audioSystem,
     },
     eventBus,
   );
   await saveSystem.whenReady();
-  const audioSystem = new AudioSystem();
 
   systems = {
     emotionSystem,

@@ -27,6 +27,12 @@ export interface PaperBoatSaveEntry {
   canSend: boolean;
 }
 
+export interface AudioSettingsSave {
+  muted: boolean;
+  masterVolume: number;
+  busVolumes: Record<string, number>;
+}
+
 export interface SaveData {
   version: number;
   happinessCrystals: number;
@@ -37,9 +43,9 @@ export interface SaveData {
   journalLayout: Array<[string, JournalItemSaveEntry]>;
   paperBoat: PaperBoatSaveEntry;
   unlockedAreas: string[];
-  isNight: boolean;
   cloudyCosmetics: CloudyCosmeticsSaveEntry;
   hasSeenTutorial: boolean;
+  audioSettings?: AudioSettingsSave;
 }
 
 export interface SaveProvider {

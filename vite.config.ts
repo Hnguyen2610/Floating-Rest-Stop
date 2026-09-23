@@ -37,6 +37,20 @@ export default defineConfig(({ mode }) => {
     plugins: isPlayablesBuild ? [injectPlayablesSdk()] : [],
     build: {
       outDir: isPlayablesBuild ? 'dist-playables' : 'dist',
+      rolldownOptions: {
+        output: {
+          // Phaser is the bulk of the single-file bundle (the build warning
+          // this silences) and changes far less often than our own game
+          // code — its own chunk means a browser that already cached it
+          // from a previous visit/deploy doesn't re-download it just
+          // because a gameplay file changed. This build (vite 8.x) uses
+          // Rolldown under the hood, hence `rolldownOptions` rather than
+          // the classic Rollup-era `rollupOptions`.
+          manualChunks(id) {
+            if (id.includes('node_modules/phaser')) return 'phaser';
+          },
+        },
+      },
     },
     test: {
       environment: 'node',

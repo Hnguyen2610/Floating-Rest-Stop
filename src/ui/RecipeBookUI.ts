@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT } from '../core/GameConfig';
+import { createPanelBackground } from './PanelBackground';
+import { createCloseButton } from './Button';
 import type { WeatherSystem } from '../systems/WeatherSystem';
 import type { IngredientSystem } from '../systems/IngredientSystem';
 import type { GuestSystem } from '../systems/GuestSystem';
@@ -34,10 +36,7 @@ export class RecipeBookUI {
     this.panel = scene.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2);
     this.panel.setDepth(900);
 
-    const backdrop = scene.add
-      .rectangle(0, 0, PANEL_WIDTH, panelHeight, PALETTE.cloudWhite, 0.97)
-      .setStrokeStyle(2, PALETTE.eyeColor, 0.3);
-    this.panel.add(backdrop);
+    this.panel.add(createPanelBackground(scene, PANEL_WIDTH, panelHeight));
 
     const title = scene.add
       .text(0, -panelHeight / 2 + 26, '📖 Sổ Công Thức', {
@@ -48,16 +47,7 @@ export class RecipeBookUI {
       .setOrigin(0.5);
     this.panel.add(title);
 
-    const closeButton = scene.add
-      .text(PANEL_WIDTH / 2 - 20, -panelHeight / 2 + 20, '✕', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '18px',
-        color: '#5b4a63',
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    closeButton.on('pointerdown', () => this.hide());
-    this.panel.add(closeButton);
+    this.panel.add(createCloseButton(scene, PANEL_WIDTH / 2 - 20, -panelHeight / 2 + 20, () => this.hide()));
 
     const listTop = -panelHeight / 2 + HEADER_HEIGHT;
     recipes.forEach((recipe, index) => {
@@ -178,5 +168,9 @@ export class RecipeBookUI {
 
   hide(): void {
     this.panel.setVisible(false);
+  }
+
+  isOpen(): boolean {
+    return this.panel.visible;
   }
 }

@@ -3,6 +3,13 @@ import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
 import type { HappinessSystem } from '../systems/HappinessSystem';
 
+// Same texture as the flying HappinessCrystal collect animation (Pass "visual
+// upgrade" #2) — this persistent counter used to fall back to its own
+// separate procedural diamond even after that swap, so the crystal looked
+// right mid-flight but reverted to the old placeholder the moment it landed.
+const TEXTURE_KEY = 'collectible-happiness-crystal';
+const TARGET_WIDTH = 22;
+
 export class CrystalCounter extends Phaser.GameObjects.Container {
   private readonly label: Phaser.GameObjects.Text;
 
@@ -10,18 +17,24 @@ export class CrystalCounter extends Phaser.GameObjects.Container {
     super(scene, x, y);
     scene.add.existing(this);
 
-    const gem = scene.add.graphics();
-    gem.fillStyle(PALETTE.softYellow, 1);
-    gem.fillPoints(
-      [
-        { x: 0, y: -10 },
-        { x: 7, y: -2 },
-        { x: 0, y: 10 },
-        { x: -7, y: -2 },
-      ],
-      true,
-    );
-    this.add(gem);
+    if (scene.textures.exists(TEXTURE_KEY)) {
+      const image = scene.add.image(0, 0, TEXTURE_KEY);
+      image.setScale(TARGET_WIDTH / image.frame.width);
+      this.add(image);
+    } else {
+      const gem = scene.add.graphics();
+      gem.fillStyle(PALETTE.softYellow, 1);
+      gem.fillPoints(
+        [
+          { x: 0, y: -10 },
+          { x: 7, y: -2 },
+          { x: 0, y: 10 },
+          { x: -7, y: -2 },
+        ],
+        true,
+      );
+      this.add(gem);
+    }
 
     this.label = scene.add.text(16, -10, String(happinessSystem.getCount()), {
       fontFamily: FONT_FAMILY,

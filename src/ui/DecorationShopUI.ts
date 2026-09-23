@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { PALETTE, FONT_FAMILY } from '../core/GameConfig';
 import { eventBus } from '../core/EventBus';
+import { createPanelBackground } from './PanelBackground';
+import { createButtonBackground, type ButtonBackground } from './Button';
 import type { DecorationSystem } from '../systems/DecorationSystem';
 
 export class DecorationShopUI {
   private readonly panel: Phaser.GameObjects.Container;
-  private backgrounds = new Map<string, Phaser.GameObjects.Arc>();
+  private backgrounds = new Map<string, ButtonBackground>();
 
   constructor(
     private scene: Phaser.Scene,
@@ -17,23 +19,16 @@ export class DecorationShopUI {
 
     const definitions = decorationSystem.getAllDefinitions();
     const panelWidth = definitions.length * 56 + 16;
-    const backdrop = scene.add
-      .rectangle(0, 0, panelWidth, 68, PALETTE.cloudWhite, 0.92)
-      .setStrokeStyle(1, PALETTE.eyeColor, 0.25);
-    this.panel.add(backdrop);
+    this.panel.add(createPanelBackground(scene, panelWidth, 68));
 
     const startX = -(definitions.length - 1) * 28;
     definitions.forEach((def, index) => {
       const itemX = startX + index * 56;
       const item = scene.add.container(itemX, 0);
 
-      const bg = scene.add.circle(
-        0,
-        -6,
-        16,
-        PALETTE.lavender,
-        decorationSystem.isUnlocked(def.id) ? 0.9 : 0.35,
-      );
+      const bg = createButtonBackground(scene, 32, 32, PALETTE.lavender);
+      bg.y = -6;
+      bg.setAlpha(decorationSystem.isUnlocked(def.id) ? 0.9 : 0.35);
       const label = scene.add
         .text(0, 18, String(def.cost), {
           fontFamily: FONT_FAMILY,
@@ -72,7 +67,11 @@ export class DecorationShopUI {
     this.panel.setVisible(false);
   }
 
-  private tryUnlock(id: string, bg: Phaser.GameObjects.Arc): void {
+  isOpen(): boolean {
+    return this.panel.visible;
+  }
+
+  private tryUnlock(id: string, bg: ButtonBackground): void {
     if (this.decorationSystem.isUnlocked(id)) return;
     if (!this.decorationSystem.unlock(id)) {
       this.scene.tweens.add({ targets: bg, x: bg.x - 4, duration: 60, yoyo: true, repeat: 3 });

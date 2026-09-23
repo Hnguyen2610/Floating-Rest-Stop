@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 import { PALETTE } from '../core/GameConfig';
 import { ParticleEffect } from '../utils/ParticleEffect';
 
+// Single fixed visual (no variant selection needed), same direct
+// texture-check pattern as StationScene's platform/Cloudy — no AssetRegistry
+// indirection, since there's nothing to key by id here.
+const TEXTURE_KEY = 'collectible-happiness-crystal';
+const TARGET_WIDTH = 40;
+
 export class HappinessCrystal extends Phaser.GameObjects.Container {
   constructor(
     scene: Phaser.Scene,
@@ -13,28 +19,34 @@ export class HappinessCrystal extends Phaser.GameObjects.Container {
     super(scene, x, y);
     scene.add.existing(this);
 
-    const gem = scene.add.graphics();
-    gem.fillStyle(PALETTE.softYellow, 1);
-    gem.fillPoints(
-      [
-        { x: 0, y: -16 },
-        { x: 11, y: -3 },
-        { x: 0, y: 16 },
-        { x: -11, y: -3 },
-      ],
-      true,
-    );
-    gem.fillStyle(0xffffff, 0.6);
-    gem.fillPoints(
-      [
-        { x: 0, y: -16 },
-        { x: 4, y: -6 },
-        { x: 0, y: 3 },
-        { x: -4, y: -6 },
-      ],
-      true,
-    );
-    this.add(gem);
+    if (scene.textures.exists(TEXTURE_KEY)) {
+      const image = scene.add.image(0, 0, TEXTURE_KEY);
+      image.setScale(TARGET_WIDTH / image.frame.width);
+      this.add(image);
+    } else {
+      const gem = scene.add.graphics();
+      gem.fillStyle(PALETTE.softYellow, 1);
+      gem.fillPoints(
+        [
+          { x: 0, y: -16 },
+          { x: 11, y: -3 },
+          { x: 0, y: 16 },
+          { x: -11, y: -3 },
+        ],
+        true,
+      );
+      gem.fillStyle(0xffffff, 0.6);
+      gem.fillPoints(
+        [
+          { x: 0, y: -16 },
+          { x: 4, y: -6 },
+          { x: 0, y: 3 },
+          { x: -4, y: -6 },
+        ],
+        true,
+      );
+      this.add(gem);
+    }
 
     this.setSize(48, 48);
     // Container hit-test coords are relative to the top-left of setSize(), not the
@@ -75,6 +87,7 @@ export class HappinessCrystal extends Phaser.GameObjects.Container {
       duration: 350,
       ease: 'Cubic.easeIn',
       onComplete: () => {
+        ParticleEffect.createSparkleEffect(this.scene, this.counterPosition.x, this.counterPosition.y);
         this.onCollect();
         this.destroy();
       },

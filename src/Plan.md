@@ -2208,3 +2208,229 @@ src/scenes/StationScene.ts               — instantiate WelcomeGuideUI, nút �
 ```
 
 **Verify:** `tsc`/`vitest` (115/115, tăng từ 112 — 3 test mới)/`lint`/`build` sạch cả 4. Playwright thật, đủ 4 bước của đúng kịch bản người chơi mới: (1) vào game lần đầu (localStorage trống) → bảng tự hiện đúng nội dung; (2) bấm "Bắt đầu thôi!" → đóng lại, về gameplay bình thường; (3) đợi qua debounce autosave rồi **reload trang thật** → bảng **không** tự hiện lại (xác nhận cờ đã lưu đúng qua SaveProvider, không phải chỉ đóng tạm trong phiên); (4) bấm nút ❓ → mở lại đúng bảng đó bất cứ lúc nào. 0 console error xuyên suốt cả 4 bước.
+
+---
+
+# ✅ Full màn hình (web + điện thoại xoay ngang) (2026-09-18)
+
+Người dùng yêu cầu "thiết kế full màn hình cho web và cho cả điện thoại xoay ngang". Đi qua đầy đủ quy trình brainstorming (spec → duyệt → làm thẳng, người dùng chọn bỏ qua bước viết plan riêng: *"làm luôn giúp tôi, không cần viết plan"*) — spec đầy đủ ở `docs/superpowers/specs/2026-09-18-fullscreen-responsive-design.md`. Tóm tắt quyết định qua 2 câu hỏi:
+
+1. **"Full màn hình" nghĩa là gì:** lấp đầy tuyệt đối, chấp nhận crop rìa tuỳ máy (không phải chỉ co giãn giữ tỉ lệ kiểu cũ).
+2. **Điện thoại đang dọc:** hiện overlay nhắc xoay ngang, không thiết kế layout dọc riêng.
+
+## Đổi cơ chế scale — `Phaser.Scale.FIT` → `ENVELOP`
+
+`src/core/Game.ts` đổi 1 dòng config — giữ nguyên độ phân giải nội bộ 1280×720 (không đụng vào bất kỳ toạ độ pixel nào có sẵn trong hàng chục file), chỉ đổi cách Phaser co giãn: `ENVELOP` phóng canvas phủ kín khung nhìn thật, cắt bớt trục thừa ra thay vì để viền trống như `FIT`.
+
+## Vùng an toàn (safe zone) — kéo UI rìa vào 80px
+
+Thêm `SAFE_ZONE_MARGIN = 80` vào `GameConfig.ts`. Vì `ENVELOP` cắt theo tỉ lệ máy thật (điện thoại ngang hiện đại thường *rộng hơn* 16:9 → cắt trên/dưới; máy tính bảng/cửa sổ hẹp thường *hẹp hơn* → cắt trái/phải), rà lại và dời **mọi** UI từng nằm sát rìa khung 1280×720 vào trong ít nhất 80px:
+
+```text
+src/scenes/StationScene.ts — Title, CrystalCounter, cụm nút mute/settings/
+                              day-night/help (❓ mới từ pass trước), nút
+                              Sổ Công Thức, WeatherMixerUI, InventoryUI,
+                              cả 2 cụm BottomNavUI
+src/scenes/JournalScene.ts — Title, nút "← Quay lại", nút "🎀 Trang trí",
+                              dải sticker dưới cùng, VÀ (phát hiện qua
+                              Playwright thật, không phải chỉ đọc code)
+                              lưới chương/thẻ ký ức: leftMargin cũ
+                              (GAME_WIDTH*0.1=128) không tính tới việc thẻ
+                              ký ức đầu tiên còn lệch trái thêm 50px nữa
+                              (nửa bề rộng thẻ) — ảnh chụp thật cho thấy
+                              thẻ "01 Lần Ghé Đầu Tiên" bị cắt mất một
+                              phần dù con số 128 tưởng chừng đã đủ margin;
+                              sửa thành SAFE_ZONE_MARGIN+100. Tương tự
+                              rowStartY cũ (115) đặt tên khách ở y=60,
+                              đè lên đúng chỗ nút back/title mới dời tới
+                              — sửa thành SAFE_ZONE_MARGIN+120
+```
+
+## Vượt phạm vi tỉ lệ mục tiêu — `ScaleClamp` (phát hiện + sửa qua test thật)
+
+Spec ban đầu chấp nhận "ngoài dải [1.5, 2.2] có thể crop vào phần đệm, nhưng nút bấm vẫn phải bấm được". **Test thật bằng Playwright lộ ra điều này không đúng như kỳ vọng:** giả lập iPad ngang (1024×768, tỉ lệ 1.33) cho thấy `ENVELOP` cắt tới ~160px mỗi bên — gấp đôi ngân sách 80px — và **mất hẳn cả nút** (nút "Nhật ký" biến mất hoàn toàn, cụm mute/settings/day-night/help biến mất hoàn toàn), không phải chỉ mất viền đệm quanh nút như dự tính.
+
+Sửa bằng `src/ui/ScaleClamp.ts` (mới) — vì Phaser không có sẵn chế độ "envelop nhưng giới hạn mức crop tối đa", tự kẹp kích thước phần tử `#app` (cha của canvas) về đúng dải tỉ lệ mà mức crop không bao giờ vượt quá 80px (`MIN_RATIO=1.56`, `MAX_RATIO=2.2` — 2 số này giải trực tiếp từ công thức "crop mỗi bên = 80px" cho từng hướng, không phải số áng chừng). `ENVELOP` vẫn phủ kín đúng như thiết kế, chỉ là phủ kín cái khung ĐÃ ĐƯỢC KẸP đó — máy có tỉ lệ ngoài dải sẽ thấy 1 viền màu nền rất mỏng ở 2 bên thay vì cắt mất nút, giống hệt tinh thần `FIT` cũ nhưng hẹp hơn nhiều. `index.html` thêm `display:flex;align-items:center;justify-content:center` cho `body` để canh giữa khung đã kẹp. `Game.ts` gọi `installScaleClamp()` ngay sau khi tạo `game`, cùng chỗ với `installOrientationGuard()`.
+
+## Overlay "xoay ngang điện thoại" — `OrientationGuard`
+
+`src/ui/OrientationGuard.ts` (mới) — module độc lập, KHÔNG gắn vào `Platform.ts`/`PlatformAdapter` sẵn có (xoay màn hình là mối quan tâm khác hẳn vòng đời pause/resume mà hệ thống đó mô hình hoá, và YouTube Playables không có khái niệm tương đương cho "hãy xoay máy"). Theo dõi `matchMedia('(pointer: coarse)')` (đúng thiết bị cảm ứng thật, không nhầm với cửa sổ desktop bị co hẹp) **và** `matchMedia('(orientation: portrait)')` cùng lúc — cả 2 đúng thì phủ 1 overlay HTML/CSS thuần (không phải Phaser GameObject, nên hoạt động bất kể scene nào đang chạy) + gọi `game.loop.sleep()`; hết đúng 1 trong 2 thì ẩn + `wake()`.
+
+**Giới hạn đã biết, chấp nhận:** `game.loop.sleep()/wake()` không đếm tham chiếu — nếu tab bị ẩn (Platform's onPause) ĐỒNG THỜI máy đang dọc, `OrientationGuard` và `Platform` có thể giẫm lên nhau (1 bên gọi `wake()` trong khi bên kia vẫn muốn ngủ). Cùng kiểu đơn giản hoá đã chấp nhận ở các chỗ gọi `sleep()/wake()` khác có sẵn trong code — không tự ý làm phức tạp hơn (thêm cơ chế đếm tham chiếu) cho 1 tình huống hiếm (vừa ẩn tab vừa đang cầm máy dọc cùng lúc).
+
+## CSS/HTML bổ sung
+
+`index.html`: `viewport-fit=cover` vào meta viewport (để iOS Safari cho phép nội dung tràn tới sau notch/thanh home thay vì tự chừa viền), `padding: env(safe-area-inset-*)` cho `#app` (phòng vệ tiêu chuẩn, không có tác dụng gì trên máy không notch nên không rủi ro).
+
+**Verify:** `tsc`/`vitest` (115/115)/`lint`/`npm run build`/`npm run build:playables` sạch cả 5. Playwright thật qua ma trận 5 kích thước màn hình (iPhone SE ngang 667×375, iPhone 14 ngang 844×390, laptop 1366×768, iPad ngang 1024×768, ultra-wide 2560×1080) + 2 test cảm ứng riêng (dọc máy thật → overlay hiện + `sleep()`; xoay ngang → overlay ẩn + `wake()`; cửa sổ desktop hẹp/dọc giả — xác nhận **không** hiện overlay nhầm). Không chỉ chụp ảnh — còn bấm thật vào từng nút đã dời vị trí (Sổ Công Thức, Nhật ký) trên 2 viewport đại diện (iPhone 14 ngang, iPad ngang đã kẹp tỉ lệ) và xác nhận đúng hành vi (mở đúng panel/chuyển đúng scene), không chỉ nhìn thấy đúng vị trí. Chính pha test-thật-bằng-ảnh-chụp này phát hiện ra 2 vấn đề thật không thấy được nếu chỉ tính toán bằng tay (mất nút hoàn toàn ở iPad ngang trước khi có `ScaleClamp`; thẻ ký ức + tên khách đầu tiên bị cắt/đè trong Journal) — đúng tinh thần xuyên suốt cả phiên làm việc: verify bằng browser thật, không chỉ tin vào suy luận trên giấy.
+
+---
+
+# Nâng cấp visual (2026-09-18) — bắt đầu chuỗi 4 đợt
+
+Người dùng: *"tôi muốn làm game đẹp hơn nữa, game này rất quan trọng visual"*. Rà lại code xác nhận 5 mảng còn "vẽ bằng code" (chưa lên ảnh minh hoạ): nền tảng mây (3 ellipse phẳng), 5 món trang trí (kiến trúc swap đã có sẵn từ trước nhưng chưa từng có ảnh đăng ký), 2 icon nhặt được (pha lê, máy ảnh), khung UI (panel/nút), và hiệu ứng thời tiết theo công thức (field `visualEffect` tồn tại trong data nhưng chưa từng được code nào đọc — hiệu ứng thực tế hiện tại giống hệt nhau cho mọi công thức). Người dùng chọn làm **cả 4** — tách thành 4 đợt tuần tự thay vì 1 đặc tả gộp (mỗi mảng khác hẳn nhau về phong cách/rủi ro/effort, giống cách khách và Cloudy từng được tách thành 2 đợt riêng trước đó): (1) nền tảng mây, (2) trang trí + icon nhặt, (3) khung UI, (4) hiệu ứng thời tiết.
+
+## Đợt 1 — Nền tảng mây: brainstorm xong, đang chờ ảnh
+
+Đi qua brainstorming: chọn "đảo nhỏ trôi nổi (cỏ/gỗ/đá) trên nền mây" (không phải mây thuần), chọn "to hơn, chiếm nhiều màn hình hơn" so với ellipse cũ (420×140). Đã viết prompt Gemini đưa cho người dùng (đính kèm `cloudy/default/idle.png` làm ảnh tham chiếu phong cách) — **đang chờ người dùng tạo ảnh**, chưa có file thật.
+
+**✅ Đã chuẩn bị kiến trúc code trước khi có ảnh** (cùng cách đã làm với Guest/Decoration/Cloudy — viết code sẵn sàng nhận ảnh, không chờ ảnh xong mới viết code):
+
+- `StationScene.ts` `drawPlatform()` — check `this.textures.exists('platform')`, có thì `add.image()` (scale theo `PLATFORM_TARGET_WIDTH = 640`, ~1.5x kích thước ellipse cũ theo đúng yêu cầu "to hơn"), không thì fallback 3 ellipse cũ y nguyên. Chưa cần qua `AssetRegistry` vì chỉ có 1 platform duy nhất (không phải nhiều biến thể như khách/trang trí).
+- **Phát sinh thêm khi đang làm đợt này:** người dùng yêu cầu bổ sung "làm cho cả ngày/đêm" cho nền tảng — xem mục ngày/đêm bên dưới, `drawPlatform()` đã có sẵn `platformTextureKey()` chọn `platform-night` nếu tồn tại và đang là đêm, nên khi có đủ 2 ảnh (ngày + đêm) chỉ cần thả file + đăng ký preload, không cần sửa code lần nữa.
+
+## ✅ Ngày/đêm chuyển theo giờ thật (2026-09-18)
+
+Người dùng yêu cầu thêm: *"sẽ chuyển ngày đêm theo giờ hiện tại"* — đảo ngược hẳn quyết định thiết kế cũ ở Pass 21 (nút ☀️/🌙 thủ công, lý do ban đầu: "no time pressure"). Hỏi lại 2 điểm trước khi sửa (ảnh hưởng thật đến gameplay, không chỉ đổi giao diện):
+
+1. **Nút bật ngày/đêm thủ công:** người dùng chọn **bỏ hẳn**, hoàn toàn theo giờ thật.
+2. **Điều kiện Aurora yêu cầu đang là đêm** (`RareGuestSystem.isAuroraAvailable()`): người dùng chọn **giữ nguyên** — gặp Aurora vẫn cần quay lại đúng lúc trời tối thật (giống Animal Crossing), không nới lỏng điều kiện.
+
+**`src/systems/DayNightSystem.ts`** — viết lại hoàn toàn: bỏ `toggle()`/`restoreIsNight()`, `isNight()` giờ tính từ đồng hồ thật (`new Date().getHours()`, khung giờ `DAY_START_HOUR=6`/`NIGHT_START_HOUR=18` mới thêm vào `GameConfig.ts` — giờ cố định đơn giản, không phải sunrise/sunset theo vị trí địa lý vì quá dư thừa cho 1 game cozy). Đồng hồ được tiêm qua constructor (`now: () => Date`, mặc định `() => new Date()`) để test được xác định (không phụ thuộc giờ thật lúc chạy CI). Thêm `refresh()` — so sánh với giá trị lần trước, chỉ bắn `daynight:changed` khi thật sự đổi (không bắn liên tục mỗi lần gọi). Thêm `debugCycleOverride()` dev-only (phím tắt `N`, đã có sẵn gate `import.meta.env.DEV` từ trước) — cycle qua đêm → ngày → về giờ thật, để dev xem trước cả 2 giao diện mà không cần chỉnh đồng hồ hệ điều hành thật.
+
+**Dọn `isNight` khỏi save data** — vì giờ luôn tính lại từ đồng hồ thật, không còn là trạng thái cần lưu nữa (khác hẳn ý nghĩa cũ khi nó là lựa chọn thủ công của người chơi): xoá field `isNight` khỏi `SaveProvider.ts`/`saveMigration.ts`/`SaveSystem.ts` (gather/apply/autosave-trigger) và toàn bộ test liên quan — save cũ có sẵn field này trong localStorage vẫn đọc được bình thường (`normalizeSaveData` chỉ đọc field nó biết, field lạ bị bỏ qua an toàn, không cần bước migrate).
+
+**`StationScene.ts`** — bỏ hẳn `drawDayNightToggle()` và field `dayNightButton` (nút ☀️/🌙 vật lý biến mất khỏi UI); nút ❓ dời vào giữa ô trống nút để lại (từ `GAME_WIDTH-142` sang `GAME_WIDTH-126`) cho cụm góc trên phải không bị lệch. Thêm timer lặp mỗi 60s gọi `dayNightSystem.refresh()`, và lắng nghe `daynight:changed` (`handleDayNightChanged`) để `redrawSky()` + `updatePlatformForDayNight()` + `syncAmbience()` — phiên chơi để mở xuyên qua mốc 6h/18h thật sẽ tự cập nhật, không cần tải lại trang.
+
+**Verify:** `tsc`/`vitest` (116/116, tăng từ 115)/`lint`/`build` sạch. `DayNightSystem.test.ts` viết lại hoàn toàn dùng đồng hồ giả (`atHour(h)` helper) — test đúng biên giờ (5h59 vs 6h vs 17h59 vs 18h), test `refresh()` chỉ bắn event khi thật sự đổi (không bắn trùng), test cycle debug override. Playwright thật: phím `N` cycle qua cả 3 trạng thái (đêm ép buộc → sky chuyển navy đậm; ngày ép buộc → sky pastel; về giờ thật → khớp đúng giờ thật lúc chạy test), chụp ảnh xác nhận màu sky đổi đúng ở cả 3 bước, cụm nút góc trên phải không còn khoảng trống nơi nút cũ từng đứng, 0 console error.
+
+## ✅ Đợt 1 hoàn tất — Tích hợp ảnh nền tảng mây (ngày + đêm) (2026-09-18)
+
+Người dùng gửi 2 ảnh (`platform_day.png`, `platform_night.png`) đúng theo prompt đã viết — chất lượng đúng như mong đợi (đảo cỏ/đá/gỗ trên nền mây, bản đêm có đom đóm phát sáng), khớp phong cách Mây Bông.
+
+**Xử lý ảnh:** cùng kỹ thuật flood-fill xoá nền đã dùng xuyên suốt (ngưỡng màu 28, 7 điểm neo góc/cạnh) — verify riêng bằng composite thử lên nền xanh da trời (ngày) và xanh navy (đêm) để xác nhận không viền trắng quanh các đốm sáng nhỏ (rủi ro cao nhất, giống bài học từ quầng sáng Aurora/Comet trước đây). Resize còn tối đa 900px cạnh dài (rộng hơn mức 700px dùng cho khách, vì đây là background lớn nhất). Lưu vào `public/assets/platform/{day,night}.png`.
+
+**Tích hợp:** `PreloadScene.ts` thêm 2 dòng `this.load.image('platform', ...)`/`this.load.image('platform-night', ...)` trực tiếp (không qua `AssetRegistry`, đúng như đã thiết kế từ đầu vì chỉ có 1 platform). Không cần sửa gì thêm ở `StationScene.ts` — kiến trúc `drawPlatform()`/`platformTextureKey()`/`updatePlatformForDayNight()` đã viết sẵn từ lúc làm hệ thống ngày/đêm, chỉ cần thả file đúng tên là chạy được ngay (đúng đề bài đặt ra: chuẩn bị kiến trúc trước, điền ảnh sau).
+
+**Verify:** `tsc`/`vitest` (116/116)/`lint`/`build`/`build:playables` sạch cả 5. Playwright thật: ảnh đảo hiện đúng cả bản ngày lẫn đêm (ép qua phím debug `N`), Mây Bông + khách (thử với Mặt Trời) đứng tự nhiên trên mặt cỏ của đảo — không cần chỉnh lại toạ độ Cloudy/khách/nav như đã lo trước đó, `PLATFORM_TARGET_WIDTH=640` khớp vừa vặn với bố cục hiện có ngay từ lần thử đầu. 0 console error.
+
+**Còn lại của chuỗi 4 đợt nâng cấp visual (lúc đó):** (2) trang trí + icon nhặt được, (3) khung UI, (4) hiệu ứng thời tiết riêng từng công thức — chưa bắt đầu.
+
+---
+
+## ✅ Đợt 2 hoàn tất — Trang trí + icon nhặt được (2026-09-18)
+
+Hỏi phạm vi trước: 5 trang trí có cần biến thể ngày/đêm không — người dùng chọn **chỉ đèn đom đóm** có bản đêm phát sáng (4 món còn lại dùng chung 1 ảnh). Tổng 8 ảnh: 4 trang trí đơn + đèn đom đóm ngày/đêm + 2 icon nhặt được (pha lê hạnh phúc, icon khoảnh khắc). Viết 8 prompt Gemini, đính kèm `platform/day.png` làm ảnh tham chiếu phong cách (vật thể, không phải nhân vật, nên dùng ảnh đảo thay vì ảnh Mây Bông). Tạo sẵn `public/assets/decorations/` và `public/assets/collectibles/` để người dùng lưu thẳng vào.
+
+**🐛 Bug thật phát hiện khi xử lý ảnh — khoen/dây treo trong suốt bị lộ thành trắng đặc:** 3 ảnh có khoen dây treo (chuông gió, đèn đom đóm ngày + đêm) đều có phần trong khoen là 1 vùng trắng **kín hoàn toàn** (bị bao quanh bởi nét viền, không chạm rìa ảnh) — flood-fill xoá nền seed từ góc/cạnh ảnh (kỹ thuật dùng xuyên suốt) **đúng theo thiết kế không đụng tới** vùng kín này, coi nó là nội dung chứ không phải nền. Nhưng khác với các trường hợp trước (thân Mây Bông, quầng sáng Aurora/Comet) vốn có màu sắc/shading rõ ràng, vùng khoen ở đây thực chất là (255,255,254) — trùng y hệt màu nền — nên khi ghép lên nền tối (ban đêm) nó lộ ra thành 1 khối trắng đặc bất thường, giống lỗi cắt ảnh chứ không phải dây treo màu nhạt có chủ đích.
+
+Sửa: viết script quét từng ảnh tìm điểm ảnh trắng đục còn sót (đặc điểm nhận diện: alpha>0 và gần trắng tuyệt đối — sau lượt xoá nền đầu tiên, CHỈ còn đúng vùng khoen thoả điều kiện này, không lẫn với highlight bóng loáng hợp lệ ở chỗ khác của ảnh) để tự tìm toạ độ seed, rồi flood-fill lần 2 từ chính giữa vùng đó với ngưỡng màu cao hơn (45 thay vì 28, vì vùng khoen có gradient nội bộ nhẹ khiến ngưỡng thấp chỉ xoá được 1 mảnh nhỏ chứ không hết cả vùng — phát hiện qua debug thực tế, không đoán trước được). Verify lại bằng composite lên nền tối cho cả 3 ảnh — khoen dây giờ trong suốt đúng.
+
+**Tích hợp:**
+```text
+src/core/AssetRegistry.ts    — thêm bảng DECORATION_FILES đăng ký 5 trang trí; resolveDecorationAsset()
+                                 thêm tham số isNight (mặc định false) — thử key "<id>.night" trước nếu có
+                                 đăng ký (chỉ firefly_lantern), không thì rơi về key ngày/dùng chung như cũ
+src/entities/Decoration.ts   — thêm tham số constructor isNight (quyết định 1 lần lúc đặt trang trí, KHÔNG
+                                 tự cập nhật khi ngày/đêm đổi giữa phiên chơi — trang trí đặt 1 lần và hiếm
+                                 khi vẽ lại, khác hẳn sky/platform vốn vẽ lại mỗi lần daynight:changed) +
+                                 setScale theo TARGET_WIDTH riêng từng món (70-110px)
+src/scenes/StationScene.ts   — placeDecoration() truyền dayNightSystem.isNight() vào Decoration
+src/entities/HappinessCrystal.ts, PhotoMomentIcon.ts — thêm nhánh texture-swap (check scene.textures.exists,
+                                 có thì dùng ảnh + setScale, không thì fallback Graphics cũ) — cùng pattern
+                                 trực tiếp như platform/Cloudy (không qua AssetRegistry, vì chỉ 1 ảnh cố định
+                                 mỗi loại, không có biến thể cần tra theo id)
+src/scenes/PreloadScene.ts   — thêm 2 dòng load trực tiếp cho 2 collectible; trang trí tự nạp qua
+                                 getAllRegisteredAssets() có sẵn, không cần sửa gì thêm
+```
+
+**🐛 Bug thật thứ 2 phát hiện qua Playwright — chuông gió che khuất kho nguyên liệu:** ảnh trang trí thật to hơn nhiều so với hình vẽ-bằng-code cũ (chuông gió: 56px → 125px cao) — vị trí đặt cũ (`slotX: 0.08, slotY: 0.3` trong `decorations.json`, giữ nguyên từ thời hình nhỏ) giờ đè kín 3/5 dòng của `InventoryUI` (góc trên trái). Đây là xung đột vị trí đã tồn tại tiềm ẩn từ trước (ngay cả hình nhỏ cũ cũng hơi chồng lên vùng đó) nhưng chỉ thật sự lộ rõ khi hình đủ to — sửa bằng cách dời `slotX` từ 0.08 lên 0.16 trong data (không đụng code), đã tính toán + xác nhận lại bằng ảnh chụp không còn chồng chéo. Rà lại toạ độ 4 trang trí còn lại (đèn đom đóm, võng, bàn trà, chong chóng) so với mọi UI cố định khác — không phát hiện xung đột nào thêm.
+
+**Verify:** `tsc`/`vitest` (119/119, tăng từ 116 — thêm test cho decoration night-variant resolve)/`lint`/`build`/`build:playables` sạch cả 5. Playwright thật: seed sẵn `localStorage` với toàn bộ khu vực/trang trí đã mở khoá (tránh phải bấm mua từng món qua UI) — xác nhận cả 5 trang trí hiện đúng ảnh, đúng vị trí, không chồng UI; ép đêm qua phím `N` xác nhận đèn đom đóm chuyển đúng sang bản phát sáng, 4 món còn lại giữ nguyên (đúng thiết kế). Pha lê hạnh phúc: dàn dựng chuỗi pha chế + dỗ khách thật (không phải mock) tới đúng lúc `guest:relaxed` bắn ra, chụp ảnh đúng khung hình rơi xuống — xác nhận đúng hình kim cương ảnh thật, không phải hình thoi vẽ-bằng-code cũ. Icon khoảnh khắc: xác nhận bằng code review rằng dùng đúng pattern đã verify với pha lê (không tự thấy được trong game vì icon này gắn với `sun_memory_4`/chương 4, cần 6 lượt ghé + trust 40 — đúng hành vi đã cố ý gate chặt từ Pass 31, không phải thiếu sót lần này). 0 console error xuyên suốt toàn bộ quá trình test.
+
+**Còn lại của chuỗi 4 đợt nâng cấp visual (lúc đó):** (3) khung UI, (4) hiệu ứng thời tiết riêng từng công thức — chưa bắt đầu.
+
+---
+
+## ✅ Đợt 3 hoàn tất — Khung UI qua kỹ thuật 9-slice (2026-09-18)
+
+Hỏi hướng làm trước: mở rộng phong cách "thẻ mây" của `BottomNavUI` bằng code (nhanh, an toàn) hay tạo ảnh nền panel thật qua kỹ thuật 9-slice (đẹp/nhất quán hơn nhưng lần đầu dùng 9-slice trong dự án, rủi ro kỹ thuật cao hơn hẳn). Người dùng chọn **9-slice**.
+
+**Rà code trước khi làm:** 8/9 file UI (`RecipeBookUI`, `WelcomeGuideUI`, `DecorationShopUI`, `StationAreaShopUI`, `CloudyCosmeticsShopUI`, `AudioSettingsUI`, `PaperBoatUI`, `GuestHintUI`) đều tự vẽ `scene.add.rectangle()` phẳng độc lập — xác nhận không file nào dùng biến `backdrop` cho việc gì khác ngoài `.add()` vào container, nên có thể gộp an toàn thành 1 điểm swap chung.
+
+**Kiến trúc chuẩn bị trước khi có ảnh (đúng thứ tự đã làm mọi đợt trước):**
+```text
+src/ui/PanelBackground.ts (mới) — createPanelBackground(scene, width, height): có texture
+                                    'panel-frame' thì trả về Phaser NineSlice (scene.add.nineslice),
+                                    không thì fallback rectangle phẳng y hệt code cũ. CORNER_SIZE
+                                    (vùng góc không bị kéo giãn) đặt tạm 48, sẽ đo lại từ ảnh thật.
+```
+Sửa cả 8 file trên để gọi `createPanelBackground(scene, w, h)` thay vì tự vẽ rectangle — refactor thuần, verify bằng Playwright xác nhận **không đổi gì về hình ảnh** (fallback vẫn giống hệt code cũ) trước khi viết prompt, đúng nguyên tắc tách bạch "đổi kiến trúc" và "đổi hình ảnh" thành 2 bước riêng có thể verify độc lập.
+
+**Prompt Gemini:** 1 ảnh vuông duy nhất (không cần nhiều biến thể — dùng lại cho cả 8 panel qua 9-slice, đúng tinh thần tái dùng thay vì tạo ảnh riêng từng panel). Nhấn mạnh trong prompt: *không được có chi tiết trang trí riêng lẻ nào* (không hoa văn/sao/logo đơn lẻ) vì ảnh sẽ bị kéo giãn theo cạnh và ở giữa — bài học rút ra trực tiếp từ việc hiểu cơ chế 9-slice trước khi viết prompt, không phải phát hiện sau khi lỗi.
+
+**Đo thông số thật từ ảnh nhận được (không đoán):** viết script quét pixel-by-pixel để tìm chính xác bán kính bo góc (đường cong góc kết thúc ở y≈30 trên ảnh đã resize 300×300) và độ dày viền (~4-5px) — từ đó chốt `CORNER_SIZE = 36` (30 + đệm 6px), thay cho số 48 đoán tạm ban đầu. Xử lý ảnh: cùng kỹ thuật flood-fill quen thuộc, crop bbox, resize còn 300×300 (đủ nét cho panel lớn nhất trong game ~450px, không cần giữ nguyên 2048×2048 gốc).
+
+**Tích hợp:** `PreloadScene.ts` thêm 1 dòng load cho `panel-frame`. Không cần sửa gì thêm ở 8 file UI — kiến trúc `createPanelBackground()` đã chuẩn bị sẵn tự động nhận ảnh khi có.
+
+**Verify:** `tsc`/`vitest` (119/119)/`lint`/`build`/`build:playables` sạch cả 5. Playwright thật mở đủ cả 8 panel (từ nhỏ nhất — hint box 340×64 — tới lớn nhất — sổ công thức ~380×446) — xác nhận NineSlice co giãn mượt ở mọi kích thước/tỉ lệ khác nhau, góc bo tròn nhất quán, không lỗi vệt nối (seam) hay méo hình ở bất kỳ panel nào, 0 console error.
+
+---
+
+## ✅ Đợt 4 hoàn tất — Hiệu ứng thời tiết riêng từng công thức (2026-09-23)
+
+Đợt cuối trong chuỗi 4 đợt nâng cấp visual — khác hẳn 3 đợt trước: không phải thay ảnh, mà lần đầu tiên field `visualEffect` trong `recipes.json` (`"drizzle"`/`"starlight"`/`"breeze"`/`"aurora"`/`"comet"`) được dùng thật — trước giờ tồn tại trong data nhưng chưa từng có code nào đọc, mọi công thức pha thành công đều chỉ chạy đúng 1 hiệu ứng lấp lánh giống hệt nhau.
+
+**Quyết định phạm vi (tự chọn, không hỏi lại):** tái dùng texture `sparkle.png` sẵn có cho cả 5 hiệu ứng — phân biệt qua màu sắc/hướng chuyển động/blend mode thay vì vẽ 5 ảnh mới, giữ đúng tinh thần "Subtle > Flashy" và tái dùng kiến trúc `ParticleEffect.ts` đã có (`scene.add.particles` + `explode()`, đúng pattern Phaser 3.90 đã dùng cho sparkle/glow trước đó).
+
+**`src/utils/ParticleEffect.ts`** — thêm `createWeatherEffect(scene, x, y, visualEffect)` — dispatcher switch theo đúng giá trị field `visualEffect`, gọi 1 trong 5 method riêng:
+```text
+drizzle  (Mặt Trời)  — hạt rơi thẳng xuống có trọng lực thật (gravityY:160) — hiệu ứng
+                        DUY NHẤT trong 5 cái thật sự "rơi", 4 cái còn lại đều lơ lửng
+starlight (Mặt Trăng) — bụi trôi chậm lên trên, lifespan dài nhất (1400ms) — "mơ màng"
+breeze   (Bướm)       — hạt quét ngang qua khách (angle hẹp quanh 0°) thay vì toả tròn
+aurora   (Cực Quang)  — 2 emitter chồng màu khác nhau, góc toả rộng nhất (200°-340°) —
+                        đọc như 1 "dải" quét qua thay vì 1 cụm nổ
+comet    (Sao Chổi)   — tốc độ cao nhất, lifespan ngắn nhất (450ms), blend ADD — hiệu
+                        ứng DUY NHẤT có glow cộng sáng, còn lại đều NORMAL blend
+```
+`StationScene.ts` — `handleGuestInteraction()`'s nhánh recipe-tap giờ gọi `createWeatherEffect(this, x, y, recipe.visualEffect)` thay cho `createSparkleEffect` cố định cũ. Nhánh 'direct'/rub (Bé Sao Nhút Nhát) **giữ nguyên** `createSparkleEffect` — không phải công thức thời tiết nên không có `visualEffect` để đọc.
+
+**🐛 Bug thật tự phát hiện và tự sửa trong lúc verify — màu pastel hoà lẫn vào bầu trời:** bản đầu tiên tint theo đúng màu `PALETTE` sẵn có (`skyTop`, `lavender`, `mint` — nhạt, đúng phong cách UI game) nhưng khi test bằng Playwright, **cả 5 hiệu ứng đều "vô hình"** trên ảnh chụp toàn màn hình. Debug có hệ thống trước khi kết luận là lỗi thật: (1) test lại hiệu ứng sparkle CŨ (code không đổi, đã coi là "đã chứng minh hoạt động" từ trước) bằng đúng phương pháp Playwright này — cũng "vô hình" ở ảnh toàn màn hình, chỉ thấy rõ khi crop-zoom kỹ — chứng tỏ vấn đề đầu tiên là phương pháp test (cần zoom), không phải bug; (2) sau khi zoom kỹ, sparkle cũ hiện rõ nhưng cả 5 hiệu ứng mới vẫn không thấy gì ngay cả khi zoom — nghi ngờ thật; (3) làm 1 bản debug "cực đoan" (màu hồng sen chói, scale to gấp 4, alpha 1, lifespan 3s) cho riêng comet — hiện rõ ràng, xác nhận cơ chế particle hoàn toàn đúng, vấn đề chỉ nằm ở lựa chọn màu; (4) thêm `console.log` tạm xác nhận `createWeatherEffect` nhận đúng `visualEffect` mỗi lần gọi — loại trừ khả năng dispatch sai; (5) chụp zoom kỹ ở đúng toạ độ hạt sinh ra — thấy rõ 1 hạt xanh nhỏ đúng màu `drizzle`, xác nhận hiệu ứng có chạy, chỉ là nhỏ + tint pastel gần trùng màu nền trời (đặc biệt `skyTop`/`lavender`/`mint` — đúng những màu cũng dùng để vẽ gradient bầu trời) khiến gần như không phân biệt được ở khoảng cách nhìn thường.
+
+Sửa: thêm bộ màu `VFX_TINT` riêng (bão hoà hơn hẳn `PALETTE` — `waterBlue`/`moonPurple`/`leafGreen`/`emberOrange`), kèm comment giải thích rõ *tại sao* VFX cần màu đậm hơn UI dù cùng 1 game (để không ai vô tình quay lại dùng `PALETTE` nhạt cho hiệu ứng sau này), đổi toàn bộ 4 hiệu ứng từng dùng `SCREEN` blend (dễ bị "tẩy trắng" khi tint nhạt) sang `NORMAL`, tăng scale hạt (0.4-0.6 → 0.65-0.8).
+
+**Verify:** `tsc`/`vitest` (119/119)/`lint`/`build`/`build:playables` sạch cả 5. Playwright thật cho cả 5 công thức (dùng 3 phím debug tạm K/L/O bổ sung cho 3 công thức chưa có phím sẵn — **đã gỡ lại sau khi verify xong**, không phải tính năng chính thức) — xác nhận từng hiệu ứng chạy đúng màu/đúng hướng qua ảnh chụp zoom kỹ ở đúng toạ độ + thời điểm hạt sinh ra (không chỉ ảnh toàn màn hình dễ bỏ sót). Regression cuối cùng sau khi gỡ phím debug tạm: chạy lại đúng luồng chơi thật (Z → CHẾ TẠO → chạm khách) bằng 3 phím debug gốc (Z/V/X) vẫn còn lại — 0 console error.
+
+**✅ Hoàn tất toàn bộ chuỗi 4 đợt nâng cấp visual** (nền tảng mây → trang trí/icon → khung UI 9-slice → hiệu ứng thời tiết) khởi động từ yêu cầu *"tôi muốn làm game đẹp hơn nữa, game này rất quan trọng visual"*.
+
+---
+
+## ✅ Đợt 5 hoàn tất — Đồng bộ 3 chỗ sót lại sau chuỗi 4 đợt (2026-09-23)
+
+Người dùng hỏi "đã xong plan làm game đẹp hơn chưa" — trả lời trung thực là 4 đợt đã định nghĩa sẵn đã xong đúng phạm vi, nhưng chủ động chỉ ra 3 chỗ còn sót không nằm trong phạm vi ban đầu: (1) `CrystalCounter.ts` vẫn vẽ viên kim cương bằng Graphics cũ dù `HappinessCrystal.ts` đã có ảnh thật từ Đợt 2 — lệch phong cách giữa icon tĩnh (thanh trên) và icon bay (lúc nhặt được); (2) từng nút bấm riêng lẻ (✕ đóng, CHẾ TẠO, nút mua trong shop) chưa từng được đụng tới — Đợt 3 chỉ làm khung/panel nền; (3) thẻ chương/thẻ ký ức trong Nhật ký vẫn là hình chữ nhật phẳng viền stroke, không có khung minh hoạ. Người dùng xác nhận sửa cả 3.
+
+**(1) CrystalCounter — sửa nhanh, tái dùng ảnh có sẵn:** `src/ui/CrystalCounter.ts` thêm nhánh kiểm tra `scene.textures.exists('collectible-happiness-crystal')` — có thì dùng đúng ảnh pha lê hạnh phúc đã nạp sẵn từ Đợt 2 (`scene.add.image` + `setScale` về 22px), không thì giữ nguyên hình thoi vẽ tay cũ. Không cần ảnh mới.
+
+**(2)+(3) Kiến trúc chung `Button.ts` — gộp nút bấm + khung thẻ Nhật ký vào 1 điểm swap:**
+```text
+src/ui/Button.ts (mới) — createButtonBackground(scene, w, h, color?): có texture 'button-frame'
+                          thì trả NineSlice, không thì fallback Rectangle phẳng. CORNER_SIZE=14
+                          (nhỏ hơn hẳn PanelBackground's 36 — texture này dùng ở mọi tỉ lệ từ nút
+                          ✕ 26px vuông tới thẻ Nhật ký 130px cao, góc lớn sẽ tự chồng lên nhau ở
+                          kích thước nhỏ nhất).
+                          createButton(scene, x, y, label, onClick, options?): nút chữ đầy đủ,
+                          tự đo kích thước theo label.
+                          createCloseButton(scene, x, y, onClick): nút ✕ 26×26 riêng.
+```
+Áp dụng cho 8 file: `WeatherMixerUI` (CHẾ TẠO), `WelcomeGuideUI` (✕ + "Bắt đầu thôi!"), `RecipeBookUI` (✕), `PaperBoatUI` (✕ + nút xác nhận + nút gấp giấy — nút gấp có 4 nhãn đổi động nên KHÔNG dùng `createButton()` mà gọi trực tiếp `createButtonBackground()` giữ riêng tham chiếu `Text` để `.setText()` sau), `StationAreaShopUI`/`DecorationShopUI`/`CloudyCosmeticsShopUI` (dòng/badge mua trong shop), `JournalScene` (thẻ chương/thẻ ký ức, dùng thẳng `createButtonBackground()` không qua `createButton()` vì đây không phải nút bấm có label).
+
+**🐛 Giới hạn kỹ thuật thật phát hiện khi porting — NineSlice không có `.setTint()`/`.setFillStyle()`:** `Phaser.GameObjects.NineSlice` chỉ implement `AlphaSingle`/`BlendMode`/`Transform`/... — không có Tint. 3 shop UI vốn đổi màu theo trạng thái khoá/mở/đang dùng bằng `.setFillStyle(color, alpha)` — không còn dùng được nữa. Sửa bằng cách đổi toàn bộ sang chỉ dùng `.setAlpha(alpha)` để phân biệt trạng thái (màu cố định từ lúc tạo), viết type `ButtonBackground` (giao của `GameObject & AlphaSingle & Transform`) làm kiểu trả về chung để gọi được `.setAlpha()`/đọc `.x`/`.y` trên cả 2 nhánh NineSlice và Rectangle mà không cần ép kiểu.
+
+**🐛 Bug thật phát hiện qua Playwright — bản fallback mất viền so với code gốc:** mọi rectangle gốc bị thay thế đều có `.setStrokeStyle(...)` (thẻ Nhật ký: `(2, 0x5b4a63, 0.3)`; dòng shop: `(1, PALETTE.eyeColor, 0.2)`) nhưng nhánh fallback đầu tiên của `createButtonBackground()` chỉ có `scene.add.rectangle(0, 0, width, height, color, 1)` — thiếu hẳn viền. `tsc`/`vitest`/`lint` đều sạch dù có bug này (không phải lỗi kiểu hay logic, chỉ là thiếu 1 lời gọi styling). Chỉ lộ ra qua ảnh chụp Playwright zoom kỹ vào thẻ Nhật ký — thấy khối phẳng bợt, không viền, khác hẳn thẻ gốc. Sửa: thêm `.setStrokeStyle(2, 0x5b4a63, 0.3)` vào cuối nhánh fallback — chuẩn hoá về 1 giá trị viền chung cho mọi call site (giống cách `PanelBackground.ts`'s fallback cũng đã chuẩn hoá 1 kiểu viền chung thay vì giữ nguyên từng giá trị hơi khác nhau ở mỗi nơi).
+
+**Verify:** `tsc`/`vitest` (119/119)/`lint`/`build`/`build:playables` sạch cả 5. Playwright thật: crystal counter (ảnh pha lê đúng cạnh số "20"), welcome guide (✕ + "Bắt đầu thôi!"), mixer (CHẾ TẠO), 3 shop (dòng/badge mua + viền đã khôi phục), sổ công thức (✕), Nhật ký (thẻ chương/ký ức có viền, khôi phục đúng như code gốc) — chụp riêng cả trước và sau khi sửa bug viền để xác nhận khác biệt rõ ràng. 0 console error xuyên suốt.
+
+**Ảnh `button-frame` thật đã nhận và tích hợp (cùng ngày):** người dùng tạo bằng Gemini (đính kèm `panel_frame.png` làm tham chiếu phong cách) và lưu vào `public/assets/ui/button_frame.png`.
+
+**🐛 Bug thật phát hiện trong ảnh gốc — 1 chi tiết lấp lánh trang trí ở góc dưới-phải:** đúng loại lỗi đã dặn trước trong prompt ("không được có chi tiết trang trí riêng lẻ nào" vì 9-slice sẽ kéo giãn nó) nhưng Gemini vẫn vẽ 1 viên kim cương lấp lánh nhỏ, mờ (chỉ chênh ~(236,198,159) so với nền tan (228,173,117) — không thấy rõ bằng mắt thường ở ảnh thu nhỏ, chỉ lộ ra khi quét pixel). Xác nhận đây là vùng cô lập (không dính viền ảnh) bằng kỹ thuật flood-fill-từ-góc giống hệt bài học "khoen dây treo" ở Đợt 2 — vùng nào không nối được tới biên ảnh qua flood-fill thì không phải nền, nhưng ở đây nó cũng không phải nội dung hợp lệ (là lỗi vẽ thừa), nên xử lý khác: đo bounding box (`x[1760,1855] y[1760,1855]` trên ảnh 2048px), vá bằng cách sao chép nguyên 1 vùng nền sạch 130×130 từ toạ độ khác của cùng ảnh (đã quét xác nhận vùng nguồn không dính lỗi trước khi copy) — không cần yêu cầu người dùng tạo lại ảnh.
+
+**Đo thông số thật + chốt kích thước cuối (không đoán):** xoá nền trắng bằng flood-fill từ 4 góc (kỹ thuật quen thuộc), resize thử 300×300 trước — đo được bán kính góc≈27px + viền≈6px (gần bằng tỉ lệ của `panel-frame`, vì Gemini vẽ theo đúng phong cách ảnh tham chiếu, kể cả về tỉ lệ góc bo, không riêng màu sắc) — quá lớn so với yêu cầu (nút ✕ nhỏ nhất chỉ 26px, 2×27 đã vượt quá cả kích thước nút). Resize tiếp xuống 130×130 (tình cờ khớp gần đúng 1:1 với thẻ Nhật ký 130px — ảnh không bị phóng to mất nét ở trường hợp dùng lớn nhất) — đo lại: bán kính≈12px + viền≈2px ≈ 14, khớp đúng giá trị `CORNER_SIZE=14` đã đoán tạm sẵn trong code từ trước, không cần sửa `Button.ts`.
+
+**Tích hợp:** `PreloadScene.ts` thêm 1 dòng `this.load.image('button-frame', 'assets/ui/button_frame.png')`. Không cần sửa gì thêm ở `Button.ts`/8 file UI đã porting trước đó — kiến trúc `createButtonBackground()` tự nhận ảnh khi có, đúng thiết kế.
+
+**Verify riêng biệt trạng thái khoá/mở sau khi có ảnh thật:** vì NineSlice không tint được, lo ngại 2 trạng thái khoá/mở giờ chỉ khác nhau ở alpha (`0.35`/`0.9`) liệu có còn phân biệt được rõ trên nền ảnh thật (khác hẳn lúc fallback màu phẳng dễ so sánh) — seed riêng 1 save có **cả khoá lẫn mở cùng lúc** (lần đầu chỉ test all-unlocked, không đủ để so sánh) để chụp cạnh nhau: xác nhận qua ảnh chụp zoom, dòng khoá rõ ràng nhạt/mờ hơn hẳn dòng đã mở dù cùng 1 texture nâu — alpha vẫn đủ để phân biệt trạng thái, không cần thêm icon khoá phụ trợ nào khác ngoài icon 🔒 sẵn có.
+
+**Verify cuối:** `tsc`/`vitest` (119/119)/`lint` sạch. Playwright thật: thẻ Nhật ký (130px, dùng gần đúng độ phân giải gốc — sắc nét, không seam), nút ✕ (26px, kích thước nhỏ nhất trong toàn game — zoom pixel-level xác nhận góc bo mượt, không lỗi chồng góc dù 2×CORNER_SIZE gần bằng kích thước nút), 3 shop (dòng/badge với cả trạng thái khoá và mở cạnh nhau). 0 console error xuyên suốt.
+
+**✅ Hoàn tất — ảnh `button-frame` thật đã thay hoàn toàn fallback rectangle** ở mọi vị trí trong game.

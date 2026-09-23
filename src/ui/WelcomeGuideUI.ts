@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import { PALETTE, FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT } from '../core/GameConfig';
+import { FONT_FAMILY, GAME_WIDTH, GAME_HEIGHT } from '../core/GameConfig';
+import { createPanelBackground } from './PanelBackground';
+import { createButton, createCloseButton } from './Button';
 
 const PANEL_WIDTH = 420;
 const PANEL_HEIGHT = 420;
@@ -24,10 +26,7 @@ export class WelcomeGuideUI {
     this.panel = scene.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2);
     this.panel.setDepth(1000);
 
-    const backdrop = scene.add
-      .rectangle(0, 0, PANEL_WIDTH, PANEL_HEIGHT, PALETTE.cloudWhite, 0.97)
-      .setStrokeStyle(2, PALETTE.eyeColor, 0.3);
-    this.panel.add(backdrop);
+    this.panel.add(createPanelBackground(scene, PANEL_WIDTH, PANEL_HEIGHT));
 
     const title = scene.add
       .text(0, -PANEL_HEIGHT / 2 + 30, '👋 Chào mừng đến Trạm Dừng Chân', {
@@ -40,16 +39,9 @@ export class WelcomeGuideUI {
       .setOrigin(0.5);
     this.panel.add(title);
 
-    const closeButton = scene.add
-      .text(PANEL_WIDTH / 2 - 20, -PANEL_HEIGHT / 2 + 20, '✕', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '18px',
-        color: '#5b4a63',
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    closeButton.on('pointerdown', () => this.dismiss());
-    this.panel.add(closeButton);
+    this.panel.add(
+      createCloseButton(scene, PANEL_WIDTH / 2 - 20, -PANEL_HEIGHT / 2 + 20, () => this.dismiss()),
+    );
 
     const body = scene.add
       .text(0, -20, BODY_TEXT, {
@@ -63,18 +55,9 @@ export class WelcomeGuideUI {
       .setOrigin(0.5, 0.5);
     this.panel.add(body);
 
-    const startButton = scene.add
-      .text(0, PANEL_HEIGHT / 2 - 34, 'Bắt đầu thôi!', {
-        fontFamily: FONT_FAMILY,
-        fontSize: '14px',
-        color: '#ffffff',
-        backgroundColor: '#8b7355',
-        padding: { x: 16, y: 8 },
-      })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    startButton.on('pointerdown', () => this.dismiss());
-    this.panel.add(startButton);
+    this.panel.add(
+      createButton(scene, 0, PANEL_HEIGHT / 2 - 34, 'Bắt đầu thôi!', () => this.dismiss(), { fontSize: '14px' }),
+    );
 
     this.panel.setVisible(false);
   }
@@ -90,5 +73,9 @@ export class WelcomeGuideUI {
 
   hide(): void {
     this.panel.setVisible(false);
+  }
+
+  isOpen(): boolean {
+    return this.panel.visible;
   }
 }
