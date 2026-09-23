@@ -36,14 +36,14 @@ export class GuestHintUI extends Phaser.GameObjects.Container {
 
   show(name: string, emotionLabel: string, hint: string): void {
     this.nameLabel.setText(name);
-    this.emotionLabel.setText(emotionLabel);
+    this.emotionLabel.setText(`Tình trạng: ${emotionLabel}`);
     this.hintLabel.setText(hint);
     this.setVisible(true);
   }
 
   showIdle(): void {
     this.nameLabel.setText('☁️ Mây Bông');
-    this.emotionLabel.setText('');
+    this.emotionLabel.setText('Tình trạng: chờ khách');
     this.hintLabel.setText('Đang chờ khách ghé thăm trạm...');
     this.setVisible(true);
   }

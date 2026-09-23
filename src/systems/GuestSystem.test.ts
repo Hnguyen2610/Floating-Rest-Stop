@@ -13,6 +13,14 @@ const guestsData: GuestsData = {
       treatment: { type: 'recipe', recipeId: 'cool_drizzle' },
       needHint: 'needs a cool drizzle',
     },
+    {
+      id: 'moon',
+      name: 'Moon',
+      initialEmotion: 'MOON_LONELY',
+      initialIntensity: 70,
+      treatment: { type: 'recipe', recipeId: 'starry_lullaby' },
+      needHint: 'needs a starry lullaby',
+    },
   ],
 };
 
@@ -106,6 +114,11 @@ describe('GuestSystem', () => {
   it('returns null from soothe when there is no current guest', () => {
     const { system } = makeSystem();
     expect(system.soothe(10)).toBeNull();
+  });
+
+  it('excludes the recently seen guest from the random spawn pool', () => {
+    const { system } = makeSystem();
+    expect(system.pickRandomSpawnId(['sun'])).toBe('moon');
   });
 
   it('exposes the current guest preferred treatment', () => {

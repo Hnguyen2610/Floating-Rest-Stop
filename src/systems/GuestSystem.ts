@@ -176,6 +176,16 @@ export class GuestSystem {
     return definition?.treatment ?? null;
   }
 
+  pickRandomSpawnId(excludedIds: string[] = []): string {
+    const eligible = this.guestsData.guests.filter(
+      (guest) => !guest.rare && !excludedIds.includes(guest.id),
+    );
+    const fallback = this.guestsData.guests.filter((guest) => !guest.rare);
+    const pool = eligible.length > 0 ? eligible : fallback;
+    if (pool.length === 0) throw new Error('No spawnable guest definitions available');
+    return pool[Math.floor(Math.random() * pool.length)].id;
+  }
+
   soothe(amount: number): GuestState | null {
     if (!this.current) return null;
     const wasContentOrBetter = this.isContentOrBetter(this.current.emotionalIntensity);

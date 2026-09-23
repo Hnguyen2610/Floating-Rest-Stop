@@ -51,4 +51,12 @@ describe('IngredientSystem', () => {
     const system = new IngredientSystem(data, bus);
     expect(system.spend('cool_breeze')).toBe(false);
   });
+
+  it('prefers the common ingredients in the spawn pool so recipes feel reachable', () => {
+    const bus = new TypedEventBus<GameEventMap>();
+    const system = new IngredientSystem(data, bus);
+
+    expect(system.pickForSpawn(() => 0.2).id).toBe('morning_dew');
+    expect(system.pickForSpawn(() => 0.8).id).toBe('cool_breeze');
+  });
 });

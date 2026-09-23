@@ -119,10 +119,14 @@ export class PreloadScene extends Phaser.Scene {
     // for background clouds across the sky.
     this.load.image('bg-cloud', 'assets/bg/cloud.png');
 
-    // Static distant scenery (StationScene.spawnDistantScenery()) and
-    // day-only ambient birds (src/entities/AmbientBirds.ts).
+    // Static distant scenery (StationScene.spawnDistantScenery()).
     this.load.image('bg-scenery', 'assets/bg/scenery.png');
-    this.load.image('bg-bird', 'assets/bg/bird.png');
+
+    // Day-only ambient birds (src/entities/AmbientBirds.ts) — 3-pose flap
+    // cycle (wings up/mid/down).
+    this.load.image('bg-bird-up', 'assets/bg/bird_up.png');
+    this.load.image('bg-bird-mid', 'assets/bg/bird_mid.png');
+    this.load.image('bg-bird-down', 'assets/bg/bird_down.png');
 
 
     // Shared 9-slice panel background (src/ui/PanelBackground.ts) — every

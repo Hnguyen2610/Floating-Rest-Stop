@@ -56,11 +56,11 @@ export const BIRDS_CONFIG = {
   scaleRange: [0.4, 0.55] as const,
   crossDurationMsRange: [7000, 11000] as const,
   bobAmplitude: 10,
-  // Wing-flap illusion from a single static image (no sprite sheet): a fast
-  // vertical squash-and-release on top of the slower up/down bob — the
-  // classic cheap flap trick for 2D art that isn't frame-animated.
+  // Per-frame hold time for the 3-pose flap cycle (wings up/mid/down/mid) —
+  // see AmbientBirds.ts. A whole-bird scaleY squash was tried first instead
+  // of real alternate-pose art and looked wrong (the body folded along
+  // with the wings), so this needs actual frame art, not a fake-out.
   flapDurationMs: 160,
-  flapScaleYRatio: 0.55,
   depth: 150,
 } as const;
 

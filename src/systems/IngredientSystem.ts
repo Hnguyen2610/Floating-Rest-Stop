@@ -28,6 +28,23 @@ export class IngredientSystem {
     return definition;
   }
 
+  pickForSpawn(randomValue: () => number = Math.random): IngredientDefinition {
+    const weights = this.data.ingredients.map((ingredient) => ({
+      ingredient,
+      weight: ingredient.id === 'cool_breeze' ? 3 : ingredient.id === 'morning_dew' ? 2 : 1,
+    }));
+    const total = weights.reduce((sum, entry) => sum + entry.weight, 0);
+    const target = randomValue() * total;
+    let accumulator = 0;
+
+    for (const entry of weights) {
+      accumulator += entry.weight;
+      if (target <= accumulator) return entry.ingredient;
+    }
+
+    return weights[weights.length - 1].ingredient;
+  }
+
   collect(id: string): void {
     this.getDefinition(id);
     const count = (this.inventory.get(id) ?? 0) + 1;
