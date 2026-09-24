@@ -30,6 +30,19 @@ describe('EmotionSystem', () => {
     expect(system.soothe(50, 10)).toBe(40);
   });
 
+  it('maps each emotional stage to a readable five-step progress value', () => {
+    expect(system.getStageProgress(100)).toBe(1);
+    expect(system.getStageProgress(70)).toBe(1);
+    expect(system.getStageProgress(69)).toBe(2);
+    expect(system.getStageProgress(50)).toBe(2);
+    expect(system.getStageProgress(49)).toBe(3);
+    expect(system.getStageProgress(30)).toBe(3);
+    expect(system.getStageProgress(29)).toBe(4);
+    expect(system.getStageProgress(10)).toBe(4);
+    expect(system.getStageProgress(9)).toBe(5);
+    expect(system.getStageProgress(0)).toBe(5);
+  });
+
   it('throws for an unknown emotion id', () => {
     expect(() => system.getEmotionMeta('NOT_REAL')).toThrow();
   });

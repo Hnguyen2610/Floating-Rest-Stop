@@ -6,6 +6,8 @@ export interface MemoryDefinition {
   id: string;
   diaryText: string;
   hint: string; // Hint for locked memory
+  category?: 'guest' | 'cloudy' | 'world';
+  unlockAction?: string;
   photoMomentId?: string; // Optional link to photo moment
   unlockedAtStage?: string; // Which emotional stage unlocks this memory
 }
@@ -68,6 +70,31 @@ export class JournalSystem {
 
   getChapterById(chapterId: string): JournalChapter | undefined {
     return this.data.chapters.find(chapter => chapter.id === chapterId);
+  }
+
+  getMemoryDefinition(memoryId: string): MemoryDefinition | undefined {
+    return this.data.chapters
+      .flatMap((chapter) => chapter.memories)
+      .find((memory) => memory.id === memoryId);
+  }
+
+  getMemoryCategory(memoryId: string): 'guest' | 'cloudy' | 'world' {
+    const memory = this.getMemoryDefinition(memoryId);
+    if (memory?.category) return memory.category;
+    return memoryId.startsWith('cloudy_') ? 'cloudy' : memoryId.startsWith('world_') ? 'world' : 'guest';
+  }
+
+  // `stageLabel` maps an emotion id (e.g. SUN_STRESSED) to its display label;
+  // without it the raw id would leak into the UI.
+  getMemoryUnlockAction(memoryId: string, stageLabel?: (emotion: string) => string): string {
+    const memory = this.getMemoryDefinition(memoryId);
+    if (memory?.unlockAction) return memory.unlockAction;
+    if (memory?.photoMomentId) return 'Chụp khoảnh khắc đặc biệt';
+    if (memory?.unlockedAtStage) {
+      const label = stageLabel?.(memory.unlockedAtStage);
+      return label ? `Giúp khách đạt trạng thái "${label}"` : 'Giúp khách dịu lại';
+    }
+    return 'Một khoảnh khắc được ghi nhớ';
   }
 
   isUnlocked(memoryId: string): boolean {

@@ -17,6 +17,7 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
   private readonly potionLabel: Phaser.GameObjects.Text;
   private craftButton: Phaser.GameObjects.Container;
   private slotBgGraphics: Phaser.GameObjects.Graphics;
+  private readonly slotHighlightGraphics: Phaser.GameObjects.Graphics;
   private readonly liquidGraphics: Phaser.GameObjects.Graphics;
 
   constructor(
@@ -47,6 +48,8 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     // Slot backgrounds
     this.slotBgGraphics = scene.add.graphics();
     this.add(this.slotBgGraphics);
+    this.slotHighlightGraphics = scene.add.graphics();
+    this.add(this.slotHighlightGraphics);
 
     // Slot icons (ingredients)
     this.slotIcons = [];
@@ -85,6 +88,10 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
     this.updateMixerContents(this.weatherSystem.getMixerContents());
   }
 
+  getCraftButtonPosition(): { x: number; y: number } {
+    return { x: this.x + this.craftButton.x, y: this.y + this.craftButton.y };
+  }
+
   getDropZone(): Phaser.Geom.Circle {
     return new Phaser.Geom.Circle(this.x, this.y, this.bowlRadius);
   }
@@ -101,18 +108,13 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
   }
 
   private handleCraft(): void {
-    const contentsBeforeCraft = this.weatherSystem.getMixerContents();
     const success = this.weatherSystem.tryCraft();
     if (success) {
       this.scene.tweens.add({ targets: this, scale: 1.08, duration: 100, yoyo: true });
       this.onCraftSuccess();
     } else {
-      // Wrong combo — give the ingredients back to inventory and empty the
-      // bowl instead of leaving them stuck with no visible way to swap one
-      // out (real player confusion: pressed CHẾ TẠO with a wrong combo,
-      // ingredients stayed in the bowl, no obvious next step).
-      contentsBeforeCraft.forEach((id) => this.ingredientSystem.collect(id));
-      this.weatherSystem.clearMixer();
+      // Wrong combo — keep the ingredients in their slots so the player can
+      // inspect the mistake and remove only the ingredient they want to swap.
       this.playCraftFail();
       this.onCraftFail();
     }
@@ -157,6 +159,7 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
 
     // Update slot backgrounds
     this.slotBgGraphics.clear();
+    this.slotHighlightGraphics.clear();
     this.slotBgGraphics.fillStyle(0x000000, 0.2);
 
     for (let i = 0; i < MIXER_CAPACITY; i++) {
@@ -174,6 +177,24 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
         SLOT_SIZE,
         SLOT_SIZE
       );
+      if (contents[i]) {
+        this.slotHighlightGraphics.fillStyle(0xfff0a0, 0.2);
+        this.slotHighlightGraphics.lineStyle(2, 0xffd86b, 0.9);
+        this.slotHighlightGraphics.fillRoundedRect(
+          slotX - SLOT_SIZE / 2 - 2,
+          -SLOT_SIZE / 2 - 2,
+          SLOT_SIZE + 4,
+          SLOT_SIZE + 4,
+          5,
+        );
+        this.slotHighlightGraphics.strokeRoundedRect(
+          slotX - SLOT_SIZE / 2 - 2,
+          -SLOT_SIZE / 2 - 2,
+          SLOT_SIZE + 4,
+          SLOT_SIZE + 4,
+          5,
+        );
+      }
     }
 
     // Update slot icons
@@ -189,7 +210,9 @@ export class WeatherMixerUI extends Phaser.GameObjects.Container {
       icon.setScale(SLOT_ICON_WIDTH / icon.width);
       icon.x = slotX;
       icon.y = 0;
-      icon.setInteractive(new Phaser.Geom.Rectangle(-SLOT_SIZE / 2, -SLOT_SIZE / 2, SLOT_SIZE, SLOT_SIZE), Phaser.Geom.Rectangle.Contains);
+      // Default hit area (the whole texture): a Rectangle here would be in
+      // texture-local coords (origin top-left), not centred on the slot.
+      icon.setInteractive({ useHandCursor: true });
       icon.on('pointerdown', () => {
         const removed = this.weatherSystem.removeFromMixer(index);
         if (removed) this.ingredientSystem.collect(removed);

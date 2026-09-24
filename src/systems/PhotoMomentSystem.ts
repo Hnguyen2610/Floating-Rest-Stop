@@ -36,16 +36,21 @@ export class PhotoMomentSystem {
 
   capture(guestId: string): PhotoMemory | null {
     const moment = this.getMomentForGuest(guestId);
+    return moment ? this.captureMoment(moment.id) : null;
+  }
+
+  captureMoment(photoMomentId: string): PhotoMemory | null {
+    const moment = this.data.photoMoments.find((candidate) => candidate.id === photoMomentId);
     if (!moment || this.captured.has(moment.id)) return null;
     // Don't spend this one-shot photo moment on a memory whose chapter isn't
     // accessible yet — StationScene already gates the icon from appearing at
     // all in that case, this is the belt-and-suspenders backstop.
     if (!this.journalSystem.canUnlockMemory(moment.memoryId)) return null;
 
-    const memory: PhotoMemory = { photoMomentId: moment.id, guestId, unlockedAt: Date.now() };
+    const memory: PhotoMemory = { photoMomentId: moment.id, guestId: moment.guestId, unlockedAt: Date.now() };
     this.captured.set(moment.id, memory);
     this.journalSystem.unlockMemory(moment.memoryId);
-    this.eventBus.emit('photo:captured', { photoMomentId: moment.id, guestId });
+    this.eventBus.emit('photo:captured', { photoMomentId: moment.id, guestId: moment.guestId });
     return memory;
   }
 

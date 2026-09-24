@@ -14,6 +14,7 @@ import { TutorialSystem } from '../systems/TutorialSystem';
 import { RareGuestSystem } from '../systems/RareGuestSystem';
 import { SaveSystem } from '../systems/SaveSystem';
 import { AudioSystem } from '../systems/AudioSystem';
+import { RareWeatherSystem, type RareWeatherData } from '../systems/RareWeatherSystem';
 import type { SaveProvider } from '../services/save/SaveProvider';
 import { eventBus } from './EventBus';
 
@@ -30,6 +31,7 @@ export interface GameSystems {
   paperBoatSystem: PaperBoatSystem;
   dayNightSystem: DayNightSystem;
   cloudyCosmeticsSystem: CloudyCosmeticsSystem;
+  rareWeatherSystem: RareWeatherSystem;
   tutorialSystem: TutorialSystem;
   rareGuestSystem: RareGuestSystem;
   saveSystem: SaveSystem;
@@ -47,6 +49,7 @@ export interface GameData {
   photoMoments: PhotoMomentsData;
   messages: PaperMessagesData;
   cloudyCosmetics: CloudyCosmeticsData;
+  rareWeather: RareWeatherData;
 }
 
 let systems: GameSystems | null = null;
@@ -67,7 +70,18 @@ export async function createGameSystems(
   const paperBoatSystem = new PaperBoatSystem(data.messages, happinessSystem, guestSystem, eventBus);
   const dayNightSystem = new DayNightSystem(eventBus);
   const cloudyCosmeticsSystem = new CloudyCosmeticsSystem(data.cloudyCosmetics, happinessSystem, guestSystem, eventBus);
-  const tutorialSystem = new TutorialSystem(eventBus);
+  const tutorialSystem = new TutorialSystem(
+    eventBus,
+    (guestId) => guestSystem.getAllDefinitions().find((guest) => guest.id === guestId)?.treatment.type,
+  );
+  const rareWeatherSystem = new RareWeatherSystem(
+    data.rareWeather,
+    stationAreaSystem,
+    guestSystem,
+    dayNightSystem,
+    journalSystem,
+    eventBus,
+  );
   const rareGuestSystem = new RareGuestSystem(
     guestSystem,
     decorationSystem,
@@ -89,6 +103,8 @@ export async function createGameSystems(
       cloudyCosmeticsSystem,
       tutorialSystem,
       audioSystem,
+      rareWeatherSystem,
+      weatherSystem,
     },
     eventBus,
   );
@@ -107,6 +123,7 @@ export async function createGameSystems(
     paperBoatSystem,
     dayNightSystem,
     cloudyCosmeticsSystem,
+    rareWeatherSystem,
     tutorialSystem,
     rareGuestSystem,
     saveSystem,

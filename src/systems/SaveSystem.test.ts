@@ -12,6 +12,9 @@ import { PaperBoatSystem, type PaperMessagesData } from './PaperBoatSystem';
 import { CloudyCosmeticsSystem, type CloudyCosmeticsData } from './CloudyCosmeticsSystem';
 import { TutorialSystem } from './TutorialSystem';
 import { AudioSystem } from './AudioSystem';
+import { DayNightSystem } from './DayNightSystem';
+import { RareWeatherSystem, type RareWeatherData } from './RareWeatherSystem';
+import { WeatherSystem, type RecipesData } from './WeatherSystem';
 import { TypedEventBus, type GameEventMap } from '../core/EventBus';
 
 class MemorySaveProvider implements SaveProvider {
@@ -70,6 +73,31 @@ const cosmeticsData: CloudyCosmeticsData = {
   accessories: [{ id: 'sunset_hat', name: 'Sunset Hat' }],
 };
 
+const rareWeatherData: RareWeatherData = {
+  events: [
+    {
+      id: 'meteor_shower',
+      name: 'Meteor Shower',
+      requiredAreaId: 'small_cloud',
+      requiredGuestId: 'sun',
+      requiredVisitCount: 1,
+      visualEffect: 'comet',
+      memoryId: 'sun_memory_1',
+    },
+  ],
+};
+const recipesData: RecipesData = {
+  recipes: [{
+    id: 'meteor_glow',
+    name: 'Meteor Glow',
+    ingredients: ['star_dust', 'rainbow_fragment'],
+    visualEffect: 'meteor',
+    suitableEmotions: [],
+    suitableGuests: [],
+    soothingValue: 0,
+  }],
+};
+
 function makeSystems() {
   const bus = new TypedEventBus<GameEventMap>();
   const emotionSystem = new EmotionSystem(emotionsData);
@@ -83,6 +111,15 @@ function makeSystems() {
   const cloudyCosmeticsSystem = new CloudyCosmeticsSystem(cosmeticsData, happinessSystem, guestSystem, bus);
   const tutorialSystem = new TutorialSystem(bus);
   const audioSystem = new AudioSystem();
+  const weatherSystem = new WeatherSystem(recipesData, bus);
+  const rareWeatherSystem = new RareWeatherSystem(
+    rareWeatherData,
+    stationAreaSystem,
+    guestSystem,
+    new DayNightSystem(bus),
+    journalSystem,
+    bus,
+  );
   return {
     bus,
     guestSystem,
@@ -95,6 +132,8 @@ function makeSystems() {
     cloudyCosmeticsSystem,
     tutorialSystem,
     audioSystem,
+    rareWeatherSystem,
+    weatherSystem,
   };
 }
 
@@ -107,6 +146,7 @@ describe('SaveSystem', () => {
     systems.guestSystem.soothe(70); // 85 -> 15, CONTENT: leave() should gain trust
     systems.guestSystem.leave();
     systems.tutorialSystem.markWelcomeSeen();
+    systems.weatherSystem.markRecipeDiscovered('meteor_glow');
 
     const provider = new MemorySaveProvider();
     const saveSystem = new SaveSystem(provider, systems, systems.bus);
@@ -133,6 +173,9 @@ describe('SaveSystem', () => {
       equippedAccessories: [],
     });
     expect(provider.stored?.hasSeenTutorial).toBe(true);
+    expect(provider.stored?.tutorialStep).toBe('WAITING_FOR_GUEST');
+    expect(provider.stored?.rareWeather).toEqual({ completedEventIds: [] });
+    expect(provider.stored?.discoveredRecipeIds).toEqual(['meteor_glow']);
   });
 
   it('restores state from an existing save on construction', async () => {
@@ -156,6 +199,9 @@ describe('SaveSystem', () => {
         equippedAccessories: ['sunset_hat'],
       },
       hasSeenTutorial: true,
+      tutorialStep: 'DELIVER_WEATHER',
+      rareWeather: { completedEventIds: ['meteor_shower'] },
+      discoveredRecipeIds: ['meteor_glow'],
     };
 
     const systems = makeSystems();
@@ -186,6 +232,10 @@ describe('SaveSystem', () => {
     expect(systems.cloudyCosmeticsSystem.isShapeUnlocked('heart')).toBe(true);
     expect(systems.cloudyCosmeticsSystem.getEquippedShape()).toBe('heart');
     expect(systems.tutorialSystem.hasSeenWelcome()).toBe(true);
+    // Mid-visit steps restart at the next guest (guest/potion are not saved).
+    expect(systems.tutorialSystem.getStep()).toBe('WAITING_FOR_GUEST');
+    expect(systems.rareWeatherSystem.isCompleted('meteor_shower')).toBe(true);
+    expect(systems.weatherSystem.isRecipeDiscovered('meteor_glow')).toBe(true);
   });
 
   it('does not save before the initial load resolves', async () => {

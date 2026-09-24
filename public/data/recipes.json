@@ -44,6 +44,15 @@
       "suitableEmotions": ["FADING"],
       "suitableGuests": ["comet"],
       "soothingValue": 30
+    },
+    {
+      "id": "meteor_glow",
+      "name": "Ánh Sao Băng",
+      "ingredients": ["star_dust", "rainbow_fragment"],
+      "visualEffect": "meteor",
+      "suitableEmotions": ["PEACEFUL"],
+      "suitableGuests": ["weather_meteor_shower"],
+      "soothingValue": 0
     }
   ]
 }

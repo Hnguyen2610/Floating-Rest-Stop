@@ -226,6 +226,55 @@
           "photoMomentId": "comet_trail_01"
         }
       ]
+    },
+    {
+      "id": "cloudy_origin",
+      "guestId": "cloudy",
+      "guestName": "Mây Bông",
+      "title": "Những mảnh ký ức của Mây Bông",
+      "memories": [
+        {
+          "id": "cloudy_memory_1",
+          "category": "cloudy",
+          "unlockAction": "Giúp một vị khách đầu tiên thật sự bình yên",
+          "diaryText": "Mây Bông không nhớ mình đã sinh ra từ đâu. Nhưng lần đầu một vị khách dịu lại trên thân mây, nơi này bỗng có cảm giác như nhà.",
+          "hint": "Hãy giúp một vị khách đầu tiên thật sự bình yên.",
+          "unlockedAtStage": "CLOUDY_WELCOME"
+        },
+        {
+          "id": "cloudy_memory_2",
+          "category": "cloudy",
+          "unlockAction": "Mở Góc Ngắm Sao",
+          "diaryText": "Ở nơi cao nhất của trạm, Mây Bông nghe thấy tiếng gió gọi tên mình. Có lẽ trạm này đã chờ những người cần nghỉ chân từ rất lâu.",
+          "hint": "Mở Góc Ngắm Sao để nghe thêm tiếng gió.",
+          "unlockedAtStage": "CLOUDY_STARS"
+        },
+        {
+          "id": "cloudy_memory_3",
+          "category": "cloudy",
+          "unlockAction": "Gửi một lời nhắn dịu dàng",
+          "diaryText": "Một chiếc thuyền giấy bay đi mang theo lời tử tế. Mây Bông chợt hiểu: một nơi trú chân không cần lớn, chỉ cần có người nhớ đường quay lại.",
+          "hint": "Gửi một lời nhắn dịu dàng.",
+          "unlockedAtStage": "CLOUDY_MESSAGE"
+        },
+        {
+          "id": "cloudy_memory_4",
+          "category": "cloudy",
+          "unlockAction": "Trở lại trạm vào ban đêm",
+          "diaryText": "Đêm xuống, những vì sao phản chiếu trong thân mây. Mây Bông không còn cố nhớ người đã xây trạm; có lẽ những người đang ở đây chính là câu trả lời.",
+          "hint": "Trở lại trạm vào ban đêm.",
+          "unlockedAtStage": "CLOUDY_NIGHT"
+        },
+        {
+          "id": "world_memory_1",
+          "category": "world",
+          "unlockAction": "Chứng kiến Mưa Sao Băng",
+          "photoMomentId": "meteor_shower_01",
+          "diaryText": "Trạm Dừng Chân không được xây để giữ chân ai. Nó chỉ lơ lửng ở đây, đủ lâu để những người mệt mỏi nhớ rằng họ có thể nghỉ ngơi.",
+          "hint": "Mở rộng trạm và để nó trở thành một nơi có thể đón nhiều câu chuyện hơn.",
+          "unlockedAtStage": "WORLD_GROWING"
+        }
+      ]
     }
   ]
 }

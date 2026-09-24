@@ -97,4 +97,28 @@ describe('normalizeSaveData', () => {
 
     expect(normalizeSaveData(wellFormed)).toEqual(wellFormed);
   });
+
+  it('preserves the tutorial step and audio settings across a load (previously dropped)', () => {
+    const result = normalizeSaveData({
+      hasSeenTutorial: true,
+      tutorialStep: 'CRAFT_WEATHER',
+      audioSettings: { muted: true, masterVolume: 0.3, busVolumes: { sfx: 0.2, music: 'loud' } },
+    });
+    expect(result.tutorialStep).toBe('CRAFT_WEATHER');
+    expect(result.audioSettings).toEqual({ muted: true, masterVolume: 0.3, busVolumes: { sfx: 0.2 } });
+  });
+
+  it('drops an unknown tutorial step and non-object audio settings', () => {
+    const result = normalizeSaveData({ tutorialStep: 'BOGUS', audioSettings: 'loud' });
+    expect(result.tutorialStep).toBeUndefined();
+    expect(result.audioSettings).toBeUndefined();
+  });
+
+  it('keeps only valid audio fields so a restore never overrides defaults with junk', () => {
+    expect(normalizeSaveData({ audioSettings: { muted: 'yes', masterVolume: 'x' } }).audioSettings).toEqual({});
+  });
+
+  it('accepts the rub-guest tutorial step from a save', () => {
+    expect(normalizeSaveData({ tutorialStep: 'RUB_GUEST' }).tutorialStep).toBe('RUB_GUEST');
+  });
 });

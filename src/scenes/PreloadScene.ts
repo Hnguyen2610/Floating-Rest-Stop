@@ -15,6 +15,7 @@ import type { JournalData } from '../systems/JournalSystem';
 import type { PhotoMomentsData } from '../systems/PhotoMomentSystem';
 import type { PaperMessagesData } from '../systems/PaperBoatSystem';
 import type { CloudyCosmeticsData } from '../systems/CloudyCosmeticsSystem';
+import type { RareWeatherData } from '../systems/RareWeatherSystem';
 import { getAllRegisteredAssets } from '../core/AssetRegistry';
 
 export class PreloadScene extends Phaser.Scene {
@@ -65,6 +66,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.json('stickers', 'data/stickers.json');
     this.load.json('stories', 'data/stories.json');
     this.load.json('cloudyCosmetics', 'data/cloudyCosmetics.json');
+    this.load.json('rareWeather', 'data/rareWeather.json');
 
     this.load.image('ingredient-morning_dew', 'assets/ingredients/morning_dew.png');
     this.load.image('ingredient-warm_sunbeam', 'assets/ingredients/warm_sunbeam.png');
@@ -78,6 +80,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('nav-harvest', 'assets/nav/harvest.png');
     this.load.image('nav-station', 'assets/nav/station.png');
     this.load.image('nav-cloudyshop', 'assets/nav/cloudyshop.png');
+    this.load.image('nav-archive', 'assets/nav/archive.png');
 
     this.load.image('cloudy-default-idle', 'assets/cloudy/default/idle.png');
     this.load.image('cloudy-default-happy', 'assets/cloudy/default/happy.png');
@@ -167,6 +170,7 @@ export class PreloadScene extends Phaser.Scene {
         photoMoments: this.cache.json.get('photoMoments') as PhotoMomentsData,
         messages: this.cache.json.get('messages') as PaperMessagesData,
         cloudyCosmetics: this.cache.json.get('cloudyCosmetics') as CloudyCosmeticsData,
+        rareWeather: this.cache.json.get('rareWeather') as RareWeatherData,
       },
       saveProvider,
     );
@@ -174,7 +178,11 @@ export class PreloadScene extends Phaser.Scene {
       systems.saveSystem.saveNow().catch(() => undefined);
     });
 
-    systems.audioSystem.setMuted(!platform.isAudioEnabled());
+    // Only ever force-MUTE at boot, never force-unmute: the save already
+    // restored the player's own mute choice into audioSystem, and an
+    // unconditional setMuted(!enabled) here overwrote it back to "unmuted"
+    // on every reload whenever the platform reports audio enabled.
+    if (!platform.isAudioEnabled()) systems.audioSystem.setMuted(true);
     platform.onAudioEnabledChange((enabled) => systems.audioSystem.setMuted(!enabled));
 
     platform.signalGameReady();

@@ -79,6 +79,7 @@ describe('WeatherSystem', () => {
 
     expect(success).toBe(false);
     expect(system.getCurrentPotion()).toBeNull();
+    expect(system.getMixerContents()).toEqual(['morning_dew', 'star_dust']);
     expect(created).toEqual([]);
   });
 
@@ -91,6 +92,16 @@ describe('WeatherSystem', () => {
     system.clearMixer();
 
     expect(updates).toEqual([['morning_dew'], []]);
+  });
+
+  it('returns a removed ingredient so the UI can refund it to inventory', () => {
+    const { system } = makeSystem();
+    system.addToMixer('morning_dew');
+    system.addToMixer('cool_breeze');
+
+    expect(system.removeFromMixer(0)).toBe('morning_dew');
+    expect(system.getMixerContents()).toEqual(['cool_breeze']);
+    expect(system.removeFromMixer(4)).toBeNull();
   });
 
   it('consumes the current potion on use and emits weather:used', () => {

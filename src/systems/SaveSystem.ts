@@ -10,6 +10,8 @@ import type { PaperBoatSystem } from './PaperBoatSystem';
 import type { CloudyCosmeticsSystem } from './CloudyCosmeticsSystem';
 import type { TutorialSystem } from './TutorialSystem';
 import type { AudioSystem } from './AudioSystem';
+import type { RareWeatherSystem } from './RareWeatherSystem';
+import type { WeatherSystem } from './WeatherSystem';
 
 const SAVE_DATA_VERSION = 1;
 const AUTOSAVE_DEBOUNCE_MS = 1000;
@@ -25,6 +27,8 @@ export interface SaveableSystems {
   cloudyCosmeticsSystem: CloudyCosmeticsSystem;
   tutorialSystem: TutorialSystem;
   audioSystem: AudioSystem;
+  rareWeatherSystem?: RareWeatherSystem;
+  weatherSystem?: WeatherSystem;
 }
 
 export class SaveSystem {
@@ -74,6 +78,7 @@ export class SaveSystem {
     this.eventBus.on('area:unlocked', trigger);
     this.eventBus.on('cloudyCosmetic:unlocked', trigger);
     this.eventBus.on('tutorial:seen', trigger);
+    this.eventBus.on('tutorial:step-changed', trigger);
   }
 
   private scheduleAutosave(): void {
@@ -106,7 +111,11 @@ export class SaveSystem {
       unlockedAreas: this.systems.stationAreaSystem.getUnlockedIds(),
       cloudyCosmetics: this.systems.cloudyCosmeticsSystem.getSaveState(),
       hasSeenTutorial: this.systems.tutorialSystem.hasSeenWelcome(),
+      tutorialStep: this.systems.tutorialSystem.getStep(),
       audioSettings: this.systems.audioSystem.getSettingsSave(),
+      rareWeather: this.systems.rareWeatherSystem?.getSaveState(),
+      guestEmotionStages: this.systems.guestSystem.getAllSeenEmotionStages(),
+      discoveredRecipeIds: this.systems.weatherSystem?.getDiscoveredRecipeIds(),
     };
   }
 
@@ -121,8 +130,11 @@ export class SaveSystem {
       data.paperBoat ?? { sentCount: 0, incomingMessageId: null, canSend: false },
     );
     if (data.cloudyCosmetics) this.systems.cloudyCosmeticsSystem.restoreState(data.cloudyCosmetics);
-    this.systems.tutorialSystem.restoreHasSeenWelcome(data.hasSeenTutorial ?? false);
+    this.systems.tutorialSystem.restoreHasSeenWelcome(data.hasSeenTutorial ?? false, data.tutorialStep);
     this.systems.audioSystem.restoreSettings(data.audioSettings);
+    this.systems.rareWeatherSystem?.restoreState(data.rareWeather);
+    this.systems.guestSystem.restoreSeenEmotionStages(data.guestEmotionStages);
+    this.systems.weatherSystem?.restoreDiscoveredRecipeIds(data.discoveredRecipeIds);
     for (const [guestId, progress] of Object.entries(data.guestProgress)) {
       this.systems.guestSystem.restoreProgress(guestId, {
         ...progress,
