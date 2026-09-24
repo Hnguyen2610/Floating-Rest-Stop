@@ -67,6 +67,7 @@ const STAGE_EMOTION_BY_GUEST: Record<string, Record<EmotionStage, string>> = {
 export class GuestSystem {
   private current: GuestState | null = null;
   private progress = new Map<string, GuestProgress>();
+  private seenEmotionStages = new Map<string, Set<EmotionStage>>();
 
   constructor(
     private guestsData: GuestsData,
@@ -145,6 +146,7 @@ export class GuestSystem {
       trustLevel: progress.trustLevel,
       unlockedMemories: [],
     };
+    this.recordSeenStage(state.id, this.emotionSystem.getStage(state.emotionalIntensity));
     // Confirms the emotion id resolves in emotions.json before anything renders it.
     this.emotionSystem.getEmotionMeta(state.currentEmotion);
 
@@ -192,6 +194,7 @@ export class GuestSystem {
 
     this.current.emotionalIntensity = this.emotionSystem.soothe(this.current.emotionalIntensity, amount);
     const stage = this.emotionSystem.getStage(this.current.emotionalIntensity);
+    this.recordSeenStage(this.current.id, stage);
     const stageEmotions = STAGE_EMOTION_BY_GUEST[this.current.id] ?? STAGE_EMOTION_BY_GUEST.sun;
     this.current.currentEmotion = stageEmotions[stage];
 
@@ -206,5 +209,31 @@ export class GuestSystem {
   private isContentOrBetter(intensity: number): boolean {
     const stage = this.emotionSystem.getStage(intensity);
     return stage === 'CONTENT' || stage === 'PEACEFUL';
+  }
+
+  getSeenEmotionStages(guestId: string): EmotionStage[] {
+    return [...(this.seenEmotionStages.get(guestId) ?? [])];
+  }
+
+  getAllSeenEmotionStages(): Record<string, EmotionStage[]> {
+    return Object.fromEntries(
+      [...this.seenEmotionStages.entries()].map(([guestId, stages]) => [guestId, [...stages]]),
+    );
+  }
+
+  restoreSeenEmotionStages(stages: Record<string, string[]> | undefined): void {
+    const validStages = new Set<EmotionStage>(['DISTRESSED', 'CALMING', 'RELAXED', 'CONTENT', 'PEACEFUL']);
+    this.seenEmotionStages = new Map(
+      Object.entries(stages ?? {}).map(([guestId, values]) => [
+        guestId,
+        new Set(values.filter((value): value is EmotionStage => validStages.has(value as EmotionStage))),
+      ]),
+    );
+  }
+
+  private recordSeenStage(guestId: string, stage: EmotionStage): void {
+    const stages = this.seenEmotionStages.get(guestId) ?? new Set<EmotionStage>();
+    stages.add(stage);
+    this.seenEmotionStages.set(guestId, stages);
   }
 }

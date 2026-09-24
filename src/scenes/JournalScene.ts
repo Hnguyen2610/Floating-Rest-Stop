@@ -13,6 +13,8 @@ interface StickerDefinition {
 }
 
 const STICKER_SCALE_STEPS = [0.7, 1, 1.3];
+// Card is 130 tall; the extra room below fits a locked memory's hint text.
+const MEMORY_ROW_STEP = 175;
 
 export class JournalScene extends Phaser.Scene {
   private journalSystem!: JournalSystem;
@@ -24,6 +26,14 @@ export class JournalScene extends Phaser.Scene {
   private selectionToolbar!: Phaser.GameObjects.Container;
   private placedStickers = new Map<string, Phaser.GameObjects.Text>();
   private selectedItemId: string | null = null;
+  private chapterContent!: Phaser.GameObjects.Container;
+  private chapterMask!: Phaser.GameObjects.Graphics;
+  private chapterScrollY = 0;
+  private chapterContentHeight = 0;
+  private chapterDragging = false;
+  private chapterDragStartY = 0;
+  private chapterDragStartScrollY = 0;
+  private chapterScrollHint: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super('JournalScene');
@@ -62,7 +72,7 @@ export class JournalScene extends Phaser.Scene {
 
   private drawTitle(): void {
     this.add
-      .text(GAME_WIDTH / 2, SAFE_ZONE_MARGIN + 16, 'Sky Journal', {
+      .text(GAME_WIDTH / 2, SAFE_ZONE_MARGIN + 16, 'Nhật ký bầu trời', {
         fontFamily: FONT_FAMILY,
         fontSize: '32px',
         color: '#5b4a63',
@@ -85,6 +95,15 @@ export class JournalScene extends Phaser.Scene {
   private drawChapters(): void {
     const chapters = this.journalSystem.getChapters();
     if (chapters.length === 0) return;
+
+    const viewportTop = SAFE_ZONE_MARGIN + 82;
+    const viewportBottom = GAME_HEIGHT - 145;
+    const viewportHeight = viewportBottom - viewportTop;
+    this.chapterContent = this.add.container(0, 0);
+    this.chapterMask = this.add.graphics();
+    this.chapterMask.fillStyle(0xffffff, 1);
+    this.chapterMask.fillRect(0, viewportTop, GAME_WIDTH, viewportHeight);
+    this.chapterContent.setMask(this.chapterMask.createGeometryMask());
 
     // Group chapters by guest for better visual organization
     const chaptersByGuest: Record<string, JournalChapter[]> = {};
@@ -110,22 +129,28 @@ export class JournalScene extends Phaser.Scene {
     // `guestNameText` below) — rowStartY needs enough clearance for that
     // header to clear both the safe-zone margin and the back/title/decorate
     // buttons already occupying roughly y=80–110 near the top edge.
-    const rowStartY = SAFE_ZONE_MARGIN + 120;
-    const rowHeight = 230;
+    const rowStartY = SAFE_ZONE_MARGIN + 190;
     const chapterSpacing = 150;
+    let nextRowY = rowStartY;
 
-    Object.keys(chaptersByGuest).forEach((guestId, guestIndex) => {
+    Object.keys(chaptersByGuest).forEach((guestId) => {
       const guestChapters = chaptersByGuest[guestId];
       const guestDefinition = this.guestSystem.getAllDefinitions().find(g => g.id === guestId);
-      const guestName = guestDefinition ? guestDefinition.name : guestId;
-      const rowY = rowStartY + guestIndex * rowHeight;
+      const guestName = guestDefinition ? guestDefinition.name : guestChapters[0]?.guestName ?? guestId;
+      const maxMemoryRows = Math.max(
+        1,
+        ...guestChapters.map((chapter) => Math.ceil(chapter.memories.length / 2)),
+      );
+      const rowHeight = 120 + maxMemoryRows * MEMORY_ROW_STEP;
+      const rowY = nextRowY;
+      nextRowY += rowHeight;
 
       // Guest section container
       const guestSection = this.add.container(leftMargin, rowY);
 
       // Guest name header
       const guestNameText = this.add
-        .text(0, -55, guestName, {
+        .text(0, -72, guestName, {
           fontFamily: FONT_FAMILY,
           fontSize: '20px',
           color: '#5b4a63',
@@ -187,15 +212,15 @@ export class JournalScene extends Phaser.Scene {
           progressDots.add(dot);
         });
 
-        // Lock overlay if not accessible
+        // Keep locked chapters readable without placing a detached grey box
+        // behind the progress dots and memory cards.
         if (!isAccessible) {
-          const lockSize = Math.max(80, memoryCount * dotSpacing + 20);
-          const lockOverlay = this.add.rectangle(0, 0, lockSize, lockSize * 0.6, 0x000000, 0.3);
-          const lockIcon = this.add.text(0, 0, '🔒', {
+          const lockIcon = this.add.text(0, -14, '🔒', {
             fontFamily: FONT_FAMILY,
-            fontSize: '24px',
+            fontSize: '16px',
           }).setOrigin(0.5);
-          chapterContainer.add([lockOverlay, lockIcon]);
+          chapterContainer.add(lockIcon);
+          chapterContainer.setAlpha(0.72);
         }
 
         chapterContainer.add([titleText, progressDots]);
@@ -207,19 +232,83 @@ export class JournalScene extends Phaser.Scene {
           const memRow = Math.floor(memoryIndex / 2);
           const memX = (memCol - 0.5) * 100;
 
-          // createCard adds directly to the scene root (not into guestSection),
-          // so it needs absolute coordinates rather than guestSection-relative ones.
           this.createCard(
             leftMargin + chapterX + memX,
-            rowY + 50 + memRow * 110,
+            rowY + 65 + memRow * MEMORY_ROW_STEP,
             memory
           );
         });
       });
 
       guestSection.setSize(chapterSpacing * guestChapters.length, rowHeight);
-      this.add.existing(guestSection);
+      this.chapterContent.add(guestSection);
     });
+
+    this.chapterContentHeight = nextRowY + 40;
+    this.chapterScrollY = 0;
+    this.updateChapterScroll(viewportTop, viewportBottom);
+    this.input.on('wheel', this.handleChapterWheel);
+    this.input.on('pointerdown', this.handleChapterPointerDown);
+    this.input.on('pointermove', this.handleChapterPointerMove);
+    this.input.on('pointerup', this.handleChapterPointerUp);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.off('wheel', this.handleChapterWheel);
+      this.input.off('pointerdown', this.handleChapterPointerDown);
+      this.input.off('pointermove', this.handleChapterPointerMove);
+      this.input.off('pointerup', this.handleChapterPointerUp);
+      this.chapterMask.destroy();
+    });
+  }
+
+  private readonly handleChapterWheel = (
+    _pointer: Phaser.Input.Pointer,
+    _gameObjects: Phaser.GameObjects.GameObject[],
+    deltaX: number,
+    deltaY: number,
+  ): void => {
+    if (Math.abs(deltaY) < Math.abs(deltaX)) return;
+    this.setChapterScroll(this.chapterScrollY - deltaY * 0.55);
+  };
+
+  private readonly handleChapterPointerDown = (pointer: Phaser.Input.Pointer): void => {
+    if (pointer.y < SAFE_ZONE_MARGIN + 82 || pointer.y > GAME_HEIGHT - 145) return;
+    this.chapterDragging = true;
+    this.chapterDragStartY = pointer.y;
+    this.chapterDragStartScrollY = this.chapterScrollY;
+  };
+
+  private readonly handleChapterPointerMove = (pointer: Phaser.Input.Pointer): void => {
+    if (!this.chapterDragging) return;
+    this.setChapterScroll(this.chapterDragStartScrollY + pointer.y - this.chapterDragStartY);
+  };
+
+  private readonly handleChapterPointerUp = (): void => {
+    this.chapterDragging = false;
+  };
+
+  private setChapterScroll(scrollY: number): void {
+    const viewportTop = SAFE_ZONE_MARGIN + 82;
+    const viewportBottom = GAME_HEIGHT - 145;
+    this.chapterScrollY = Phaser.Math.Clamp(
+      scrollY,
+      Math.min(0, viewportBottom - this.chapterContentHeight),
+      0,
+    );
+    this.updateChapterScroll(viewportTop, viewportBottom);
+  }
+
+  private updateChapterScroll(viewportTop: number, viewportBottom: number): void {
+    if (!this.chapterContent) return;
+    this.chapterContent.y = this.chapterScrollY;
+    this.chapterMask?.setVisible(false);
+    const hint = this.chapterContentHeight > viewportBottom - viewportTop ? '↕ Cuộn để xem thêm' : '';
+    if (hint && !this.chapterScrollHint) {
+      this.chapterScrollHint = this.add.text(GAME_WIDTH - 150, viewportBottom + 18, hint, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '11px',
+        color: '#74677d',
+      });
+    }
   }
 
   private getChapterProgress(chapter: JournalChapter): { unlocked: number; total: number } {
@@ -236,6 +325,7 @@ export class JournalScene extends Phaser.Scene {
   ): void {
     const unlocked = this.journalSystem.isUnlocked(memory.id);
     const card = this.add.container(x, y);
+    this.chapterContent.add(card);
 
     const front = this.add.container(0, 0);
     const frontColor = unlocked ? PALETTE.mint : 0xd8d8d8;
@@ -270,7 +360,8 @@ export class JournalScene extends Phaser.Scene {
     // Container hit-test coords are relative to the top-left of setSize(), not the
     // container's origin, so a centered rectangle must sit at (-width/2, -height/2).
     card.setInteractive(new Phaser.Geom.Rectangle(-50, -65, 100, 130), Phaser.Geom.Rectangle.Contains);
-    card.on('pointerdown', () => {
+    card.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.y < SAFE_ZONE_MARGIN + 82 || pointer.y > GAME_HEIGHT - 145) return;
       if (!unlocked) return;
       this.flipCard(card, front, back);
     });

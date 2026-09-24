@@ -4,6 +4,7 @@
     { "id": "moon_starry_lullaby_01", "guestId": "moon", "memoryId": "moon_memory_4" },
     { "id": "star_gentle_polish_01", "guestId": "little_star", "memoryId": "star_memory_4" },
     { "id": "aurora_veil_01", "guestId": "aurora", "memoryId": "aurora_memory_1" },
-    { "id": "comet_trail_01", "guestId": "comet", "memoryId": "comet_memory_1" }
+    { "id": "comet_trail_01", "guestId": "comet", "memoryId": "comet_memory_1" },
+    { "id": "meteor_shower_01", "guestId": "weather_meteor_shower", "memoryId": "world_memory_1" }
   ]
 }

@@ -151,6 +151,10 @@ export class AudioSystem {
         this.playSweep(1000, 2000, 0.35, 0.22, 'sfx');
         this.playTone(880, 0.3, 0.2, 'sfx', 0.1);
         break;
+      case 'meteor':
+        this.playSweep(440, 1760, 0.8, 0.2, 'ambience');
+        this.playTone(1320, 0.7, 0.14, 'ambience', 0.12);
+        break;
       default:
         this.playCraftSuccessSound();
     }

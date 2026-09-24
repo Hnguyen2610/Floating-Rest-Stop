@@ -35,6 +35,17 @@ export class EmotionSystem {
     return 'PEACEFUL'; // below the lowest threshold is the calmest stage, not the most distressed
   }
 
+  getStageProgress(intensity: number): number {
+    const progressByStage: Record<EmotionStage, number> = {
+      DISTRESSED: 1,
+      CALMING: 2,
+      RELAXED: 3,
+      CONTENT: 4,
+      PEACEFUL: 5,
+    };
+    return progressByStage[this.getStage(intensity)];
+  }
+
   soothe(intensity: number, amount: number): number {
     return Math.max(0, Math.min(100, intensity - amount));
   }

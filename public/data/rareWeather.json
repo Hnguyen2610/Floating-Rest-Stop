@@ -1,0 +1,15 @@
+{
+  "events": [
+    {
+      "id": "meteor_shower",
+      "name": "Mưa Sao Băng",
+      "requiredAreaId": "stargazing_corner",
+      "requiredGuestId": "moon",
+      "requiredVisitCount": 2,
+      "visualEffect": "comet",
+      "memoryId": "world_memory_1",
+      "photoMomentId": "meteor_shower_01",
+      "recipeId": "meteor_glow"
+    }
+  ]
+}

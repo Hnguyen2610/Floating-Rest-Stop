@@ -33,6 +33,20 @@ export interface AudioSettingsSave {
   busVolumes: Record<string, number>;
 }
 
+export interface RareWeatherSaveState {
+  completedEventIds: string[];
+  lastCompletedVisitCounts?: Record<string, number>;
+}
+
+export type TutorialStepSave =
+  | 'WAITING_FOR_GUEST'
+  | 'FIND_INGREDIENT'
+  | 'CRAFT_WEATHER'
+  | 'DELIVER_WEATHER'
+  | 'RUB_GUEST'
+  | 'WATCH_EMOTION'
+  | 'COMPLETE';
+
 export interface SaveData {
   version: number;
   happinessCrystals: number;
@@ -45,7 +59,11 @@ export interface SaveData {
   unlockedAreas: string[];
   cloudyCosmetics: CloudyCosmeticsSaveEntry;
   hasSeenTutorial: boolean;
-  audioSettings?: AudioSettingsSave;
+  tutorialStep?: TutorialStepSave;
+  audioSettings?: Partial<AudioSettingsSave>;
+  rareWeather?: RareWeatherSaveState;
+  guestEmotionStages?: Record<string, string[]>;
+  discoveredRecipeIds?: string[];
 }
 
 export interface SaveProvider {

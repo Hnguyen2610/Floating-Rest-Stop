@@ -95,10 +95,22 @@ export interface GameEventMap {
   'daynight:changed': { isNight: boolean };
   'cloudyCosmetic:unlocked': { kind: 'shape' | 'accessory'; id: string };
   'rareGuest:available': { guestId: string };
+  'rareWeather:started': { eventId: string };
+  'rareWeather:completed': { eventId: string };
   'save:started': undefined;
   'save:completed': undefined;
   'save:failed': undefined;
   'tutorial:seen': undefined;
+  'tutorial:step-changed': { step: TutorialStep };
 }
+
+export type TutorialStep =
+  | 'WAITING_FOR_GUEST'
+  | 'FIND_INGREDIENT'
+  | 'CRAFT_WEATHER'
+  | 'DELIVER_WEATHER'
+  | 'RUB_GUEST'
+  | 'WATCH_EMOTION'
+  | 'COMPLETE';
 
 export const eventBus = new TypedEventBus<GameEventMap>();

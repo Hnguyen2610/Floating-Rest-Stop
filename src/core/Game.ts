@@ -4,6 +4,7 @@ import { BootScene } from '../scenes/BootScene';
 import { PreloadScene } from '../scenes/PreloadScene';
 import { StationScene } from '../scenes/StationScene';
 import { JournalScene } from '../scenes/JournalScene';
+import { SkyArchiveScene } from '../scenes/SkyArchiveScene';
 import { initPlatformAdapter } from './Platform';
 import { getGameSystems } from './GameSystems';
 import { installOrientationGuard } from '../ui/OrientationGuard';
@@ -24,7 +25,7 @@ export function createGame(parent: string): Phaser.Game {
       mode: Phaser.Scale.ENVELOP,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: [BootScene, PreloadScene, StationScene, JournalScene],
+    scene: [BootScene, PreloadScene, StationScene, JournalScene, SkyArchiveScene],
   };
 
   const platform = initPlatformAdapter();

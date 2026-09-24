@@ -1,4 +1,11 @@
-import type { SaveData, GuestSaveEntry, PaperBoatSaveEntry, CloudyCosmeticsSaveEntry } from './SaveProvider';
+import type {
+  SaveData,
+  GuestSaveEntry,
+  PaperBoatSaveEntry,
+  CloudyCosmeticsSaveEntry,
+  AudioSettingsSave,
+  TutorialStepSave,
+} from './SaveProvider';
 
 const CURRENT_VERSION = 1;
 
@@ -12,6 +19,40 @@ function asStringArray(value: unknown): string[] {
 
 function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+const TUTORIAL_STEPS: readonly TutorialStepSave[] = [
+  'WAITING_FOR_GUEST',
+  'FIND_INGREDIENT',
+  'CRAFT_WEATHER',
+  'DELIVER_WEATHER',
+  'RUB_GUEST',
+  'WATCH_EMOTION',
+  'COMPLETE',
+];
+
+function normalizeTutorialStep(value: unknown): TutorialStepSave | undefined {
+  return TUTORIAL_STEPS.find((step) => step === value);
+}
+
+// Only fields that are actually valid are kept — AudioSystem.restoreSettings()
+// applies just the fields present, so an invalid one is left at its default
+// rather than overwritten with junk (or with a guessed default duplicated here).
+function normalizeAudioSettings(value: unknown): Partial<AudioSettingsSave> | undefined {
+  if (!isObject(value)) return undefined;
+  const result: Partial<AudioSettingsSave> = {};
+  if (typeof value.muted === 'boolean') result.muted = value.muted;
+  if (typeof value.masterVolume === 'number' && Number.isFinite(value.masterVolume)) {
+    result.masterVolume = value.masterVolume;
+  }
+  if (isObject(value.busVolumes)) {
+    const busVolumes: Record<string, number> = {};
+    for (const [bus, volume] of Object.entries(value.busVolumes)) {
+      if (typeof volume === 'number' && Number.isFinite(volume)) busVolumes[bus] = volume;
+    }
+    result.busVolumes = busVolumes;
+  }
+  return result;
 }
 
 function normalizeGuestEntry(value: unknown): GuestSaveEntry {
@@ -76,8 +117,7 @@ function normalizeCloudyCosmetics(value: unknown): CloudyCosmeticsSaveEntry {
  */
 export function normalizeSaveData(raw: unknown): SaveData {
   const data = isObject(raw) ? raw : {};
-
-  return {
+  const normalized: SaveData = {
     version: CURRENT_VERSION,
     happinessCrystals: asNumber(data.happinessCrystals, 0),
     unlockedDecorations: asStringArray(data.unlockedDecorations),
@@ -90,4 +130,22 @@ export function normalizeSaveData(raw: unknown): SaveData {
     cloudyCosmetics: normalizeCloudyCosmetics(data.cloudyCosmetics),
     hasSeenTutorial: data.hasSeenTutorial === true,
   };
+
+  if (data.tutorialStep !== undefined) normalized.tutorialStep = normalizeTutorialStep(data.tutorialStep);
+  if (data.audioSettings !== undefined) normalized.audioSettings = normalizeAudioSettings(data.audioSettings);
+  if (isObject(data.rareWeather)) {
+    normalized.rareWeather = {
+      completedEventIds: asStringArray(data.rareWeather.completedEventIds),
+      lastCompletedVisitCounts: isObject(data.rareWeather.lastCompletedVisitCounts)
+        ? Object.fromEntries(Object.entries(data.rareWeather.lastCompletedVisitCounts).map(([id, count]) => [id, asNumber(count, 0)]))
+        : undefined,
+    };
+  }
+  if (isObject(data.guestEmotionStages)) {
+    normalized.guestEmotionStages = Object.fromEntries(
+      Object.entries(data.guestEmotionStages).map(([id, stages]) => [id, asStringArray(stages)]),
+    );
+  }
+  if (data.discoveredRecipeIds !== undefined) normalized.discoveredRecipeIds = asStringArray(data.discoveredRecipeIds);
+  return normalized;
 }

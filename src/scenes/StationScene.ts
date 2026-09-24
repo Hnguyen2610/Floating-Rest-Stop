@@ -39,9 +39,10 @@ import { WelcomeGuideUI } from '../ui/WelcomeGuideUI';
 import { SaveStatusUI } from '../ui/SaveStatusUI';
 import { GuestHintUI } from '../ui/GuestHintUI';
 import { BottomNavUI } from '../ui/BottomNavUI';
-import { eventBus } from '../core/EventBus';
+import { eventBus, type TutorialStep } from '../core/EventBus';
 import { LocalSaveProvider } from '../services/save/LocalSaveProvider';
 import type { GuestState } from '../types/guest';
+import type { EmotionStage } from '../systems/EmotionSystem';
 import { ParticleEffect } from '../utils/ParticleEffect';
 import { PerformanceMonitor } from '../utils/PerformanceMonitor';
 
@@ -57,6 +58,9 @@ const AREA_MARKER_SLOTS: Record<string, { x: number; y: number }> = {
 const PLATFORM_TARGET_WIDTH = 640;
 const DAY_NIGHT_CHECK_INTERVAL_MS = 60000;
 const GUEST_SPAWN_COOLDOWN_MS = 12000;
+
+// Guest tap radius (50) + ingredient radius (24) + idle sway (~10) + margin.
+const SPAWN_CLEARANCE = 95;
 
 export class StationScene extends Phaser.Scene {
   private systems!: GameSystems;
@@ -76,6 +80,9 @@ export class StationScene extends Phaser.Scene {
   private platformImage: Phaser.GameObjects.Image | null = null;
   private rareGuestIndicator: Phaser.GameObjects.Text | null = null;
   private rareGuestIndicatorFor: string | null = null;
+  private tutorialHighlight: Phaser.GameObjects.Graphics | null = null;
+  private tutorialHighlightTween: Phaser.Tweens.Tween | null = null;
+  private activeToasts: Phaser.GameObjects.Text[] = [];
   private drawnAreaMarkers = new Set<string>();
   private activeGuestEntity: Guest | null = null;
   private photoMomentIcon: PhotoMomentIcon | null = null;
@@ -88,6 +95,7 @@ export class StationScene extends Phaser.Scene {
   private lastGuestSpawnAt = 0;
   private butterflyStoryShown = false;
   private lastPolishSoundAt = 0;
+  private peacefulGuestId: string | null = null;
   private readonly crystalCounterPosition = { x: GAME_WIDTH - 230, y: SAFE_ZONE_MARGIN + 25 };
   // Guest's standing spot — moved closer to Cloudy (was 0.24, a 333px gap
   // from Cloudy at GAME_WIDTH/2) after real playtester feedback that the two
@@ -177,6 +185,9 @@ export class StationScene extends Phaser.Scene {
 
     this.wireEvents();
     this.resumeState();
+    if (this.systems.tutorialSystem.hasSeenWelcome()) {
+      this.updateTutorialHighlight(this.systems.tutorialSystem.getStep());
+    }
     this.drawAreaMarkers();
     this.syncAmbience();
     this.wireKeyboardShortcuts();
@@ -207,7 +218,10 @@ export class StationScene extends Phaser.Scene {
     this.time.addEvent({
       delay: 2000,
       loop: true,
-      callback: () => this.refreshRareGuestIndicator(),
+      callback: () => {
+        this.refreshRareGuestIndicator();
+        this.tryStartRareWeather();
+      },
     });
     this.time.addEvent({
       delay: 9000,
@@ -249,6 +263,7 @@ export class StationScene extends Phaser.Scene {
     this.departureTimer = null;
     this.activeGuestEntity?.destroy();
     this.butterflyStoryShown = false;
+    this.peacefulGuestId = null;
     const meta = this.systems.emotionSystem.getEmotionMeta(state.currentEmotion);
     const x = this.guestAnchorX;
     const y = this.guestAnchorY;
@@ -268,6 +283,7 @@ export class StationScene extends Phaser.Scene {
     this.lastGuestSpawnAt = this.time.now;
     const entity = this.activeGuestEntity;
     this.activeGuestEntity = null;
+    this.peacefulGuestId = null;
     entity?.playLeave(() => entity.destroy());
     this.photoMomentIcon?.destroy();
     this.photoMomentIcon = null;
@@ -281,6 +297,11 @@ export class StationScene extends Phaser.Scene {
     this.checkPhotoMoment(state);
     this.scheduleDepartureIfHappy(state);
     this.updateGuestHint(state, meta);
+    if (this.systems.emotionSystem.getStage(state.emotionalIntensity) === 'PEACEFUL' && this.peacefulGuestId !== state.id) {
+      this.peacefulGuestId = state.id;
+      const definition = this.systems.guestSystem.getAllDefinitions().find((guest) => guest.id === state.id);
+      this.showToast(`🌸 ${definition?.name ?? 'Vị khách'} đã bình yên, sắp rời đi.`);
+    }
   };
 
   private updateGuestHint(state: GuestState, meta: { label: string; color: string; dialogue?: string[] }): void {
@@ -290,24 +311,27 @@ export class StationScene extends Phaser.Scene {
     if (!definition) return;
 
     const stage = this.systems.emotionSystem.getStage(state.emotionalIntensity);
-    const stageHintMap: Record<string, string> = {
-      DISTRESSED: 'Bước 1: họ đang rất khó chịu, cần phục hồi ngay',
-      CALMING: 'Bước 2: bắt đầu dịu xuống, hãy giữ cho không khí êm',
-      RELAXED: 'Bước 3: đã thả lỏng rồi, tiếp tục mang sự bình yên',
-      CONTENT: 'Bước 4: tâm trạng đang ổn, chỉ còn chạm thêm chút nữa',
-      PEACEFUL: 'Bước 5: họ đã thấy vui và sẵn sàng rời đi',
+    const progress = this.systems.emotionSystem.getStageProgress(state.emotionalIntensity);
+    const actionMap: Record<EmotionStage, string> = {
+      DISTRESSED: 'Việc tiếp theo: giúp khách dịu cơn khó chịu',
+      CALMING: 'Việc tiếp theo: tiếp tục giữ không khí êm',
+      RELAXED: 'Việc tiếp theo: mang đến thêm một chút bình yên',
+      CONTENT: 'Việc tiếp theo: ở lại thêm một chút nữa',
+      PEACEFUL: 'Việc tiếp theo: để khách nghỉ ngơi và rời đi',
     };
-
     const line =
       meta.dialogue && meta.dialogue.length > 0
         ? Phaser.Utils.Array.GetRandom(meta.dialogue)
         : definition.needHint;
 
-    const detail = `${stageHintMap[stage] ?? 'Bước hiện tại: đang ổn dần'} — ${line}`;
-    this.guestHintUI.show(definition.name, meta.label, detail);
+    const detail = stage === 'DISTRESSED' ? definition.needHint : line;
+    this.guestHintUI.show(definition.name, meta.label, `${progress}/5`, actionMap[stage], detail, meta.color);
   }
 
-  private readonly handleGuestRelaxed = (): void => this.spawnHappinessCrystal();
+  private readonly handleGuestRelaxed = (): void => {
+    this.spawnHappinessCrystal();
+    this.unlockCloudyMemory('cloudy_memory_1');
+  };
 
   private readonly handleDecorationPlaced = ({ id }: { id: string }): void =>
     this.placeDecoration(id);
@@ -318,6 +342,7 @@ export class StationScene extends Phaser.Scene {
     if (!definition) return;
     this.showToast(`💌 Lời nhắn của bạn đã sưởi ấm lòng ${definition.name}`);
     this.playPaperBoatLaunch();
+    this.unlockCloudyMemory('cloudy_memory_3');
   };
 
   // First-time-only celebration when a recipe is crafted for the first time
@@ -371,7 +396,14 @@ export class StationScene extends Phaser.Scene {
   private readonly handleAreaUnlocked = ({ id }: { id: string }): void => {
     this.drawAreaMarker(id);
     this.syncAmbience();
+    if (id === 'stargazing_corner') this.unlockCloudyMemory('cloudy_memory_2');
   };
+
+  private unlockCloudyMemory(memoryId: string): void {
+    if (this.systems.journalSystem.unlockMemory(memoryId)) {
+      this.showToast('📖 Mây Bông nhớ ra một điều nhỏ...');
+    }
+  }
 
   private readonly handleCloudyCosmeticUnlocked = ({ kind, id }: { kind: 'shape' | 'accessory'; id: string }): void => {
     const name =
@@ -380,6 +412,89 @@ export class StationScene extends Phaser.Scene {
         : this.systems.cloudyCosmeticsSystem.getAccessories().find((a) => a.id === id)?.name;
     if (name) this.showToast(`☁️ Mây Bông vừa mở khóa: ${name}`);
   };
+
+  private readonly handleTutorialStepChanged = ({ step }: { step: TutorialStep }): void => {
+    const messages: Record<TutorialStep, string> = {
+      WAITING_FOR_GUEST: 'Hãy chờ một vị khách ghé qua trạm.',
+      FIND_INGREDIENT: 'Đọc nhu cầu cạnh khách, rồi tìm nguyên liệu phù hợp.',
+      CRAFT_WEATHER: 'Đưa đủ 2 nguyên liệu vào bát trộn và bấm CHẾ TẠO.',
+      DELIVER_WEATHER: 'Món đã sẵn sàng. Chạm vào khách để gửi món.',
+      RUB_GUEST: 'Bé này cần được vuốt ve — hãy kéo ngón tay thật nhẹ qua người bạn ấy.',
+      WATCH_EMOTION: 'Hãy nhìn khách dịu lại. Mỗi lần ghé là một câu chuyện nhỏ.',
+      COMPLETE: 'Bạn đã hoàn thành một lượt chăm sóc. Ký ức mới đang chờ trong Nhật ký.',
+    };
+    this.showToast(`🌸 ${messages[step]}`);
+    this.updateTutorialHighlight(step);
+  };
+
+  private readonly handleRareWeatherStarted = ({ eventId }: { eventId: string }): void => {
+    const event = this.systems.rareWeatherSystem.getEvents().find((candidate) => candidate.id === eventId);
+    if (!event) return;
+    this.showToast(`🌠 ${event.name} đang trôi qua bầu trời`);
+    this.systems.audioSystem.playWeatherAmbient(event.visualEffect);
+    for (let index = 0; index < 4; index += 1) {
+      this.time.delayedCall(index * 260, () => {
+        ParticleEffect.createWeatherEffect(
+          this,
+          Phaser.Math.Between(180, GAME_WIDTH - 180),
+          Phaser.Math.Between(100, GAME_HEIGHT * 0.45),
+          event.visualEffect,
+        );
+      });
+    }
+    this.time.delayedCall(1800, () => this.systems.rareWeatherSystem.completeActive());
+  };
+
+  private readonly handleRareWeatherCompleted = ({ eventId }: { eventId: string }): void => {
+    const event = this.systems.rareWeatherSystem.getEvents().find((candidate) => candidate.id === eventId);
+    if (event?.photoMomentId) this.systems.photoMomentSystem.captureMoment(event.photoMomentId);
+    if (event?.recipeId) {
+      this.systems.weatherSystem.markRecipeDiscovered(event.recipeId);
+      this.showToast(`✨ Công thức đặc biệt đã mở: ${this.systems.weatherSystem.getRecipe(event.recipeId).name}`);
+    }
+    this.showToast('📖 Một ký ức của bầu trời đã được ghi lại trong Nhật ký.');
+  };
+
+  private tryStartRareWeather(): void {
+    for (const event of this.systems.rareWeatherSystem.getEvents()) {
+      if (this.systems.rareWeatherSystem.canStart(event.id)) {
+        this.systems.rareWeatherSystem.start(event.id);
+        break;
+      }
+    }
+  }
+
+  private updateTutorialHighlight(step: TutorialStep): void {
+    this.tutorialHighlightTween?.stop();
+    this.tutorialHighlight?.destroy();
+    this.tutorialHighlightTween = null;
+    this.tutorialHighlight = null;
+
+    if (step === 'WAITING_FOR_GUEST' || step === 'COMPLETE') return;
+
+    const highlight = this.add.graphics().setDepth(450);
+    highlight.lineStyle(4, 0xfff0a0, 0.95);
+
+    if (step === 'FIND_INGREDIENT') {
+      highlight.strokeRoundedRect(SAFE_ZONE_MARGIN - 10, SAFE_ZONE_MARGIN + 2, 110, 170, 12);
+    } else if (step === 'CRAFT_WEATHER') {
+      const craftButton = this.mixerUI.getCraftButtonPosition();
+      highlight.strokeCircle(this.mixerUI.x, this.mixerUI.y, 64);
+      highlight.strokeRoundedRect(craftButton.x - 80, craftButton.y - 21, 160, 42, 10);
+    } else {
+      highlight.strokeCircle(this.guestAnchorX, this.guestAnchorY, 86);
+    }
+
+    this.tutorialHighlight = highlight;
+    this.tutorialHighlightTween = this.tweens.add({
+      targets: highlight,
+      alpha: { from: 0.35, to: 1 },
+      duration: 700,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
 
   private wireEvents(): void {
     eventBus.on('guest:arrived', this.handleGuestArrived);
@@ -392,6 +507,9 @@ export class StationScene extends Phaser.Scene {
     eventBus.on('cloudyCosmetic:unlocked', this.handleCloudyCosmeticUnlocked);
     eventBus.on('daynight:changed', this.handleDayNightChanged);
     eventBus.on('weather:created', this.handleWeatherCreated);
+    eventBus.on('tutorial:step-changed', this.handleTutorialStepChanged);
+    eventBus.on('rareWeather:started', this.handleRareWeatherStarted);
+    eventBus.on('rareWeather:completed', this.handleRareWeatherCompleted);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       eventBus.off('guest:arrived', this.handleGuestArrived);
@@ -404,6 +522,14 @@ export class StationScene extends Phaser.Scene {
       eventBus.off('cloudyCosmetic:unlocked', this.handleCloudyCosmeticUnlocked);
       eventBus.off('daynight:changed', this.handleDayNightChanged);
       eventBus.off('weather:created', this.handleWeatherCreated);
+      eventBus.off('tutorial:step-changed', this.handleTutorialStepChanged);
+      eventBus.off('rareWeather:started', this.handleRareWeatherStarted);
+      eventBus.off('rareWeather:completed', this.handleRareWeatherCompleted);
+      this.systems.rareWeatherSystem.cancelActive();
+      this.tutorialHighlightTween?.stop();
+      this.tutorialHighlight?.destroy();
+      this.tutorialHighlightTween = null;
+      this.tutorialHighlight = null;
       this.fireflies?.destroy();
       this.fireflies = null;
       this.birds?.destroy();
@@ -429,6 +555,10 @@ export class StationScene extends Phaser.Scene {
         this.cameras.main.fadeOut(300, 255, 255, 255);
         this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('JournalScene'));
       } },
+      { icon: '🗂️', iconKey: 'nav-archive', label: 'Lưu trữ', onTap: () => {
+        this.cameras.main.fadeOut(300, 255, 255, 255);
+        this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start('SkyArchiveScene'));
+      } },
       { icon: '🎨', iconKey: 'nav-decoration', label: 'Trang trí', onTap: () => this.decorationShopUI.toggle() },
       { icon: '🗺️', iconKey: 'nav-station', label: 'Mở rộng trạm', onTap: () => this.stationAreaShopUI.toggle() },
     ]);
@@ -444,8 +574,13 @@ export class StationScene extends Phaser.Scene {
   }
 
   private showToast(text: string): void {
+    // Toasts fired together (e.g. "new recipe" + "ready to deliver") used to
+    // render on the same spot and overwrite each other; stack them instead.
+    // (Filter first: a scene restart destroys toasts without running onComplete.)
+    this.activeToasts = this.activeToasts.filter((candidate) => candidate.active);
+    const slot = this.activeToasts.length;
     const toast = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.5, text, {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.5 - slot * 56, text, {
         fontFamily: FONT_FAMILY,
         fontSize: '18px',
         color: '#5b4a63',
@@ -456,13 +591,17 @@ export class StationScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setAlpha(0);
+    this.activeToasts.push(toast);
     this.tweens.add({
       targets: toast,
       alpha: 1,
       duration: 200,
       yoyo: true,
       hold: 1200,
-      onComplete: () => toast.destroy(),
+      onComplete: () => {
+        this.activeToasts = this.activeToasts.filter((candidate) => candidate !== toast);
+        toast.destroy();
+      },
     });
   }
 
@@ -563,6 +702,7 @@ export class StationScene extends Phaser.Scene {
     this.redrawSky();
     this.updatePlatformForDayNight();
     this.syncAmbience();
+    if (this.systems.dayNightSystem.isNight()) this.unlockCloudyMemory('cloudy_memory_4');
   };
 
   // No-op until real platform art exists (this.platformImage is only set
@@ -686,8 +826,20 @@ export class StationScene extends Phaser.Scene {
 
   private spawnIngredient(): void {
     const definition = this.systems.ingredientSystem.pickForSpawn();
-    const x = Phaser.Math.Between(GAME_WIDTH * 0.2, GAME_WIDTH * 0.9);
-    const y = Phaser.Math.Between(GAME_HEIGHT * 0.22, GAME_HEIGHT * 0.58);
+    // An ingredient floating over the guest (or Cloudy) sits on top of them in
+    // the input order, so a tap meant to deliver a potion would grab the
+    // ingredient instead — keep spawns clear of both tap targets.
+    const keepClear = [
+      { x: this.guestAnchorX, y: this.guestAnchorY },
+      { x: this.cloudy.x, y: this.cloudy.y },
+    ];
+    let x = 0;
+    let y = 0;
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      x = Phaser.Math.Between(GAME_WIDTH * 0.2, GAME_WIDTH * 0.9);
+      y = Phaser.Math.Between(GAME_HEIGHT * 0.22, GAME_HEIGHT * 0.58);
+      if (keepClear.every((spot) => Phaser.Math.Distance.Between(x, y, spot.x, spot.y) > SPAWN_CLEARANCE)) break;
+    }
     const ingredient = new FloatingIngredient(this, x, y, definition, (ing, sx, sy) =>
       this.handleIngredientDropped(ing, sx, sy),
     );
@@ -760,8 +912,9 @@ export class StationScene extends Phaser.Scene {
         this.tellButterflyStoryIfReady();
         return;
       }
+      const recipe = this.systems.weatherSystem.getRecipe(potionId);
       if (potionId === treatment.recipeId) {
-        const recipe = this.systems.weatherSystem.getRecipe(potionId);
+        this.playPotionDelivery(recipe.name);
         this.systems.guestSystem.soothe(recipe.soothingValue);
         // Each recipe gets its own flourish (RecipeDefinition.visualEffect —
         // previously unused, every recipe played the same generic sparkle).
@@ -782,6 +935,10 @@ export class StationScene extends Phaser.Scene {
         // Wrong potion for this guest — previously silent (no feedback at
         // all beyond the generic tap acknowledgment every tap already gets).
         this.activeGuestEntity?.playRejectShake();
+        const definition = this.systems.guestSystem
+          .getAllDefinitions()
+          .find((guest) => guest.id === this.systems.guestSystem.getCurrentGuest()?.id);
+        this.showToast(`🌧️ ${recipe.name} chưa phù hợp với ${definition?.name ?? 'vị khách này'}`);
       }
       return;
     }
@@ -794,6 +951,37 @@ export class StationScene extends Phaser.Scene {
         ParticleEffect.createSparkleEffect(this, this.activeGuestEntity.x, this.activeGuestEntity.y);
       }
     }
+  }
+
+  private playPotionDelivery(recipeName: string): void {
+    if (!this.activeGuestEntity) return;
+    const start = this.mixerUI.getCraftButtonPosition();
+    const potion = this.add
+      .text(start.x, start.y, '🫧', { fontFamily: FONT_FAMILY, fontSize: '24px' })
+      .setOrigin(0.5)
+      .setDepth(500);
+    const label = this.add
+      .text(start.x, start.y - 24, recipeName, {
+        fontFamily: FONT_FAMILY,
+        fontSize: '10px',
+        color: '#5b4a63',
+        backgroundColor: '#fdfbf7',
+        padding: { x: 5, y: 3 },
+      })
+      .setOrigin(0.5)
+      .setDepth(500);
+    this.tweens.add({
+      targets: [potion, label],
+      x: this.activeGuestEntity.x,
+      y: this.activeGuestEntity.y - 24,
+      duration: 500,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        ParticleEffect.createSparkleEffect(this, this.activeGuestEntity?.x ?? start.x, this.activeGuestEntity?.y ?? start.y);
+        potion.destroy();
+        label.destroy();
+      },
+    });
   }
 
 

@@ -93,6 +93,9 @@ export class ParticleEffect {
       case 'comet':
         this.createCometEffect(scene, x, y);
         return;
+      case 'meteor':
+        this.createCometEffect(scene, x, y);
+        return;
       default:
         this.createSparkleEffect(scene, x, y);
     }

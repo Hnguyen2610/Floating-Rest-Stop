@@ -29,7 +29,7 @@ export class WeatherSystem {
   // Session-scoped, not persisted — the celebration is a "nice to notice"
   // moment for this play session, not a permanent recipe-book unlock (the
   // recipe book UI already lists every recipe regardless of discovery).
-  private readonly discoveredRecipeIds = new Set<string>();
+  private discoveredRecipeIds = new Set<string>();
 
   constructor(
     private recipesData: RecipesData,
@@ -96,6 +96,21 @@ export class WeatherSystem {
 
   isRecipeDiscovered(id: string): boolean {
     return this.discoveredRecipeIds.has(id);
+  }
+
+  markRecipeDiscovered(id: string): void {
+    this.getRecipe(id);
+    this.discoveredRecipeIds.add(id);
+  }
+
+  getDiscoveredRecipeIds(): string[] {
+    return [...this.discoveredRecipeIds];
+  }
+
+  restoreDiscoveredRecipeIds(ids: string[] | undefined): void {
+    this.discoveredRecipeIds = new Set(
+      (ids ?? []).filter((id) => this.recipesData.recipes.some((recipe) => recipe.id === id)),
+    );
   }
 
   getCurrentPotion(): string | null {
